@@ -761,12 +761,15 @@ function buildBG(){
   c.fillStyle="#e6d7a3"; c.fillRect(0,ry-6,W,rh+12);
   c.fillStyle="#3fa9f5"; c.fillRect(0,ry,W,rh);
   c.fillStyle="#2f8fd8"; c.fillRect(0,ry,W,5); c.fillRect(0,ry+rh-5,W,5);
-  // 나무 판자 다리
+  // 나무 판자 다리 (외곽선 포함)
   BRIDGES.forEach(bx=>{
     const x=(bx-1.1)*TILE, w=2.2*TILE;
     c.fillStyle="#8a5a28"; c.fillRect(x-5,ry-9,7,rh+18); c.fillRect(x+w-2,ry-9,7,rh+18);
+    c.strokeStyle="#2e2a33"; c.lineWidth=2;
+    c.strokeRect(x-5,ry-9,7,rh+18); c.strokeRect(x+w-2,ry-9,7,rh+18);
     c.fillStyle="#c98d4b"; c.fillRect(x,ry-5,w,rh+10);
-    c.strokeStyle="rgba(90,50,15,.45)"; c.lineWidth=2;
+    c.strokeRect(x,ry-5,w,rh+10);
+    c.strokeStyle="rgba(90,50,15,.5)";
     for(let i=1;i<6;i++){ const py=ry-5+i*(rh+10)/6; c.beginPath(); c.moveTo(x,py); c.lineTo(x+w,py); c.stroke(); }
   });
   // 가장자리 프롭: 덤불 · 돌 · 꽃
@@ -775,12 +778,14 @@ function buildBG(){
     const x = left ? 4+rnd()*0.85*TILE : W-4-rnd()*0.85*TILE;
     const y = rnd()*H, k = rnd();
     if(Math.abs(y-RIVER_Y*TILE) < 2.5*TILE) continue;
-    if(k<0.45){       // 덤불
+    if(k<0.45){       // 덤불 (외곽선)
+      c.strokeStyle="#2e2a33"; c.lineWidth=1.5;
       c.fillStyle="#4e9433";
-      [[0,0,7],[-5,2,5],[5,2,5]].forEach(b=>{ c.beginPath(); c.arc(x+b[0],y+b[1],b[2],0,7); c.fill(); });
-      c.fillStyle="#5fae3e"; c.beginPath(); c.arc(x,y-2,5,0,7); c.fill();
-    } else if(k<0.72){ // 돌
-      c.fillStyle="#a9a99d"; c.beginPath(); c.ellipse(x,y,6,4.5,0,0,7); c.fill();
+      [[-5,2,5],[5,2,5],[0,0,7]].forEach(b=>{ c.beginPath(); c.arc(x+b[0],y+b[1],b[2],0,7); c.fill(); c.stroke(); });
+      c.fillStyle="#5fae3e"; c.beginPath(); c.arc(x,y-2,4.5,0,7); c.fill();
+    } else if(k<0.72){ // 돌 (외곽선)
+      c.strokeStyle="#2e2a33"; c.lineWidth=1.5;
+      c.fillStyle="#a9a99d"; c.beginPath(); c.ellipse(x,y,6,4.5,0,0,7); c.fill(); c.stroke();
       c.fillStyle="#c4c4b8"; c.beginPath(); c.ellipse(x-1.5,y-1.5,3.5,2.5,0,0,7); c.fill();
     } else {          // 꽃
       c.fillStyle="#fff";
@@ -790,8 +795,8 @@ function buildBG(){
   }
   // 타워 석재 바닥
   if(S) S.towers.forEach(t=>{
-    c.fillStyle="rgba(165,165,150,.9)"; c.beginPath(); c.ellipse(t.x,t.y+5,t.r*1.4,t.r*1.05,0,0,7); c.fill();
-    c.strokeStyle="rgba(110,110,95,.6)"; c.lineWidth=2; c.beginPath(); c.ellipse(t.x,t.y+5,t.r*1.4,t.r*1.05,0,0,7); c.stroke();
+    c.fillStyle="#c9c6b6"; c.beginPath(); c.ellipse(t.x,t.y+5,t.r*1.4,t.r*1.05,0,0,7); c.fill();
+    c.strokeStyle="rgba(46,42,51,.6)"; c.lineWidth=2; c.beginPath(); c.ellipse(t.x,t.y+5,t.r*1.4,t.r*1.05,0,0,7); c.stroke();
   });
   // 외곽 림
   c.strokeStyle="rgba(40,85,15,.6)"; c.lineWidth=6; c.strokeRect(3,3,W-6,H-6);
@@ -1055,61 +1060,61 @@ function sprBoss(r,team,sw,u){
 }
 const SPR = {knight:sprKnight, musket:sprMusket, valk:sprValk, skarmy:sprSkel, hog:sprHog, giant:sprGiant, wind:sprWind};
 function drawTower(tw){
-  const b=tw.r;
-  if(tw.hp<=0){ // 잔해
-    ctx.fillStyle="#9a9a8e";
-    [[0,0,.7],[-.5,.3,.4],[.5,.25,.45],[-.2,-.35,.3]].forEach(p=>{ ctx.beginPath(); ctx.arc(tw.x+p[0]*b,tw.y+p[1]*b,p[2]*b,0,7); ctx.fill(); });
-    ctx.fillStyle="#7d7d72"; ctx.beginPath(); ctx.arc(tw.x-b*0.2,tw.y-b*0.15,b*0.32,0,7); ctx.fill();
-    ctx.fillStyle="#b5b5a8"; ctx.beginPath(); ctx.arc(tw.x+b*0.35,tw.y-b*0.1,b*0.2,0,7); ctx.fill();
+  const b=tw.r, lw=Math.max(1.6, b*0.1);
+  if(tw.hp<=0){ // 잔해 (외곽선 포함)
+    ctx.fillStyle="#b5b2a4";
+    [[0,0,.7],[-.5,.3,.4],[.5,.25,.45],[-.2,-.35,.3]].forEach(p=>{
+      ctx.beginPath(); ctx.arc(tw.x+p[0]*b,tw.y+p[1]*b,p[2]*b,0,7); ctx.fill(); po(lw*0.8); });
     return;
   }
   const team = tw.side==="player";
-  const roofC = team? "#3b6fd4":"#d4453b", roofD = team? "#2a4f9c":"#9c2f27";
-  unitShadow(tw.x, tw.y+b*0.8, b*1.15);
-  // 석재 몸통
-  const g=ctx.createLinearGradient(tw.x-b,0,tw.x+b,0);
-  g.addColorStop(0,"#c9c9bd"); g.addColorStop(.45,"#efeee2"); g.addColorStop(1,"#b3b3a6");
-  ctx.fillStyle=g; roundRectPath(tw.x-b*0.9,tw.y-b*0.55,b*1.8,b*1.45,5); ctx.fill();
-  ctx.strokeStyle="rgba(95,95,78,.55)"; ctx.lineWidth=1.5; ctx.stroke();
-  ctx.strokeStyle="rgba(120,120,100,.35)";
-  ctx.beginPath(); ctx.moveTo(tw.x-b*0.9,tw.y+b*0.12); ctx.lineTo(tw.x+b*0.9,tw.y+b*0.12); ctx.stroke();
-  // 창문
-  ctx.fillStyle="#5a5a4e";
-  ctx.beginPath(); ctx.arc(tw.x,tw.y+b*0.05,b*0.16,Math.PI,0); ctx.fill();
-  ctx.fillRect(tw.x-b*0.16,tw.y+b*0.05,b*0.32,b*0.25);
-  // 총안
-  ctx.fillStyle="#bdbdb0";
-  for(let i=-1;i<=1;i++) ctx.fillRect(tw.x+i*b*0.6-b*0.16, tw.y-b*0.88, b*0.32, b*0.36);
+  const roofC = team? "#4a7ce0":"#e0564a";
+  unitShadow(tw.x, tw.y+b*0.85, b*1.15);
+  // 석재 몸통 (플랫 + 외곽선)
+  ctx.fillStyle="#eceadf";
+  roundRectPath(tw.x-b*0.85, tw.y-b*0.5, b*1.7, b*1.35, b*0.3); ctx.fill(); po(lw);
+  // 밑단 띠
+  ctx.fillStyle="#cfccbc";
+  roundRectPath(tw.x-b*0.85, tw.y+b*0.5, b*1.7, b*0.35, b*0.17); ctx.fill(); po(lw);
+  // 창문 (아치)
+  ctx.fillStyle="#4a4048";
+  ctx.beginPath(); ctx.arc(tw.x, tw.y+b*0.08, b*0.18, Math.PI, 0);
+  ctx.lineTo(tw.x+b*0.18, tw.y+b*0.4); ctx.lineTo(tw.x-b*0.18, tw.y+b*0.4); ctx.closePath(); ctx.fill(); po(lw*0.8);
   if(tw.kind==="princess"){
-    // 원뿔 지붕 + 명암 + 깃발 (펄럭임)
+    // 원뿔 지붕 (플랫 + 외곽선) + 펄럭이는 깃발
     ctx.fillStyle=roofC;
-    ctx.beginPath(); ctx.moveTo(tw.x-b*0.82,tw.y-b*0.52); ctx.lineTo(tw.x+b*0.82,tw.y-b*0.52); ctx.lineTo(tw.x,tw.y-b*1.78); ctx.closePath(); ctx.fill();
-    ctx.fillStyle=roofD;
-    ctx.beginPath(); ctx.moveTo(tw.x,tw.y-b*1.78); ctx.lineTo(tw.x+b*0.82,tw.y-b*0.52); ctx.lineTo(tw.x+b*0.3,tw.y-b*0.52); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle="#6b4a24"; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(tw.x,tw.y-b*1.78); ctx.lineTo(tw.x,tw.y-b*2.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tw.x-b*0.95,tw.y-b*0.42); ctx.lineTo(tw.x+b*0.95,tw.y-b*0.42); ctx.lineTo(tw.x,tw.y-b*1.85); ctx.closePath(); ctx.fill(); po(lw);
     const fw = Math.sin(S.elapsed*4+tw.x)*b*0.1;
+    ctx.strokeStyle=OUTLINE; ctx.lineWidth=lw*0.8;
+    ctx.beginPath(); ctx.moveTo(tw.x,tw.y-b*1.85); ctx.lineTo(tw.x,tw.y-b*2.3); ctx.stroke();
     ctx.fillStyle=roofC;
-    ctx.beginPath(); ctx.moveTo(tw.x,tw.y-b*2.2);
-    ctx.quadraticCurveTo(tw.x+b*0.3,tw.y-b*(2.14)+fw, tw.x+b*0.55,tw.y-b*2.02+fw);
-    ctx.lineTo(tw.x,tw.y-b*1.86); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(tw.x,tw.y-b*2.3);
+    ctx.quadraticCurveTo(tw.x+b*0.3,tw.y-b*2.24+fw, tw.x+b*0.58,tw.y-b*2.1+fw);
+    ctx.lineTo(tw.x,tw.y-b*1.94); ctx.closePath(); ctx.fill(); po(lw*0.8);
   } else {
-    // 킹 타워: 진영 배너(펄럭임) + 왕관 (비활성 시 어둡게)
+    // 킹 타워: 총안 3개 + 벡터 금관 (비활성 시 어둡게) + 진영 배너
+    ctx.fillStyle="#eceadf";
+    for(let i=-1;i<=1;i++){ roundRectPath(tw.x+i*b*0.55-b*0.16, tw.y-b*0.82, b*0.32, b*0.4, b*0.08); ctx.fill(); po(lw*0.8); }
+    ctx.globalAlpha = tw.active?1:0.45;
+    ctx.fillStyle="#ffcf3f";
+    ctx.beginPath();
+    ctx.moveTo(tw.x-b*0.42,tw.y-b*0.85);
+    ctx.lineTo(tw.x-b*0.36,tw.y-b*1.32); ctx.lineTo(tw.x-b*0.14,tw.y-b*1.02);
+    ctx.lineTo(tw.x,tw.y-b*1.38); ctx.lineTo(tw.x+b*0.14,tw.y-b*1.02);
+    ctx.lineTo(tw.x+b*0.36,tw.y-b*1.32); ctx.lineTo(tw.x+b*0.42,tw.y-b*0.85);
+    ctx.closePath(); ctx.fill(); po(lw);
+    ctx.globalAlpha = 1;
     const bw = Math.sin(S.elapsed*3+tw.y)*2;
     ctx.fillStyle=roofC;
     ctx.beginPath();
-    ctx.moveTo(tw.x-b*0.15,tw.y-b*0.5); ctx.lineTo(tw.x+b*0.15,tw.y-b*0.5);
-    ctx.lineTo(tw.x+b*0.15+bw,tw.y+b*0.35); ctx.lineTo(tw.x+bw*0.5,tw.y+b*0.2);
-    ctx.lineTo(tw.x-b*0.15+bw,tw.y+b*0.35); ctx.closePath(); ctx.fill();
-    ctx.globalAlpha = tw.active?1:0.5;
-    ctx.font=Math.round(b*1.05)+"px sans-serif"; ctx.textAlign="center";
-    ctx.fillText("👑", tw.x, tw.y-b*0.62);
-    ctx.globalAlpha = 1;
+    ctx.moveTo(tw.x-b*0.15,tw.y-b*0.45); ctx.lineTo(tw.x+b*0.15,tw.y-b*0.45);
+    ctx.lineTo(tw.x+b*0.15+bw,tw.y+b*0.38); ctx.lineTo(tw.x+bw*0.5,tw.y+b*0.22);
+    ctx.lineTo(tw.x-b*0.15+bw,tw.y+b*0.38); ctx.closePath(); ctx.fill(); po(lw*0.8);
   }
   // 피격 플래시
   if(tw.flash>0){
     ctx.fillStyle="rgba(255,255,255,"+Math.min(0.7,tw.flash*5).toFixed(2)+")";
-    roundRectPath(tw.x-b*0.9,tw.y-b*0.55,b*1.8,b*1.45,5); ctx.fill();
+    roundRectPath(tw.x-b*0.85,tw.y-b*0.5,b*1.7,b*1.35,b*0.3); ctx.fill();
   }
   if(tw.hp<tw.maxHp) drawHpBar(tw.x, tw.y-b*(tw.kind==="princess"?2.45:1.75), tw.hp, tw.maxHp, 46, tw.side);
 }
