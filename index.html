@@ -59,9 +59,9 @@
   .card.dim{filter:grayscale(.75) brightness(.7);}
   .card .ico{width:90%;height:auto;display:block;margin:0 auto;pointer-events:none;user-select:none;
     filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));}
-  .card .nm{position:absolute;left:50%;transform:translateX(-50%);bottom:-20px;white-space:nowrap;z-index:2;
-    font-size:13px;font-weight:bold;background:#3b4a75;color:#fff;border-radius:6px;padding:2px 8px;
-    box-shadow:0 2px 5px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);}
+  .card .nm{position:absolute;left:50%;transform:translateX(-50%);top:-34px;white-space:nowrap;z-index:5;
+    font-size:14px;font-weight:bold;background:#3b4a75;color:#fff;border-radius:7px;padding:3px 10px;
+    box-shadow:0 2px 6px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.3);pointer-events:none;}
   #next-wrap .ico{width:85%;height:auto;}
   #next-wrap .card{max-width:none;}
   .card .cost{position:absolute;top:-7px;left:-5px;width:20px;height:24px;font-size:12px;font-weight:bold;line-height:25px;color:#fff;
@@ -880,8 +880,8 @@ function sprKnight(r,team,sw,u){
   // 검 (오른손, 스윙)
   ctx.save(); ctx.translate(r*0.6, r*0.42);
   ctx.rotate(-0.5 + (sw>0? Math.sin((0.28-sw)/0.28*Math.PI)*1.5 : 0));
-  ctx.fillStyle="#cfd6de"; roundRectPath(-r*0.07,-r*0.92,r*0.14,r*0.8,r*0.05); ctx.fill(); po(lw);
-  ctx.fillStyle="#8a6a3a"; roundRectPath(-r*0.17,-r*0.16,r*0.34,r*0.13,r*0.04); ctx.fill(); po(lw);
+  ctx.fillStyle="#cfd6de"; roundRectPath(-r*0.08,-r*1.0,r*0.16,r*0.88,r*0.05); ctx.fill(); po(lw);
+  ctx.fillStyle="#8a6a3a"; roundRectPath(-r*0.2,-r*0.16,r*0.4,r*0.14,r*0.04); ctx.fill(); po(lw);
   ctx.restore();
   chibiBase(r, c1, "#f6cfa2");
   // 투구: 반구 + 코가드
@@ -889,9 +889,10 @@ function sprKnight(r,team,sw,u){
   ctx.beginPath(); ctx.arc(0,-r*0.46,r*0.78,Math.PI,0); ctx.closePath(); ctx.fill(); po(lw);
   roundRectPath(-r*0.09,-r*0.5,r*0.18,r*0.42,r*0.05); ctx.fill(); po(lw);
   chibiEyes(r, -r*0.22);
-  // 방패 (왼손)
-  ctx.fillStyle="#8a6a3a"; roundRectPath(-r*0.95,r*0.15,r*0.46,r*0.62,r*0.12); ctx.fill(); po(lw);
-  ctx.fillStyle=c1; roundRectPath(-r*0.88,r*0.24,r*0.32,r*0.44,r*0.09); ctx.fill(); po(lw);
+  // 대형 방패 (왼쪽 절반을 덮는 특징 장비)
+  ctx.fillStyle="#8a6a3a"; roundRectPath(-r*1.12,-r*0.15,r*0.68,r*1.1,r*0.2); ctx.fill(); po(lw);
+  ctx.fillStyle=c1; roundRectPath(-r*1.02,-r*0.02,r*0.48,r*0.84,r*0.14); ctx.fill(); po(lw);
+  ctx.fillStyle="#e8e6da"; ctx.beginPath(); ctx.arc(-r*0.78,r*0.4,r*0.14,0,7); ctx.fill(); po(lw*0.8);  // 중앙 보스
 }
 function sprMusket(r,team,sw,u){
   const c1=team?"#3b6fd4":"#d4453b", lw=Math.max(1,r*0.13);
@@ -904,22 +905,25 @@ function sprMusket(r,team,sw,u){
   ctx.beginPath(); ctx.ellipse(0,-r*0.86,r*0.8,r*0.2,0,0,7); ctx.fill(); po(lw);
   ctx.beginPath(); ctx.arc(0,-r*0.9,r*0.42,Math.PI,0); ctx.closePath(); ctx.fill(); po(lw);
   chibiEyes(r, -r*0.28);
-  // 장총 (오른쪽 대각선)
-  ctx.save(); ctx.translate(r*0.55, r*0.42); ctx.rotate(-0.35);
-  ctx.fillStyle="#3a3f45"; roundRectPath(-r*0.06,-r*0.95,r*0.13,r*0.85,r*0.04); ctx.fill(); po(lw);
-  ctx.fillStyle="#5a4028"; roundRectPath(-r*0.1,-r*0.15,r*0.2,r*0.3,r*0.05); ctx.fill(); po(lw);
+  // 대형 장총 (특징 장비, 오른쪽 대각선)
+  ctx.save(); ctx.translate(r*0.55, r*0.45); ctx.rotate(-0.35);
+  ctx.fillStyle="#3a3f45"; roundRectPath(-r*0.08,-r*1.25,r*0.17,r*1.15,r*0.05); ctx.fill(); po(lw);
+  ctx.fillStyle="#5a4028"; roundRectPath(-r*0.14,-r*0.18,r*0.28,r*0.42,r*0.07); ctx.fill(); po(lw);
+  ctx.fillStyle="#8a929c"; roundRectPath(-r*0.11,-r*0.72,r*0.23,r*0.14,r*0.04); ctx.fill(); po(lw*0.8);  // 총열 밴드
   if(sw>0.16){ ctx.fillStyle="rgba(255,220,90,.95)";
-    ctx.beginPath(); ctx.arc(0,-r*1.02,r*0.17+Math.random()*1.5,0,7); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(0,-r*1.32,r*0.24+Math.random()*2,0,7); ctx.fill(); }
   ctx.restore();
 }
 function sprValk(r,team,sw,u){
   const c1=team?"#3b6fd4":"#d4453b", lw=Math.max(1,r*0.13);
-  // 도끼 (스윙 시 몸 주위 회전)
+  // 대형 양날 도끼 (특징 장비, 스윙 시 몸 주위 회전)
   ctx.save();
   ctx.rotate(sw>0? (0.28-sw)/0.28*Math.PI*2 : -0.5);
-  ctx.translate(r*0.55, 0);
-  ctx.fillStyle="#7a5a30"; roundRectPath(-r*0.055,-r*0.95,r*0.11,r*0.95,r*0.04); ctx.fill(); po(lw);
-  ctx.fillStyle="#c9d2da"; ctx.beginPath(); ctx.arc(0,-r*0.88,r*0.3,0,7); ctx.fill(); po(lw);
+  ctx.translate(r*0.6, 0);
+  ctx.fillStyle="#7a5a30"; roundRectPath(-r*0.07,-r*1.1,r*0.14,r*1.15,r*0.05); ctx.fill(); po(lw);
+  ctx.fillStyle="#c9d2da";   // 양날: 좌우 반달 날
+  ctx.beginPath(); ctx.arc(-r*0.08,-r*0.95,r*0.48,Math.PI*0.55,Math.PI*1.45); ctx.closePath(); ctx.fill(); po(lw);
+  ctx.beginPath(); ctx.arc( r*0.08,-r*0.95,r*0.48,Math.PI*1.55,Math.PI*0.45); ctx.closePath(); ctx.fill(); po(lw);
   ctx.restore();
   chibiBase(r, c1, "#f6cfa2");
   // 양갈래 주황 머리
@@ -936,12 +940,14 @@ function sprValk(r,team,sw,u){
 }
 function sprSkel(r,team,sw,u){
   const lw=Math.max(0.9,r*0.14);
-  // 뼈 곤봉
+  // 대형 뼈 곤봉 (특징 장비)
   ctx.save(); ctx.translate(r*0.68, r*0.1);
   ctx.rotate(-0.35 + (sw>0? Math.sin((0.28-sw)/0.28*Math.PI)*1.3 : 0));
-  ctx.strokeStyle="#f2f2e8"; ctx.lineWidth=lw*1.4;
-  ctx.beginPath(); ctx.moveTo(0,r*0.2); ctx.lineTo(0,-r*0.75); ctx.stroke();
-  ctx.fillStyle="#f2f2e8"; ctx.beginPath(); ctx.arc(0,-r*0.82,r*0.2,0,7); ctx.fill(); po(lw*0.8);
+  ctx.strokeStyle="#f2f2e8"; ctx.lineWidth=lw*2;
+  ctx.beginPath(); ctx.moveTo(0,r*0.3); ctx.lineTo(0,-r*0.95); ctx.stroke();
+  ctx.fillStyle="#f2f2e8";
+  ctx.beginPath(); ctx.arc(-r*0.12,-r*1.02,r*0.18,0,7); ctx.fill(); po(lw*0.8);
+  ctx.beginPath(); ctx.arc( r*0.12,-r*1.02,r*0.18,0,7); ctx.fill(); po(lw*0.8);
   ctx.restore();
   // 작은 몸통 (갈비 느낌)
   ctx.fillStyle="#f6f6ec"; roundRectPath(-r*0.38, r*0.2, r*0.76, r*0.72, r*0.25); ctx.fill(); po(lw);
@@ -964,11 +970,11 @@ function sprHog(r,team,sw,u){
   ctx.fillStyle=OUTLINE;
   ctx.beginPath(); ctx.arc(-r*0.2,-r*1.02,r*0.05,0,7); ctx.fill();
   ctx.beginPath(); ctx.arc(0,-r*1.02,r*0.05,0,7); ctx.fill();
-  // 망치 (오른쪽, 스윙)
-  ctx.save(); ctx.translate(r*0.5,-r*0.75);
+  // 대형 망치 (특징 장비, 오른쪽 스윙)
+  ctx.save(); ctx.translate(r*0.52,-r*0.75);
   ctx.rotate(-0.8 + (sw>0? Math.sin((0.28-sw)/0.28*Math.PI)*1.7 : 0));
-  ctx.fillStyle="#8a6a3a"; roundRectPath(-r*0.05,-r*0.6,r*0.1,r*0.6,r*0.04); ctx.fill(); po(lw);
-  ctx.fillStyle="#9aa2ab"; roundRectPath(-r*0.2,-r*0.82,r*0.4,r*0.26,r*0.06); ctx.fill(); po(lw);
+  ctx.fillStyle="#8a6a3a"; roundRectPath(-r*0.06,-r*0.78,r*0.12,r*0.78,r*0.04); ctx.fill(); po(lw);
+  ctx.fillStyle="#9aa2ab"; roundRectPath(-r*0.3,-r*1.08,r*0.6,r*0.38,r*0.08); ctx.fill(); po(lw);
   ctx.restore();
   // 멧돼지 몸통 + 발
   const run=u&&u.moving?1:0, at=u?u.animT:0;
@@ -987,10 +993,10 @@ function sprHog(r,team,sw,u){
   ctx.fillStyle=OUTLINE;
   ctx.beginPath(); ctx.arc(-r*0.1,-r*0.12,r*0.05,0,7); ctx.fill();
   ctx.beginPath(); ctx.arc( r*0.1,-r*0.12,r*0.05,0,7); ctx.fill();
-  // 엄니
+  // 대형 엄니 (특징 강조)
   ctx.fillStyle="#f2ead8";
-  ctx.beginPath(); ctx.moveTo(-r*0.34,-r*0.02); ctx.quadraticCurveTo(-r*0.52,0,-r*0.5,-r*0.28); ctx.lineTo(-r*0.32,-r*0.14); ctx.closePath(); ctx.fill(); po(lw);
-  ctx.beginPath(); ctx.moveTo( r*0.34,-r*0.02); ctx.quadraticCurveTo( r*0.52,0, r*0.5,-r*0.28); ctx.lineTo( r*0.32,-r*0.14); ctx.closePath(); ctx.fill(); po(lw);
+  ctx.beginPath(); ctx.moveTo(-r*0.36,r*0.05); ctx.quadraticCurveTo(-r*0.64,r*0.02,-r*0.6,-r*0.42); ctx.lineTo(-r*0.34,-r*0.18); ctx.closePath(); ctx.fill(); po(lw);
+  ctx.beginPath(); ctx.moveTo( r*0.36,r*0.05); ctx.quadraticCurveTo( r*0.64,r*0.02, r*0.6,-r*0.42); ctx.lineTo( r*0.34,-r*0.18); ctx.closePath(); ctx.fill(); po(lw);
   chibiEyes(r, -r*0.42, r*0.28);
 }
 function sprGiant(r,team,sw,u){
@@ -998,11 +1004,11 @@ function sprGiant(r,team,sw,u){
   chibiBase(r, "#8a6a48", "#f0c49a");
   // 벨트
   ctx.fillStyle="#6e5236"; roundRectPath(-r*0.52,r*0.42,r*1.04,r*0.16,r*0.05); ctx.fill(); po(lw);
-  // 큰 주먹 (전방 주먹 스윙)
-  const punch = sw>0? Math.sin((0.28-sw)/0.28*Math.PI)*r*0.45 : 0;
+  // 거대 주먹 (특징 강조, 전방 주먹 스윙)
+  const punch = sw>0? Math.sin((0.28-sw)/0.28*Math.PI)*r*0.5 : 0;
   ctx.fillStyle="#f0c49a";
-  ctx.beginPath(); ctx.arc(-r*0.66, r*0.5, r*0.26, 0, 7); ctx.fill(); po(lw);
-  ctx.beginPath(); ctx.arc( r*0.66+punch, r*0.45, r*0.3, 0, 7); ctx.fill(); po(lw);
+  ctx.beginPath(); ctx.arc(-r*0.72, r*0.5, r*0.36, 0, 7); ctx.fill(); po(lw);
+  ctx.beginPath(); ctx.arc( r*0.72+punch, r*0.42, r*0.42, 0, 7); ctx.fill(); po(lw);
   // 대머리 + 수염 + 찡그린 눈썹
   ctx.fillStyle="#e8b689";
   ctx.beginPath(); ctx.arc(0,-r*0.5,r*0.74,Math.PI,0); ctx.closePath(); ctx.fill();
@@ -1016,9 +1022,9 @@ function sprGiant(r,team,sw,u){
 }
 function sprWind(r,team,sw,u){
   const at=u?u.animT*2:0, lw=Math.max(1,r*0.14);
-  // 소용돌이 꼬리
-  ctx.strokeStyle="rgba(110,220,200,.9)"; ctx.lineWidth=lw*1.6;
-  for(let i=0;i<2;i++){ ctx.beginPath(); ctx.arc(0,r*0.1,r*(1.0-i*0.3), at+i*2.2, at+i*2.2+3.6); ctx.stroke(); }
+  // 소용돌이 꼬리 (특징 강조: 3겹 크게)
+  ctx.strokeStyle="rgba(110,220,200,.9)"; ctx.lineWidth=lw*2;
+  for(let i=0;i<3;i++){ ctx.beginPath(); ctx.arc(0,r*0.08,r*(1.25-i*0.3), at+i*2.1, at+i*2.1+3.8); ctx.stroke(); }
   // 몸: 둥근 정령
   ctx.fillStyle="#8ce6d4"; ctx.beginPath(); ctx.arc(0,-r*0.05,r*0.8,0,7); ctx.fill(); po(lw);
   // 큰 눈 (흰자 + 눈동자)
