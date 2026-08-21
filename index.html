@@ -313,9 +313,12 @@ function renderHand(){
       const rect = cv.getBoundingClientRect();
       // 손가락 가림 보정: 터치는 소환 지점을 손가락 위쪽으로 오프셋 (캔버스 px)
       const off = e.pointerType==="touch" ? 65 : e.pointerType==="pen" ? 40 : 0;
-      const px = Math.max(8, Math.min(cv.width-8, (e.clientX-rect.left)*(cv.width/rect.width)));
-      const py = Math.max(8, (e.clientY-rect.top)*(cv.height/rect.height) - off);
-      dragState.pt = {x:px, y:py};
+      const rawX = (e.clientX-rect.left)*(cv.width/rect.width);
+      const rawAimY = (e.clientY-rect.top)*(cv.height/rect.height) - off;   // 보정 조준점 (클램프 전)
+      dragState.rawX = rawX;
+      dragState.rawAimY = rawAimY;
+      dragState.pt = {x:Math.max(8, Math.min(cv.width-8, rawX)),
+                      y:Math.max(8, Math.min(cv.height-8, rawAimY))};
       S.mouse = dragState.pt;
     });
     const endDrag = e=>{
@@ -323,9 +326,12 @@ function renderHand(){
       const st = dragState; dragState = null;
       div.classList.remove("dragging");
       if(e.type==="pointercancel"){ S.sel=-1; renderHand(); return; }
-      const rect = cv.getBoundingClientRect();
-      const inCanvas = e.clientX>=rect.left && e.clientX<=rect.right && e.clientY>=rect.top && e.clientY<=rect.bottom;
-      if(st.moved && inCanvas && st.pt){
+      // 드롭 유효 판정: 손가락이 아니라 "조준점"이 필드 안이면 배치 (필드 하단 조준 시 손가락은 캔버스 밖일 수 있음)
+      // 조준점이 필드 아래로 20px 이상 벗어나면 취소 = 손패로 끌어내려 취소하는 제스처
+      const validDrop = st.pt && st.rawAimY !== undefined
+        && st.rawAimY <= cv.height + 20 && st.rawAimY >= -30
+        && st.rawX >= -20 && st.rawX <= cv.width + 20;
+      if(st.moved && validDrop){
         tryPlaceCard(st.idx, st.pt.x, st.pt.y);   // 프리뷰에 표시된 보정 지점 그대로 소환
         if(S.sel===st.idx){ S.sel=-1; renderHand(); }   // 배치 실패 시 선택 해제
       } else if(!st.moved){
@@ -1185,7 +1191,7 @@ cv.addEventListener("touchmove", e=>{
   const t = e.touches[0], rect = cv.getBoundingClientRect();
   cvTouchAim = true;
   S.mouse = {x:Math.max(8,Math.min(cv.width-8,(t.clientX-rect.left)*(cv.width/rect.width))),
-             y:Math.max(8,(t.clientY-rect.top)*(cv.height/rect.height) - 65)};   // 손가락 가림 보정
+             y:Math.max(8,Math.min(cv.height-8,(t.clientY-rect.top)*(cv.height/rect.height) - 65))};   // 손가락 가림 보정
 }, {passive:false});
 
 renderSelect();
