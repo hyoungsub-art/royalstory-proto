@@ -115,6 +115,7 @@
 </div></div>
 <div id="toast"></div>
 
+<script src="balance.js"></script><!-- 외부 밸런스 테이블 (없으면 내장 기본값 사용) -->
 <script>
 "use strict";
 /* ============================================================
@@ -183,6 +184,18 @@ const STAGES = [
   enemyDeck:[], star3:{time:30}},
 ];
 
+/* ---------- 외부 밸런스 테이블 오버라이드 (balance.js) ----------
+   window.BALANCE가 있으면 내장 기본값 위에 덮어쓴다. 없으면(단일 파일 배포 등) 기본값 그대로. */
+const ELX = { max:10, start:5, regen:2.8 };
+if(window.BALANCE){
+  const B = window.BALANCE;
+  if(B.ELIXIR) Object.assign(ELX, B.ELIXIR);
+  if(B.CARDS)  for(const k in B.CARDS)  if(CARDS[k])  Object.assign(CARDS[k],  B.CARDS[k]);
+  if(B.TOWER)  for(const k in B.TOWER)  if(TOWER[k])  Object.assign(TOWER[k],  B.TOWER[k]);
+  if(B.BOSS)   Object.assign(BOSS, B.BOSS);
+  if(B.STAGE_MULT) STAGES.forEach(s=>{ if(B.STAGE_MULT[s.id]!==undefined) s.mult = B.STAGE_MULT[s.id]; });
+}
+
 /* ---------- 진행 저장 (localStorage 불가 환경 대비 폴백) ---------- */
 const store = (()=>{ try { localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return localStorage; }
   catch(e){ const m={}; return {getItem:k=>(k in m?m[k]:null), setItem:(k,v)=>{m[k]=String(v);}, removeItem:k=>{delete m[k];}}; } })();
@@ -227,7 +240,7 @@ function startStage(idx){
 
   S = {
     st, time: 180, elapsed: 0, over:false,
-    elixir: 5, aiElixir: 5,
+    elixir: ELX.start, aiElixir: ELX.start,
     units: [], effects: [], towers: [], particles: [], shake: 0,
     deckQ: [...st.deck], hand: [], sel: -1,
     aiCd: 2.5, rushDone: new Set(), waveT: 0,
@@ -350,8 +363,8 @@ function castSpell(key, x, y, side){
 /* ============================================================ AI ============================================================ */
 function aiUpdate(dt){
   const st = S.st;
-  const regen = (st.x2?2:1) * (S.time<=60?2:1) / 2.8;
-  S.aiElixir = Math.min(10, S.aiElixir + regen*dt);
+  const regen = (st.x2?2:1) * (S.time<=60?2:1) / ELX.regen;
+  S.aiElixir = Math.min(ELX.max, S.aiElixir + regen*dt);
   // RUSH / SCRIPT 스크립트 스폰
   if(st.rush) st.rush.forEach((rs,i)=>{
     if(S.elapsed>=rs.t && !S.rushDone.has(i)){
@@ -552,8 +565,8 @@ function loop(ts){
   if(!S.over){
     S.time -= dt; S.elapsed += dt;
     // 엘릭서
-    const regen = (S.st.x2?2:1) * (S.time<=60?2:1) / 2.8;
-    S.elixir = Math.min(10, S.elixir + regen*dt);
+    const regen = (S.st.x2?2:1) * (S.time<=60?2:1) / ELX.regen;
+    S.elixir = Math.min(ELX.max, S.elixir + regen*dt);
     aiUpdate(dt);
     S.units.forEach(u=>unitUpdate(u,dt));
     S.towers.forEach(t=>towerUpdate(t,dt));
@@ -621,7 +634,7 @@ function endBattle(win){
   document.getElementById("overlay").style.display="flex";
 }
 function updateElixirUI(){
-  document.getElementById("elixir-fill").style.width = (S.elixir/10*100)+"%";
+  document.getElementById("elixir-fill").style.width = (S.elixir/ELX.max*100)+"%";
   document.getElementById("elixir-num").textContent = Math.floor(S.elixir);
   const m = Math.max(0,Math.floor(S.time/60)), s = Math.max(0,Math.floor(S.time%60));
   document.getElementById("timer").textContent = m+":"+String(s).padStart(2,"0");
