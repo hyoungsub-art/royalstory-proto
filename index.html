@@ -498,12 +498,15 @@ function nearestTower(u, side){
   ts.sort((a,b)=>dist(u.x,u.y,a.x,a.y)-dist(u.x,u.y,b.x,b.y));
   return ts[0];
 }
-/* 배치 가능 판정: 자기 진영 전체 + (적 서브 타워 파괴 시) 해당 라인 절반의 적 진영 전진 지역 */
+/* 배치 가능 판정: 자기 진영 전체 + 적 서브 타워가 "없는"(파괴됐거나 처음부터 없는) 라인의 전진 지역 */
+function enemyPrincessOf(half){
+  return S.towers.find(t=>t.side==="enemy" && t.kind==="princess" && ((t.x < 9*TILE ? 0 : 1)===half));
+}
 function canDeployAt(x,y){
   if(y >= (RIVER_Y+1)*TILE) return true;
   const half = x < 9*TILE ? 0 : 1;
-  const p = S.towers.find(t=>t.side==="enemy" && t.kind==="princess" && ((t.x < 9*TILE ? 0 : 1)===half));
-  if(p && p.hp<=0 && y >= 5*TILE && y < (RIVER_Y-1)*TILE) return true;
+  const p = enemyPrincessOf(half);
+  if((!p || p.hp<=0) && y >= 5*TILE && y < (RIVER_Y-1)*TILE) return true;
   return false;
 }
 function waypoint(u, tgt){
@@ -1048,9 +1051,9 @@ function draw(){
   if(S.sel>=0 && CARDS[S.hand[S.sel]].type==="unit"){
     ctx.fillStyle="rgba(120,200,255,.16)";
     ctx.fillRect(0,(RIVER_Y+1)*TILE,W,H-(RIVER_Y+1)*TILE);
-    S.towers.filter(t=>t.side==="enemy" && t.kind==="princess" && t.hp<=0).forEach(t=>{
-      const half = t.x < 9*TILE ? 0 : 1;
-      ctx.fillRect(half? 9*TILE : 0, 5*TILE, 9*TILE, (RIVER_Y-1)*TILE - 5*TILE);
+    [0,1].forEach(half=>{
+      const p = enemyPrincessOf(half);
+      if(!p || p.hp<=0) ctx.fillRect(half? 9*TILE : 0, 5*TILE, 9*TILE, (RIVER_Y-1)*TILE - 5*TILE);
     });
   }
   // 보스 돌진 예고 라인
