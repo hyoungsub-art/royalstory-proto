@@ -56,8 +56,12 @@
   .card.dragging{opacity:.55;transform:scale(1.08) translateY(-8px);cursor:grabbing;box-shadow:0 8px 16px rgba(0,0,0,.55);}
   .card.sel{border-color:var(--gold);transform:translateY(-5px);box-shadow:0 6px 12px rgba(0,0,0,.5),0 0 8px rgba(255,201,77,.7);}
   .card.dim{filter:grayscale(.75) brightness(.7);}
-  .card .ico{font-size:26px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));}
-  .card .nm{font-size:9px;margin-top:3px;white-space:nowrap;background:#3b4a75;color:#fff;border-radius:4px;padding:1px 0;font-weight:bold;}
+  .card .ico{width:42px;height:42px;display:block;margin:0 auto;pointer-events:none;user-select:none;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));}
+  .card .nm{position:absolute;left:50%;transform:translateX(-50%);bottom:-20px;white-space:nowrap;z-index:2;
+    font-size:13px;font-weight:bold;background:#3b4a75;color:#fff;border-radius:6px;padding:2px 8px;
+    box-shadow:0 2px 5px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);}
+  #next-wrap .ico{width:28px;height:28px;}
   .card .cost{position:absolute;top:-7px;left:-5px;width:20px;height:24px;font-size:12px;font-weight:bold;line-height:25px;color:#fff;
     background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:1.5px solid #fff;
     border-radius:50% 50% 50% 50% / 62% 62% 40% 40%;text-shadow:0 1px 2px rgba(70,10,110,.9);z-index:1;}
@@ -204,7 +208,8 @@ let progress = parseInt(store.getItem("rs_cleared")||"0");
 let starsSave = JSON.parse(store.getItem("rs_stars")||"{}");
 
 /* ---------- 전역 상태 ---------- */
-const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const cv = document.getElementById("cv");
+let ctx = cv.getContext("2d");   // 카드 아이콘 생성 시 오프스크린으로 잠시 교체됨
 let S = null;          // 전투 상태
 let gameSpeed = 1, rafId = null, lastTs = 0;
 let curStageIdx = -1;
@@ -274,6 +279,7 @@ function startStage(idx){
     S.units.push(S.boss);
   }
   buildBG();
+  if(!ICONS.knight) buildIcons();
   renderHand(); updateElixirUI();
   gameSpeed = 1; document.getElementById("spd-btn").textContent="▶ ×1";
   lastTs = 0;
@@ -297,7 +303,8 @@ function renderHand(){
     const c = CARDS[key];
     const div = document.createElement("div");
     div.className = "card"+(S.sel===i?" sel":"")+(S.elixir<c.cost?" dim":"")+(S.drawnSlot===i?" draw":"");
-    div.innerHTML = `<div class="cost">${c.cost}</div><div class="ico">${c.ico}</div><div class="nm">${c.nm}</div>`;
+    div.innerHTML = `<div class="cost">${c.cost}</div><img class="ico" draggable="false" src="${ICONS[key]||""}" alt="">`
+      + (S.sel===i ? `<div class="nm">${c.nm}</div>` : "");   // 이름은 선택한 카드만 크게 표시
     // 드래그앤드롭 + 탭 겸용 (포인터 이벤트: 마우스·터치 통합)
     div.addEventListener("pointerdown", e=>{
       if(S.over) return;
@@ -347,7 +354,7 @@ function renderHand(){
   const nx = document.createElement("div");
   nx.id="next-wrap";
   const nxKey = S.deckQ[0];
-  nx.innerHTML = `<div class="lbl">다음</div>`+(nxKey?`<div class="card" style="cursor:default;"><div class="cost">${CARDS[nxKey].cost}</div><div class="ico">${CARDS[nxKey].ico}</div><div class="nm">${CARDS[nxKey].nm}</div></div>`:"");
+  nx.innerHTML = `<div class="lbl">다음</div>`+(nxKey?`<div class="card" style="cursor:default;"><div class="cost">${CARDS[nxKey].cost}</div><img class="ico" draggable="false" src="${ICONS[nxKey]||""}" alt=""></div>`:"");
   hand.appendChild(nx);
   S.drawnSlot = -1;
 }
@@ -1059,6 +1066,46 @@ function sprBoss(r,team,sw,u){
     ctx.beginPath(); ctx.arc(r*1.05,0,r*0.55,-1.1,1.1); ctx.stroke(); }
 }
 const SPR = {knight:sprKnight, musket:sprMusket, valk:sprValk, skarmy:sprSkel, hog:sprHog, giant:sprGiant, wind:sprWind};
+
+/* ---------- 카드 아이콘: 유닛 스프라이트를 오프스크린 캔버스에 렌더해 생성 ---------- */
+const ICONS = {};
+function sprSpellIcon(key, r){
+  if(key==="fireball"){
+    ctx.fillStyle="#ff6b2d";   // 불꽃 꼬리
+    ctx.beginPath(); ctx.moveTo(r*0.45,-r*0.5); ctx.quadraticCurveTo(r*1.15,-r*1.05, r*0.8,-r*0.1); ctx.closePath(); ctx.fill(); po(1.5);
+    ctx.fillStyle="#ff9c3a"; ctx.beginPath(); ctx.arc(0,0,r*0.75,0,7); ctx.fill(); po(2);
+    ctx.fillStyle="#ffd66b"; ctx.beginPath(); ctx.arc(-r*0.18,-r*0.18,r*0.38,0,7); ctx.fill();
+  } else if(key==="arrows"){
+    for(let i=-1;i<=1;i++){
+      ctx.save(); ctx.translate(i*r*0.45, Math.abs(i)*r*0.15); ctx.rotate(0.45);
+      ctx.strokeStyle="#7a5a30"; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(0,r*0.7); ctx.lineTo(0,-r*0.55); ctx.stroke();
+      ctx.fillStyle="#e8e8e0";
+      ctx.beginPath(); ctx.moveTo(0,-r*0.85); ctx.lineTo(-r*0.16,-r*0.48); ctx.lineTo(r*0.16,-r*0.48); ctx.closePath(); ctx.fill(); po(1.2);
+      ctx.restore();
+    }
+  } else { // 기타 스펠 (빙결·광폭화 등 확장 대비): 반짝임
+    ctx.fillStyle="#bfe6ff";
+    ctx.beginPath();
+    for(let i=0;i<8;i++){ const a=i*Math.PI/4, rr=i%2? r*0.3 : r*0.8;
+      ctx[i?"lineTo":"moveTo"](Math.cos(a)*rr, Math.sin(a)*rr); }
+    ctx.closePath(); ctx.fill(); po(1.5);
+  }
+}
+function buildIcons(){
+  const old = ctx;
+  for(const key in CARDS){
+    const c = CARDS[key];
+    const icv = document.createElement("canvas"); icv.width = 64; icv.height = 64;
+    ctx = icv.getContext("2d");
+    ctx.save(); ctx.translate(32, 36);
+    if(c.type==="unit"){ const fn = SPR[key]; if(fn) fn(15, true, 0, null); }
+    else sprSpellIcon(key, 16);
+    ctx.restore();
+    ICONS[key] = icv.toDataURL();
+  }
+  ctx = old;
+}
 function drawTower(tw){
   const b=tw.r, lw=Math.max(1.6, b*0.1);
   if(tw.hp<=0){ // 잔해 (외곽선 포함)
