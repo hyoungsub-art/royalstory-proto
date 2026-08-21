@@ -134,10 +134,10 @@ const CARDS = {
   arrows:  {nm:"화살비",   ico:"🏹", cost:3, type:"spell", dmg:366, rad:4.0},
   fireball:{nm:"화염구",   ico:"🔥", cost:4, type:"spell", dmg:689, rad:2.5, kb:1.5},
 };
-/* 타워 (타워스탯 시트) */
+/* 타워 (타워스탯 시트) — 사거리는 이웃 타워 간 거리(≈6.1타일)보다 짧게 (2026-08-15 수정) */
 const TOWER = {
-  princess:{hp:3052, dmg:109, hs:0.8, rng:7.5, size:1.4},
-  king:    {hp:4824, dmg:109, hs:1.0, rng:7.0, size:1.8},
+  princess:{hp:3052, dmg:109, hs:0.8, rng:5.5, size:1.4},
+  king:    {hp:4824, dmg:109, hs:1.0, rng:5.0, size:1.8},
 };
 /* 보스 (스테이지배율 시트 보스 초안: HP 8480 = 멧돼지×5, 공격력 477 = ×1.5) */
 const BOSS = {nm:"폭주 멧돼지 군주", hp:8480, dmg:477, hs:1.6, rng:1.0, r:20,
@@ -295,7 +295,7 @@ cv.addEventListener("click", e=>{
   const y = (e.clientY-rect.top)*(cv.height/rect.height);
   const key = S.hand[S.sel], c = CARDS[key];
   if(S.elixir < c.cost){ toast("엘릭서 부족"); return; }
-  if(c.type==="unit" && y < (RIVER_Y+1)*TILE){ toast("자신의 진영에만 배치할 수 있습니다"); return; }
+  if(c.type==="unit" && !canDeployAt(x,y)){ toast("배치할 수 없는 지역입니다"); return; }
   if(c.type==="spell") castSpell(key, x, y, "player");
   else spawnUnits(key, x, y, "player", 1);
   S.elixir -= c.cost;
@@ -315,7 +315,8 @@ function spawnUnits(key, x, y, side, mult){
       hp:Math.round(c.hp*mult), maxHp:Math.round(c.hp*mult), dmg:Math.round(c.dmg*mult),
       hs:c.hs, rng:c.rng, r:c.r, spd:SPEED_T[c.spd]*TILE, sight:(c.sight||6)*TILE,
       bldgOnly:!!c.bldgOnly, suicide:!!c.suicide, splash:c.splash||0, kb:c.kb||0, slowDur:c.slowDur||0,
-      cd:0, deploy:0.8, slowT:0, animT:Math.random()*6.28, swing:0, flash:0, fx:1, moving:false});
+      cd:0, deploy:0.8, slowT:0, animT:Math.random()*6.28, swing:0, flash:0, fx:1, moving:false,
+      lane: x < 9*TILE ? 0 : 1});   // 배치 시점의 라인 고정 (타워 타깃 우선순위용)
   }
 }
 function castSpell(key, x, y, side){
@@ -431,10 +432,25 @@ function bossUpdate(dt){
 
 /* ============================================================ 유닛 로직 ============================================================ */
 function dist(x1,y1,x2,y2){ return Math.hypot(x2-x1,y2-y1); }
+/* 타워 타깃 우선순위: 같은 라인 서브 타워 → 킹 타워. 다른 라인 서브 타워로 넘어가지 않는다. */
 function nearestTower(u, side){
   const ts = S.towers.filter(t=>t.side===side && t.hp>0);
+  if(!ts.length) return null;
+  const lane = (u.lane!==undefined) ? u.lane : (u.x < 9*TILE ? 0 : 1);
+  const laneP = ts.find(t=>t.kind==="princess" && ((t.x < 9*TILE ? 0 : 1)===lane));
+  if(laneP) return laneP;
+  const king = ts.find(t=>t.kind==="king");
+  if(king) return king;
   ts.sort((a,b)=>dist(u.x,u.y,a.x,a.y)-dist(u.x,u.y,b.x,b.y));
-  return ts[0]||null;
+  return ts[0];
+}
+/* 배치 가능 판정: 자기 진영 전체 + (적 서브 타워 파괴 시) 해당 라인 절반의 적 진영 전진 지역 */
+function canDeployAt(x,y){
+  if(y >= (RIVER_Y+1)*TILE) return true;
+  const half = x < 9*TILE ? 0 : 1;
+  const p = S.towers.find(t=>t.side==="enemy" && t.kind==="princess" && ((t.x < 9*TILE ? 0 : 1)===half));
+  if(p && p.hp<=0 && y >= 5*TILE && y < (RIVER_Y-1)*TILE) return true;
+  return false;
 }
 function waypoint(u, tgt){
   // 강 건너야 하면 가까운 다리 경유
@@ -539,8 +555,9 @@ function loop(ts){
     // 사망 연출 + 제거
     S.units.forEach(u=>{ if(u.hp<=0) deathFx(u); });
     S.units = S.units.filter(u=>u.hp>0);
-    // 타워 파괴 연출 (1회)
-    S.towers.forEach(t=>{ if(t.hp<=0 && !t.boomed){ t.boomed = true; towerBoom(t); } });
+    // 타워 파괴 연출 (1회) + 전진 배치 개방 알림
+    S.towers.forEach(t=>{ if(t.hp<=0 && !t.boomed){ t.boomed = true; towerBoom(t);
+      if(t.side==="enemy" && t.kind==="princess") toast("적 타워 파괴! 해당 라인 전진 배치 개방"); } });
     // 킹 활성화 체크
     ["player","enemy"].forEach(side=>{
       const king = S.towers.find(t=>t.side===side&&t.kind==="king");
@@ -973,10 +990,14 @@ function draw(){
     if(BRIDGES.some(b=>Math.abs(b*TILE-wx)<1.35*TILE)) continue;
     ctx.beginPath(); ctx.ellipse(wx, ry+rh*(0.22+(i%3)*0.27), 15,2.6,0,0,7); ctx.fill();
   }
-  // 배치 가능 영역
+  // 배치 가능 영역 (자기 진영 + 개방된 전진 지역)
   if(S.sel>=0 && CARDS[S.hand[S.sel]].type==="unit"){
     ctx.fillStyle="rgba(120,200,255,.16)";
     ctx.fillRect(0,(RIVER_Y+1)*TILE,W,H-(RIVER_Y+1)*TILE);
+    S.towers.filter(t=>t.side==="enemy" && t.kind==="princess" && t.hp<=0).forEach(t=>{
+      const half = t.x < 9*TILE ? 0 : 1;
+      ctx.fillRect(half? 9*TILE : 0, 5*TILE, 9*TILE, (RIVER_Y-1)*TILE - 5*TILE);
+    });
   }
   // 보스 돌진 예고 라인
   if(S.boss && S.boss.state==="telegraph"){
@@ -1059,7 +1080,7 @@ function draw(){
       ctx.fillStyle="rgba(255,200,80,.12)";
       ctx.beginPath(); ctx.arc(S.mouse.x,S.mouse.y,c.rad*TILE,0,7); ctx.fill();
     } else {
-      const legal = S.mouse.y >= (RIVER_Y+1)*TILE;
+      const legal = canDeployAt(S.mouse.x, S.mouse.y);
       ctx.strokeStyle = legal? "rgba(140,255,140,.95)":"rgba(255,110,110,.95)";
       ctx.lineWidth=2.5; ctx.setLineDash([5,4]);
       ctx.beginPath(); ctx.arc(S.mouse.x,S.mouse.y,(CARDS[S.hand[S.sel]].r||11)+5,0,7); ctx.stroke(); ctx.setLineDash([]);
