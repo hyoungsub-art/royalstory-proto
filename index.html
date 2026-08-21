@@ -130,7 +130,7 @@ const SPEED_T = {slow:0.75, med:1.0, fast:1.5, vfast:2.0}; // 타일/초
 /* ---------- 카드 데이터 (02_밸런스데이터 시트 값) ---------- */
 const CARDS = {
   knight:  {nm:"방패 기사", ico:"🛡️", cost:3, type:"unit", hp:1766, dmg:202, hs:1.2, rng:0.8, spd:"med",  cnt:1,  r:11, sight:6},
-  musket:  {nm:"저격수",   ico:"🎯", cost:4, type:"unit", hp:720,  dmg:218, hs:1.1, rng:6.0, spd:"med",  cnt:1,  r:10, sight:6.5},
+  musket:  {nm:"저격수",   ico:"🎯", cost:4, type:"unit", hp:720,  dmg:218, hs:1.1, rng:5.0, spd:"med",  cnt:1,  r:10, sight:6.5},  // 사거리 ≤ 킹 타워(5.0) 규칙
   valk:    {nm:"도끼 전사", ico:"🪓", cost:4, type:"unit", hp:1908, dmg:267, hs:1.5, rng:0.8, spd:"med",  cnt:1,  r:12, splash:1.2, sight:6},
   skarmy:  {nm:"해골 부대", ico:"💀", cost:3, type:"unit", hp:81,   dmg:81,  hs:1.0, rng:0.6, spd:"fast", cnt:15, r:5,  sight:6},
   hog:     {nm:"돌격 멧돼지",ico:"🐗", cost:4, type:"unit", hp:1696, dmg:318, hs:1.6, rng:0.8, spd:"vfast",cnt:1,  r:12, bldgOnly:true},
