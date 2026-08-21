@@ -49,19 +49,21 @@
   #elixir-num{font-weight:bold;color:#fff;width:30px;height:34px;text-align:center;font-size:15px;line-height:36px;
     background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;
     border-radius:50% 50% 50% 50% / 62% 62% 40% 40%;text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
-  #hand{display:flex;gap:6px;}
-  .card{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
-    padding:8px 4px 4px;text-align:center;cursor:grab;user-select:none;position:relative;transition:transform .1s;
+  #hand{display:flex;gap:6px;align-items:flex-end;justify-content:center;}
+  .card{flex:1;max-width:92px;aspect-ratio:3/4;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);
+    border:2px solid #5a6ea6;border-radius:10px;padding:4px;display:flex;align-items:center;justify-content:center;
+    text-align:center;cursor:grab;user-select:none;position:relative;transition:transform .1s;
     box-shadow:0 2px 5px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.7);touch-action:none;}
   .card.dragging{opacity:.55;transform:scale(1.08) translateY(-8px);cursor:grabbing;box-shadow:0 8px 16px rgba(0,0,0,.55);}
   .card.sel{border-color:var(--gold);transform:translateY(-5px);box-shadow:0 6px 12px rgba(0,0,0,.5),0 0 8px rgba(255,201,77,.7);}
   .card.dim{filter:grayscale(.75) brightness(.7);}
-  .card .ico{width:42px;height:42px;display:block;margin:0 auto;pointer-events:none;user-select:none;
+  .card .ico{width:90%;height:auto;display:block;margin:0 auto;pointer-events:none;user-select:none;
     filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));}
   .card .nm{position:absolute;left:50%;transform:translateX(-50%);bottom:-20px;white-space:nowrap;z-index:2;
     font-size:13px;font-weight:bold;background:#3b4a75;color:#fff;border-radius:6px;padding:2px 8px;
     box-shadow:0 2px 5px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);}
-  #next-wrap .ico{width:28px;height:28px;}
+  #next-wrap .ico{width:85%;height:auto;}
+  #next-wrap .card{max-width:none;}
   .card .cost{position:absolute;top:-7px;left:-5px;width:20px;height:24px;font-size:12px;font-weight:bold;line-height:25px;color:#fff;
     background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:1.5px solid #fff;
     border-radius:50% 50% 50% 50% / 62% 62% 40% 40%;text-shadow:0 1px 2px rgba(70,10,110,.9);z-index:1;}
@@ -1096,11 +1098,11 @@ function buildIcons(){
   const old = ctx;
   for(const key in CARDS){
     const c = CARDS[key];
-    const icv = document.createElement("canvas"); icv.width = 64; icv.height = 64;
+    const icv = document.createElement("canvas"); icv.width = 128; icv.height = 128;
     ctx = icv.getContext("2d");
-    ctx.save(); ctx.translate(32, 36);
-    if(c.type==="unit"){ const fn = SPR[key]; if(fn) fn(15, true, 0, null); }
-    else sprSpellIcon(key, 16);
+    ctx.save(); ctx.translate(64, 72);   // 유닛이 아이콘을 꽉 채우도록 크게 렌더
+    if(c.type==="unit"){ const fn = SPR[key]; if(fn) fn(40, true, 0, null); }
+    else sprSpellIcon(key, 42);
     ctx.restore();
     ICONS[key] = icv.toDataURL();
   }
