@@ -311,7 +311,12 @@ function renderHand(){
       div.classList.add("dragging");
       S.sel = dragState.idx;
       const rect = cv.getBoundingClientRect();
-      S.mouse = {x:(e.clientX-rect.left)*(cv.width/rect.width), y:(e.clientY-rect.top)*(cv.height/rect.height)};
+      // 손가락 가림 보정: 터치는 소환 지점을 손가락 위쪽으로 오프셋 (캔버스 px)
+      const off = e.pointerType==="touch" ? 65 : e.pointerType==="pen" ? 40 : 0;
+      const px = Math.max(8, Math.min(cv.width-8, (e.clientX-rect.left)*(cv.width/rect.width)));
+      const py = Math.max(8, (e.clientY-rect.top)*(cv.height/rect.height) - off);
+      dragState.pt = {x:px, y:py};
+      S.mouse = dragState.pt;
     });
     const endDrag = e=>{
       if(!dragState || dragState.id!==e.pointerId) return;
@@ -320,8 +325,8 @@ function renderHand(){
       if(e.type==="pointercancel"){ S.sel=-1; renderHand(); return; }
       const rect = cv.getBoundingClientRect();
       const inCanvas = e.clientX>=rect.left && e.clientX<=rect.right && e.clientY>=rect.top && e.clientY<=rect.bottom;
-      if(st.moved && inCanvas){
-        tryPlaceCard(st.idx, (e.clientX-rect.left)*(cv.width/rect.width), (e.clientY-rect.top)*(cv.height/rect.height));
+      if(st.moved && inCanvas && st.pt){
+        tryPlaceCard(st.idx, st.pt.x, st.pt.y);   // 프리뷰에 표시된 보정 지점 그대로 소환
         if(S.sel===st.idx){ S.sel=-1; renderHand(); }   // 배치 실패 시 선택 해제
       } else if(!st.moved){
         S.sel = S.sel===st.idx ? -1 : st.idx; renderHand();   // 탭: 선택 토글 (기존 방식)
@@ -354,8 +359,11 @@ function tryPlaceCard(idx, x, y){
   S.sel = -1; renderHand(); updateElixirUI();
   return true;
 }
+let cvTouchAim = false;   // 캔버스 위 터치 조준 중 여부 (프리뷰와 소환 좌표 일치용)
+cv.addEventListener("touchstart", ()=>{ cvTouchAim = false; }, {passive:true});
 cv.addEventListener("click", e=>{
   if(!S || S.over || S.sel<0) return;
+  if(cvTouchAim && S.mouse){ cvTouchAim = false; tryPlaceCard(S.sel, S.mouse.x, S.mouse.y); return; }
   const rect = cv.getBoundingClientRect();
   tryPlaceCard(S.sel, (e.clientX-rect.left)*(cv.width/rect.width), (e.clientY-rect.top)*(cv.height/rect.height));
 });
@@ -1128,20 +1136,34 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,p.size*a+0.5,0,7); ctx.fill();
     }
   });
-  // 배치 프리뷰 (마우스 위치)
+  // 배치 프리뷰 — 소환 지점이 손가락/포인터에 가려지지 않도록 고스트 + 크로스헤어 표시
   if(S.sel>=0 && S.mouse){
-    const c=CARDS[S.hand[S.sel]];
+    const key=S.hand[S.sel], c=CARDS[key];
+    const mx=S.mouse.x, my=S.mouse.y;
+    const legal = c.type==="spell" ? true : canDeployAt(mx,my);
+    const col = legal ? "140,255,140" : "255,110,110";
     if(c.type==="spell"){
       ctx.strokeStyle="rgba(255,220,100,.9)"; ctx.lineWidth=2.5; ctx.setLineDash([6,4]);
-      ctx.beginPath(); ctx.arc(S.mouse.x,S.mouse.y,c.rad*TILE,0,7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(mx,my,c.rad*TILE,0,7); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle="rgba(255,200,80,.12)";
-      ctx.beginPath(); ctx.arc(S.mouse.x,S.mouse.y,c.rad*TILE,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx,my,c.rad*TILE,0,7); ctx.fill();
     } else {
-      const legal = canDeployAt(S.mouse.x, S.mouse.y);
-      ctx.strokeStyle = legal? "rgba(140,255,140,.95)":"rgba(255,110,110,.95)";
-      ctx.lineWidth=2.5; ctx.setLineDash([5,4]);
-      ctx.beginPath(); ctx.arc(S.mouse.x,S.mouse.y,(CARDS[S.hand[S.sel]].r||11)+5,0,7); ctx.stroke(); ctx.setLineDash([]);
+      // 반투명 유닛 고스트 — 실제 소환될 모습 미리보기
+      const fn=SPR[key];
+      if(fn){ ctx.save(); ctx.globalAlpha=0.55; ctx.translate(mx,my); fn(c.r||11, true, 0, null); ctx.restore(); }
+      ctx.strokeStyle="rgba("+col+",.95)"; ctx.lineWidth=2.5; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.arc(mx,my,(c.r||11)+6,0,7); ctx.stroke(); ctx.setLineDash([]);
     }
+    // 크로스헤어: 링 바깥으로 뻗는 십자선 + 중심점 — 포인터가 겹쳐도 지점이 보임
+    const rr = c.type==="spell" ? c.rad*TILE : (c.r||11)+6;
+    ctx.strokeStyle = c.type==="spell" ? "rgba(255,220,100,.95)" : "rgba("+col+",.95)";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(mx-rr-12,my); ctx.lineTo(mx-rr,my);   ctx.moveTo(mx+rr,my); ctx.lineTo(mx+rr+12,my);
+    ctx.moveTo(mx,my-rr-12); ctx.lineTo(mx,my-rr);   ctx.moveTo(mx,my+rr); ctx.lineTo(mx,my+rr+12);
+    ctx.stroke();
+    ctx.fillStyle = c.type==="spell" ? "rgba(255,220,100,.9)" : "rgba("+col+",.9)";
+    ctx.beginPath(); ctx.arc(mx,my,2.5,0,7); ctx.fill();
   }
   // 보스 페이즈 라벨
   if(S.boss && S.boss.hp>0){
@@ -1161,7 +1183,9 @@ cv.addEventListener("touchmove", e=>{
   if(!S) return;
   e.preventDefault();
   const t = e.touches[0], rect = cv.getBoundingClientRect();
-  S.mouse = {x:(t.clientX-rect.left)*(cv.width/rect.width), y:(t.clientY-rect.top)*(cv.height/rect.height)};
+  cvTouchAim = true;
+  S.mouse = {x:Math.max(8,Math.min(cv.width-8,(t.clientX-rect.left)*(cv.width/rect.width))),
+             y:Math.max(8,(t.clientY-rect.top)*(cv.height/rect.height) - 65)};   // 손가락 가림 보정
 }, {passive:false});
 
 renderSelect();
