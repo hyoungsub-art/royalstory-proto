@@ -1142,34 +1142,30 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,p.size*a+0.5,0,7); ctx.fill();
     }
   });
-  // 배치 프리뷰 — 소환 지점이 손가락/포인터에 가려지지 않도록 고스트 + 크로스헤어 표시
+  // 배치 프리뷰 — 유닛: 반투명 고스트만 표시 (원작 방식). 배치 불가 지역이면 붉게 물듦. 스펠: 반경 원 유지
   if(S.sel>=0 && S.mouse){
     const key=S.hand[S.sel], c=CARDS[key];
     const mx=S.mouse.x, my=S.mouse.y;
-    const legal = c.type==="spell" ? true : canDeployAt(mx,my);
-    const col = legal ? "140,255,140" : "255,110,110";
     if(c.type==="spell"){
       ctx.strokeStyle="rgba(255,220,100,.9)"; ctx.lineWidth=2.5; ctx.setLineDash([6,4]);
       ctx.beginPath(); ctx.arc(mx,my,c.rad*TILE,0,7); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle="rgba(255,200,80,.12)";
       ctx.beginPath(); ctx.arc(mx,my,c.rad*TILE,0,7); ctx.fill();
+      ctx.fillStyle="rgba(255,220,100,.9)";
+      ctx.beginPath(); ctx.arc(mx,my,2.5,0,7); ctx.fill();
     } else {
-      // 반투명 유닛 고스트 — 실제 소환될 모습 미리보기
+      const legal = canDeployAt(mx,my);
+      const r = c.r||11;
+      // 발밑 그림자 + 반투명 유닛 고스트
+      unitShadow(mx, my+r*0.75, r*0.9);
       const fn=SPR[key];
-      if(fn){ ctx.save(); ctx.globalAlpha=0.55; ctx.translate(mx,my); fn(c.r||11, true, 0, null); ctx.restore(); }
-      ctx.strokeStyle="rgba("+col+",.95)"; ctx.lineWidth=2.5; ctx.setLineDash([5,4]);
-      ctx.beginPath(); ctx.arc(mx,my,(c.r||11)+6,0,7); ctx.stroke(); ctx.setLineDash([]);
+      if(fn){ ctx.save(); ctx.globalAlpha=0.6; ctx.translate(mx,my); fn(r, true, 0, null); ctx.restore(); }
+      // 배치 불가: 고스트를 붉게 물들임
+      if(!legal){
+        ctx.fillStyle="rgba(255,60,60,.4)";
+        ctx.beginPath(); ctx.arc(mx,my,r*1.15,0,7); ctx.fill();
+      }
     }
-    // 크로스헤어: 링 바깥으로 뻗는 십자선 + 중심점 — 포인터가 겹쳐도 지점이 보임
-    const rr = c.type==="spell" ? c.rad*TILE : (c.r||11)+6;
-    ctx.strokeStyle = c.type==="spell" ? "rgba(255,220,100,.95)" : "rgba("+col+",.95)";
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(mx-rr-12,my); ctx.lineTo(mx-rr,my);   ctx.moveTo(mx+rr,my); ctx.lineTo(mx+rr+12,my);
-    ctx.moveTo(mx,my-rr-12); ctx.lineTo(mx,my-rr);   ctx.moveTo(mx,my+rr); ctx.lineTo(mx,my+rr+12);
-    ctx.stroke();
-    ctx.fillStyle = c.type==="spell" ? "rgba(255,220,100,.9)" : "rgba("+col+",.9)";
-    ctx.beginPath(); ctx.arc(mx,my,2.5,0,7); ctx.fill();
   }
   // 보스 페이즈 라벨
   if(S.boss && S.boss.hp>0){
