@@ -1,58 +1,60 @@
 /* ============================================================
-   로얄스토리 (가제) — 밸런스 테이블 v1
+   로얄스토리 v2 — 밸런스 테이블 (오버라이드)
    ------------------------------------------------------------
-   이 파일의 숫자만 고치고 저장하면 게임에 바로 반영됩니다 (index.html 새로고침).
+   이 파일의 숫자만 고치고 저장하면 게임에 바로 반영됩니다 (새로고침).
+   여기 적은 값이 index.html의 내장 기본값을 덮어씁니다.
    이 파일이 없어도 게임은 내장 기본값으로 동작합니다.
-
-   [카드 필드 설명]
-   cost  카드 비용 (엘릭서)          hp    개체당 체력
-   dmg   공격력 (1회 타격)           hs    공속 (초/타) — 낮을수록 빠름
-   rng   사거리 (타일) ※ T4 규칙: 킹 타워 사거리(5.0) 초과 금지
-   spd   이속: "slow"(0.75) / "med"(1.0) / "fast"(1.5) / "vfast"(2.0) 타일/초
-   cnt   소환 개체 수                splash 광역 반경 (타일, 없으면 단일)
-   kb    넉백 거리 (타일)            slowDur 둔화 지속 (초)
-   rad   스펠 반경 (타일)
+   전 수치 (가정) 상태 — 플레이 검증으로 확정해 갈 것.
    ============================================================ */
 window.BALANCE = {
 
-  /* 엘릭서 규칙 */
-  ELIXIR: { max: 10, start: 5, regen: 2.8 },   // 최대치 / 시작량 / 회복(초당 1 기준 주기)
+  /* 경제: 회복 주기(초/1), 시작량, 티어별 최대치, 가스 기지 1개당 보너스(+50%), 티어 승급 비용 */
+  ECON: { regen: 2.8, start: 6, cap: [0, 10, 15, 20], gasBonus: 0.5, tierCost: [0, 0, 6, 8],
+          upCost: 4, transformCost: 3 },
 
-  /* 카드 스탯 — 원작 토너먼트 스탠더드(레벨 11) 근사치 기반 */
-  CARDS: {
-    /*            비용   체력    공격   공속   사거리        개체수  */
-    knight:   { cost:3, hp:1766, dmg:202, hs:1.2, rng:0.8,           cnt:1  },  // 방패 기사
-    musket:   { cost:4, hp:720,  dmg:218, hs:1.1, rng:5.0,           cnt:1  },  // 저격수 (T4: 5.0)
-    valk:     { cost:4, hp:1908, dmg:267, hs:1.5, rng:0.8, splash:1.2, cnt:1 }, // 도끼 전사
-    skarmy:   { cost:3, hp:81,   dmg:81,  hs:1.0, rng:0.6,           cnt:15 },  // 해골 부대
-    hog:      { cost:4, hp:1696, dmg:318, hs:1.6, rng:0.8,           cnt:1  },  // 돌격 멧돼지 (건물만 공격)
-    giant:    { cost:5, hp:4091, dmg:254, hs:1.5, rng:0.8,           cnt:1  },  // 강철 거인 (건물만 공격)
-    wind:     { cost:1, hp:190,  dmg:110,         rng:0.7, splash:2,   cnt:1,
-                kb:2, slowDur:1 },                                              // 바람 정령 (자폭·넉백·둔화)
-    arrows:   { cost:3, dmg:366, rad:4.0 },                                     // 화살비 (스펠)
-    fireball: { cost:4, dmg:689, rad:2.5, kb:1.5 },                             // 화염구 (스펠)
+  /* 규칙 수치 */
+  EXCLUDE_R: 4,     // 적 건물 건설 배제 반경 (타일)
+  HALL_ZONE: 8,     // 본진 주변 아군 영역 반경
+  TOWER_ZONE: 5,    // 타워 전선 확장 반경 (T3)
+  AURA_R: 4,        // 영웅 오라 반경
+  AURA_PWR: 0.25,   // 오라 공·방 +25% (중첩 허용 — 이슈 #11 가정)
+  UPG_PWR: 0.12,    // 건물 업그레이드 단계당 공·방 +12%
+  UNIT_CAP: 60,     // 진영당 일반 유닛 상한
+  HERO_COST: 6,     // 영웅 공통 코스트 (확정: 전원 동일)
+  HERO_CD: 12,      // 영웅 사망 후 재소환 쿨다운 (초)
+
+  /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함 */
+  BUILDINGS: {
+    hall:          { hp: 4800 },
+    elixirBase:    { hp: 900,  cost: 4 },
+    barracks:      { hp: 1300, cost: 5, prod: { unit: "footman",       period: 8  } },
+    shooterGarden: { hp: 1300,          prod: { unit: "rifleman",      period: 9  } },
+    knightHall:    { hp: 1400,          prod: { unit: "knight",        period: 11 } },
+    blacksmith:    { hp: 1100, cost: 5 },
+    workshop:      { hp: 1300, cost: 6, prod: { unit: "flyingMachine", period: 10 } },
+    sanctum:       { hp: 1300, cost: 6, prod: { unit: "mage",          period: 10 } },
+    tower:         { hp: 1600, cost: 5, atk: { dmg: 109, hs: 0.8, rng: 5 } },
+    guardTower:    { hp: 1800,          atk: { dmg: 180, hs: 0.8, rng: 5 } },
+    arcaneTower:   { hp: 1700,          atk: { dmg: 135, hs: 1.0, rng: 5, splash: 1.5 } },
+    aviary:        { hp: 1500, cost: 8, prod: { unit: "gryphon",       period: 14 } },
   },
 
-  /* 타워 — T1 규칙: 사거리 < 이웃 타워 간 거리(약 6.1타일) */
-  TOWER: {
-    princess: { hp:3052, dmg:109, hs:0.8, rng:5.5 },   // 서브 타워
-    king:     { hp:4824, dmg:109, hs:1.0, rng:5.0 },   // 킹 타워
+  /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
+  UNITS: {
+    footman:       { hp: 1766, dmg: 202, hs: 1.2, rng: 0.8, spd: 1.0 },
+    rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 4.0, spd: 1.0 },
+    knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
+    flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
+    mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 4.2, spd: 1.0, splash: 1.2 },
+    gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 0.9, spd: 1.4 },
   },
 
-  /* 보스 — 폭주 멧돼지 군주 (1-10) */
-  BOSS: {
-    hp: 8480,        // 기준: 멧돼지 HP × 5
-    dmg: 477,        // 기준: 멧돼지 공격력 × 1.5
-    hs: 1.6,
-    p1Cycle: 30,     // 페이즈 1 돌진 주기 (초)
-    p2Cycle: 20,     // 페이즈 2 돌진 주기 (초, 체력 50% 이하)
-    telegraph: 5,    // 돌진 예고 시간 (초)
-    rage: 1.35,      // 페이즈 2 가속 배율
-  },
-
-  /* 챕터 1 스테이지별 적 스탯 배율 — 지식 기반 난이도 원칙: ±20% 이내 (스토리모드구조 §4.6) */
-  STAGE_MULT: {
-    "1-1": 0.8, "1-2": 0.8, "1-3": 0.8, "1-4": 0.8, "1-5": 0.9,
-    "1-6": 0.9, "1-7": 0.9, "1-8": 1.0, "1-9": 1.0, "1-10": 1.0,
+  /* 영웅 (5인 고정 덱, 코스트 공통 = HERO_COST) */
+  HEROES: {
+    archmage:     { hp: 900,  dmg: 160, hs: 1.4, rng: 4.0, spd: 1.0 },
+    mountainKing: { hp: 2600, dmg: 320, hs: 1.4, rng: 0.9, spd: 1.1 },
+    paladin:      { hp: 2200, dmg: 180, hs: 1.3, rng: 0.9, spd: 1.0, heal: 25 },
+    bloodMage:    { hp: 800,  aoe: { dmg: 260, rad: 1.8, period: 3, castRng: 5 } },
+    skyMage:      { hp: 850,  dmg: 150, hs: 1.3, rng: 4.0, spd: 1.0 },
   },
 };
