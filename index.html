@@ -98,14 +98,14 @@
    기획 근거: 맵건설영웅시스템_v0.1, 종족빌드트리_휴먼_v0.1
    좌표계: 타일 14×24, 1타일=34px. 위=적, 아래=플레이어
 ============================================================ */
-const TILE=34, COLS=14, ROWS=24, W=COLS*TILE, H=ROWS*TILE;
+const TILE=34, COLS=15, ROWS=24, W=COLS*TILE, H=ROWS*TILE;   // 2026-08-26 가로 14→15 개정
 const cv=document.getElementById("cv"); cv.width=W; cv.height=H;
 let ctx=cv.getContext("2d");
 
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
  ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,6,8], upCost:4, transformCost:3},
- EXCLUDE_R:4, HALL_ZONE:8, TOWER_ZONE:5, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,
+ EXCLUDE_R:4, HALL_ZONE:8.5, TOWER_ZONE:5, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // HALL_ZONE 8→8.5 (가로 15 개정에 따른 가스 지역 도달 보정)
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:4800, cost:0, tier:1, panel:false},
@@ -146,10 +146,10 @@ const BAL={
                 aura:{label:"마법 유닛 강화", test:"magic"}},
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
- ENEMY_BASE:[["hall",5,1]],
+ ENEMY_BASE:[["hall",6,1]],
  /* 적 건설 AI: 시작 지연(초), 판단 주기(초) */
  AI:{delay:3, interval:1.5},
- GAS_ZONES:[[0,5],[12,5],[0,11],[12,11],[0,17],[12,17]],   // 2×2 지역 좌상단 (좌우 끝, 일정 간격)
+ GAS_ZONES:[[0,5],[13,5],[0,11],[13,11],[0,17],[13,17]],   // 2×2 지역 좌상단 (좌우 끝, 일정 간격)
 };
 if(window.BALANCE){ (function merge(dst,src){ for(const k in src){
   if(src[k]&&typeof src[k]==="object"&&!Array.isArray(src[k])&&dst[k]&&typeof dst[k]==="object"&&!Array.isArray(dst[k])) merge(dst[k],src[k]);
@@ -186,7 +186,7 @@ function newGame(){
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      occ:null, zoneDirty:true};
-  addBuilding("hall","player",5,20);
+  addBuilding("hall","player",6,20);
   BAL.ENEMY_BASE.forEach(([k,x,y])=>addBuilding(k,"enemy",x,y));
   S.zoneDirty=true;
   renderPanel(); updateHUD(); hideStrip();
