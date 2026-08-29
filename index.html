@@ -1401,6 +1401,24 @@ function edRow(path,label,step){
   return `<div class="ed-row"><label>${label}</label>`
     +`<input type="number" step="${step||"any"}" value="${v}" data-path="${path}"></div>`;
 }
+/* 스키마 자동 탐색: 엔티티에 숫자 필드가 추가되면 에디터에 자동 노출됨 */
+const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"이속",splash:"광역 반경",period:"생산 주기(초)",
+  cost:"비용",heal:"초당 회복",rad:"광역 반경",castRng:"시전 사거리",targets:"동시 대상",tier:"요구 티어",
+  kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)"};
+const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
+  "air","antiair","melee","unit","test","label","key"]);
+function edWalk(obj,basePath,prefix){
+  let h="";
+  for(const k in obj){
+    if(ED_SKIP.has(k))continue;
+    const v=obj[k],p=basePath+"."+k;
+    const lbl=ED_LABELS[k]!==undefined?ED_LABELS[k]:k;
+    if(typeof v==="number")h+=edRow(p,(prefix?prefix+" ":"")+lbl);
+    else if(Array.isArray(v))v.forEach((x,i)=>{if(typeof x==="number"&&i>0)h+=edRow(p+"."+i,(prefix?prefix+" ":"")+lbl+" T"+i);});
+    else if(v&&typeof v==="object")h+=edWalk(v,p,(prefix?prefix+" ":"")+lbl);
+  }
+  return h;
+}
 function buildEditorUI(){
   let h="";
   h+=`<div class="ed-sec">경제 · 규칙</div>`;
@@ -1413,37 +1431,12 @@ function buildEditorUI(){
    ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
    ["AI.delay","AI 시작 지연(초)"],["AI.interval","AI 판단 주기(초)"]]
    .forEach(([p,l])=>h+=edRow(p,l));
-  h+=`<div class="ed-sec">건물</div>`;
-  Object.keys(BAL.BUILDINGS).forEach(k=>{
-    const d=BAL.BUILDINGS[k];
-    h+=`<div class="ed-sub">${d.nm}</div>`;
-    h+=edRow(`BUILDINGS.${k}.hp`,"HP");
-    if(d.cost)h+=edRow(`BUILDINGS.${k}.cost`,"비용");
-    if(d.prod)h+=edRow(`BUILDINGS.${k}.prod.period`,"생산 주기(초)");
-    if(d.atk){h+=edRow(`BUILDINGS.${k}.atk.dmg`,"공격력")+edRow(`BUILDINGS.${k}.atk.hs`,"공속(초)")
-             +edRow(`BUILDINGS.${k}.atk.rng`,"사거리")+(d.atk.splash?edRow(`BUILDINGS.${k}.atk.splash`,"광역 반경"):"");}
-    if(d.hAtk){h+=edRow(`BUILDINGS.${k}.hAtk.hs`,"공속(초)")+edRow(`BUILDINGS.${k}.hAtk.rng`,"사거리")
-             +edRow(`BUILDINGS.${k}.hAtk.dmg.1`,"공격력 T1")+edRow(`BUILDINGS.${k}.hAtk.dmg.2`,"공격력 T2")+edRow(`BUILDINGS.${k}.hAtk.dmg.3`,"공격력 T3")
-             +edRow(`BUILDINGS.${k}.hAtk.targets.1`,"동시 대상 T1")+edRow(`BUILDINGS.${k}.hAtk.targets.2`,"동시 대상 T2")+edRow(`BUILDINGS.${k}.hAtk.targets.3`,"동시 대상 T3");}
-  });
-  h+=`<div class="ed-sec">유닛</div>`;
-  Object.keys(BAL.UNITS).forEach(k=>{
-    const d=BAL.UNITS[k];
-    h+=`<div class="ed-sub">${d.nm}</div>`;
-    h+=edRow(`UNITS.${k}.hp`,"HP")+edRow(`UNITS.${k}.dmg`,"공격력")+edRow(`UNITS.${k}.hs`,"공속(초)")
-      +edRow(`UNITS.${k}.rng`,"사거리")+edRow(`UNITS.${k}.spd`,"이속")
-      +(d.splash!==undefined?edRow(`UNITS.${k}.splash`,"광역 반경"):"");
-  });
-  h+=`<div class="ed-sec">영웅</div>`;
-  Object.keys(BAL.HEROES).forEach(k=>{
-    const d=BAL.HEROES[k];
-    h+=`<div class="ed-sub">${d.nm}</div>`;
-    h+=edRow(`HEROES.${k}.hp`,"HP");
-    if(d.dmg)h+=edRow(`HEROES.${k}.dmg`,"공격력")+edRow(`HEROES.${k}.hs`,"공속(초)")+edRow(`HEROES.${k}.rng`,"사거리");
-    if(d.spd)h+=edRow(`HEROES.${k}.spd`,"이속");
-    if(d.heal)h+=edRow(`HEROES.${k}.heal`,"초당 회복량");
-    if(d.aoe){h+=edRow(`HEROES.${k}.aoe.dmg`,"광역 피해")+edRow(`HEROES.${k}.aoe.rad`,"광역 반경")
-             +edRow(`HEROES.${k}.aoe.period`,"시전 주기(초)")+edRow(`HEROES.${k}.aoe.castRng`,"시전 사거리");}
+  /* 건물·유닛·영웅: 스키마 자동 탐색 — 엔티티·수치 필드 추가 시 자동 반영 */
+  [["건물","BUILDINGS"],["유닛","UNITS"],["영웅","HEROES"]].forEach(([sec,root])=>{
+    h+=`<div class="ed-sec">${sec}</div>`;
+    Object.keys(BAL[root]).forEach(k=>{
+      h+=`<div class="ed-sub">${BAL[root][k].nm||k}</div>`+edWalk(BAL[root][k],`${root}.${k}`,"");
+    });
   });
   const body=document.getElementById("ed-body");
   body.innerHTML=h;
