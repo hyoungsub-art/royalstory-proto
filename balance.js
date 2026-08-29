@@ -26,7 +26,9 @@ window.BALANCE = {
   /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함
      2026-08-30 조정: 전 건물 HP ×2, 타워류 공격력 ×2 */
   BUILDINGS: {
-    hall:          { hp: 19200 },
+    hall:          { hp: 19200,
+                     /* 본진 공격: 티어별 공격력·동시 공격 대상 수 (인덱스 1~3 = 티어) */
+                     hAtk: { hs: 0.8, rng: 5, dmg: [0, 109, 160, 240], targets: [0, 2, 5, 10] } },
     elixirBase:    { hp: 1800, cost: 4 },
     barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
