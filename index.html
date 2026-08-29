@@ -136,7 +136,7 @@ const BAL={
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:218, hs:1.1, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 사거리 5.0→4.5
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.5, r:11, cat:"gp", melee:true},
   flyingMachine:{nm:"플라잉 머신", hp:550,  dmg:130, hs:1.0, rng:3.5, spd:1.6, r:9,  cat:"ap", air:true, antiair:true},
-  mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:4.2, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.2},
+  mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
   gryphon:      {nm:"그리폰",      hp:1900, dmg:260, hs:1.5, rng:0.9, spd:1.4, r:12, cat:"am", air:true, antiair:true, melee:true},
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
@@ -373,6 +373,7 @@ function unitUpdate(u,dt){
         const foe=u.side==="player"?"enemy":"player";
         S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&canHit(u,e)&&Math.hypot(e.x-tx,e.y-ty)<=u.splash*TILE)dealDamage(u,e,u.dmg);});
         if(tgt.cx!==undefined)dealDamage(u,tgt,u.dmg);
+        S.effects.push({tp:"boom",x:tx,y:ty,rad:u.splash*TILE,t:0.25,t0:0.25,col:"190,120,255"});   // 광역 폭발 연출
       } else dealDamage(u,tgt,u.dmg);
       if(u.rng>2)S.effects.push({tp:"bullet",x1:u.x,y1:u.y-u.r*0.4,x2:tx,y2:ty,t:0.12,t0:0.12});
       else hitFx(tx,ty);

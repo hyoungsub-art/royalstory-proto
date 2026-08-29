@@ -46,7 +46,7 @@ window.BALANCE = {
     rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 4.5, spd: 1.0 },   // 사거리 5.0→4.5
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
     flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
-    mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 4.2, spd: 1.0, splash: 1.2 },
+    mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
     gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 0.9, spd: 1.4 },
   },
 
