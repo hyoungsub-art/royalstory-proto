@@ -72,6 +72,9 @@
   #editor{position:fixed;top:0;right:0;bottom:0;width:min(340px,94vw);background:rgba(18,22,36,.97);z-index:20;display:none;
     border-left:2px solid #39415c;padding:10px 12px calc(10px + env(safe-area-inset-bottom));overflow-y:auto;font-size:12px;}
   .ed-btn{background:var(--panel2);color:var(--text);border:1px solid #39415c;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;}
+  .ed-tabs{display:flex;gap:4px;margin:4px 0 8px;position:sticky;top:0;background:rgba(18,22,36,.97);padding:4px 0;z-index:1;}
+  .ed-tab{flex:1;background:var(--panel2);color:var(--sub);border:1px solid #39415c;border-radius:7px;padding:6px 2px;font-size:11.5px;cursor:pointer;font-weight:bold;}
+  .ed-tab.on{background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#ffd27a;border-color:#5a6ea6;}
   .ed-sec{margin:10px 0 3px;font-weight:bold;color:var(--gold);font-size:12px;border-bottom:1px solid #39415c;padding-bottom:3px;}
   .ed-sub{margin:6px 0 2px;font-weight:bold;color:#9fc0ff;font-size:11.5px;}
   .ed-row{display:flex;justify-content:space-between;align-items:center;padding:1.5px 0;gap:6px;}
@@ -1419,25 +1422,28 @@ function edWalk(obj,basePath,prefix){
   }
   return h;
 }
+let edTab="rules";
 function buildEditorUI(){
-  let h="";
-  h+=`<div class="ed-sec">경제 · 규칙</div>`;
-  [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
-   ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
-   ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierCost.2","킵 승급 비용"],["ECON.tierCost.3","캐슬 승급 비용"],
-   ["ECON.upCost","업그레이드 비용"],["ECON.transformCost","변형 비용"],
-   ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
-   ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
-   ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
-   ["AI.delay","AI 시작 지연(초)"],["AI.interval","AI 판단 주기(초)"]]
-   .forEach(([p,l])=>h+=edRow(p,l));
-  /* 건물·유닛·영웅: 스키마 자동 탐색 — 엔티티·수치 필드 추가 시 자동 반영 */
-  [["건물","BUILDINGS"],["유닛","UNITS"],["영웅","HEROES"]].forEach(([sec,root])=>{
-    h+=`<div class="ed-sec">${sec}</div>`;
-    Object.keys(BAL[root]).forEach(k=>{
-      h+=`<div class="ed-sub">${BAL[root][k].nm||k}</div>`+edWalk(BAL[root][k],`${root}.${k}`,"");
+  /* 탭 바 */
+  let h=`<div class="ed-tabs">`+[["rules","경제·규칙"],["BUILDINGS","건물"],["UNITS","유닛"],["HEROES","영웅"]]
+    .map(([id,nm])=>`<button class="ed-tab${edTab===id?" on":""}" onclick="edTab='${id}';buildEditorUI()">${nm}</button>`).join("")
+    +`</div>`;
+  if(edTab==="rules"){
+    [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
+     ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
+     ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierCost.2","킵 승급 비용"],["ECON.tierCost.3","캐슬 승급 비용"],
+     ["ECON.upCost","업그레이드 비용"],["ECON.transformCost","변형 비용"],
+     ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
+     ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
+     ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
+     ["AI.delay","AI 시작 지연(초)"],["AI.interval","AI 판단 주기(초)"]]
+     .forEach(([p,l])=>h+=edRow(p,l));
+  } else {
+    /* 스키마 자동 탐색 — 엔티티·수치 필드 추가 시 자동 반영 */
+    Object.keys(BAL[edTab]).forEach(k=>{
+      h+=`<div class="ed-sub">${BAL[edTab][k].nm||k}</div>`+edWalk(BAL[edTab][k],`${edTab}.${k}`,"");
     });
-  });
+  }
   const body=document.getElementById("ed-body");
   body.innerHTML=h;
   body.querySelectorAll("input[data-path]").forEach(inp=>{
