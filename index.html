@@ -16,15 +16,22 @@
   #hud{display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:12px;gap:6px;}
   #hud button{background:var(--panel2);color:var(--text);border:1px solid #39415c;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;}
   #tier-label{color:var(--gold);font-weight:bold;}
-  #cv-wrap{flex:1;min-height:0;display:flex;justify-content:center;align-items:center;}
+  #cv-wrap{flex:1;min-height:0;display:flex;justify-content:center;align-items:center;position:relative;}
   canvas{display:block;border-radius:8px;width:auto;height:auto;max-width:100%;max-height:100%;
     border:3px solid #223055;box-shadow:inset 0 0 0 2px rgba(255,215,120,.25);touch-action:none;}
-  /* 액션 스트립 (선택 건물) */
-  #action-strip{display:none;gap:6px;padding:6px 4px;flex-wrap:wrap;align-items:center;}
-  #action-strip .as-title{font-size:12px;font-weight:bold;color:var(--gold);margin-right:4px;}
-  #action-strip button{background:linear-gradient(180deg,#3b4a75,#2c3a5e);color:#fff;border:1px solid #4a5a8a;border-radius:7px;
-    padding:6px 10px;font-size:12px;cursor:pointer;}
-  #action-strip button:disabled{opacity:.45;cursor:not-allowed;}
+  /* 건물 말풍선 팝업 (클릭 토글) */
+  #bubble{position:absolute;display:none;z-index:8;transform:translate(-50%,-100%);
+    background:rgba(28,34,54,.96);border:2px solid #5a6ea6;border-radius:10px;padding:7px;
+    box-shadow:0 4px 12px rgba(0,0,0,.55);min-width:128px;max-width:200px;}
+  #bubble::after{content:"";position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);
+    border:9px solid transparent;border-top-color:#5a6ea6;}
+  #bubble.below{transform:translate(-50%,0);}
+  #bubble.below::after{top:-17px;bottom:auto;border-top-color:transparent;border-bottom-color:#5a6ea6;}
+  #bubble .b-title{font-size:11.5px;font-weight:bold;color:var(--gold);text-align:center;margin-bottom:4px;white-space:nowrap;}
+  #bubble button{display:block;width:100%;margin:3px 0;background:linear-gradient(180deg,#3b4a75,#2c3a5e);
+    color:#fff;border:1px solid #4a5a8a;border-radius:7px;padding:7px 8px;font-size:12px;cursor:pointer;white-space:nowrap;}
+  #bubble button:disabled{opacity:.45;cursor:not-allowed;}
+  #bubble .b-note{font-size:10px;text-align:center;margin-top:2px;}
   /* 하단 패널 */
   #bottom{background:linear-gradient(180deg,#2c3a5e,#22304f);border:2px solid #16203a;border-radius:12px;margin-top:4px;
     padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
@@ -70,8 +77,7 @@
     <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
     <button onclick="toggleSpeed()" id="spd-btn">▶ ×1</button>
   </div>
-  <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas></div>
-  <div id="action-strip"></div>
+  <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas><div id="bubble"></div></div>
   <div id="bottom">
     <div id="elixir-row">
       <div id="elixir-num">0/10</div>
@@ -535,6 +541,7 @@ function renderPanel(){
 function attachDrag(div,info){
   div.addEventListener("pointerdown",e=>{
     if(S.over)return; e.preventDefault();
+    hideStrip();   // 드래그 시작 시 말풍선 닫기
     dragState={...info,id:e.pointerId,moved:false,el:div};
     try{div.setPointerCapture(e.pointerId);}catch(_){}
   });
@@ -590,41 +597,66 @@ cv.addEventListener("click",e=>{
   const x=(e.clientX-rect.left)*(cv.width/rect.width), y=(e.clientY-rect.top)*(cv.height/rect.height);
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
-  if(b&&b.side==="player"&&b.hp>0){S.selBld=b;showStrip(b);}
-  else{S.selBld=null;hideStrip();}
+  if(b&&b.side==="player"&&b.hp>0){
+    if(S.selBld===b)hideStrip();      // 같은 건물 재클릭 → 말풍선 닫기 (토글)
+    else showStrip(b);
+  }
+  else hideStrip();
 });
 
-/* ---------- 액션 스트립 (선택 건물) ---------- */
-function hideStrip(){document.getElementById("action-strip").style.display="none";S.selBld=null;}
+/* ---------- 건물 말풍선 팝업 (클릭 토글) ---------- */
+function hideStrip(){document.getElementById("bubble").style.display="none";S.selBld=null;}
 function showStrip(b){
-  const st=document.getElementById("action-strip");
+  S.selBld=b;
+  const el=document.getElementById("bubble");
   const d=BAL.BUILDINGS[b.key], t=effTier("player");
-  let html=`<span class="as-title">${d.nm}${d.upgCat?` Lv${b.level}`:""}</span>`;
+  let html=`<div class="b-title">${d.nm}${d.upgCat?` Lv${b.level}`:""}</div>`;
   if(b.key==="hall"){
     if(S.tier<3){
       const nt=S.tier+1, need=nt===2?"blacksmith":"sanctum";
-      const ok=aliveB("player",need), cost=BAL.ECON.tierCost[nt];
-      html+=`<button onclick="tierUp()" ${ok&&S.elixir>=cost?"":"disabled"}>${TIER_NM[nt]} 승급 (${cost})${ok?"":" — "+BAL.BUILDINGS[need].nm+" 필요"}</button>`;
-    } else html+=`<span style="font-size:11px;color:var(--sub)">최고 티어</span>`;
-    if(effTier("player")<S.tier)html+=`<span style="font-size:11px;color:var(--red)">⚠ 티어 강등 중 (선행 건물 파괴)</span>`;
+      const hard=!aliveB("player",need), cost=BAL.ECON.tierCost[nt];
+      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+          +`${TIER_NM[nt]} 승급 (${cost})${hard?`<br><span style="font-size:10px">${BAL.BUILDINGS[need].nm} 필요</span>`:""}</button>`;
+    } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
+    if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
   if(d.upgCat){
-    const cap=t, cost=BAL.ECON.upCost;
+    const cost=BAL.ECON.upCost;
     if(b.level<3){
-      const ok=b.level<cap&&S.elixir>=cost;
-      html+=`<button onclick="upgradeSel()" ${ok?"":"disabled"}>업그레이드 Lv${b.level+1} (${cost})${b.level>=cap?" — 티어 필요":""}</button>`;
-    } else html+=`<span style="font-size:11px;color:var(--sub)">최대 강화</span>`;
+      const hard=b.level>=t;
+      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+          +`업그레이드 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
+    } else html+=`<div class="b-note" style="color:var(--sub)">최대 강화</div>`;
   }
   (d.transforms||[]).forEach((tr,i)=>{
-    const nd=BAL.BUILDINGS[tr.key];
-    const ok=t>=tr.tier&&(!tr.prereq||aliveB("player",tr.prereq))&&S.elixir>=BAL.ECON.transformCost;
+    const nd=BAL.BUILDINGS[tr.key], cost=BAL.ECON.transformCost;
     const cond=[];
     if(t<tr.tier)cond.push(TIER_NM[tr.tier]);
     if(tr.prereq&&!aliveB("player",tr.prereq))cond.push(BAL.BUILDINGS[tr.prereq].nm);
-    html+=`<button onclick="transformSel(${i})" ${ok?"":"disabled"}>➔ ${nd.nm} (${BAL.ECON.transformCost})${cond.length?" — "+cond.join("·")+" 필요":""}</button>`;
+    const hard=cond.length>0;
+    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+        +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:""}</button>`;
   });
-  html+=`<button onclick="hideStrip()" style="margin-left:auto;">✕</button>`;
-  st.innerHTML=html; st.style.display="flex"; S.selBld=b;
+  el.innerHTML=html;
+  /* 위치: 건물 상단 중앙, 화면 위쪽 건물이면 아래로 뒤집기 */
+  const wrap=document.getElementById("cv-wrap");
+  const cvR=cv.getBoundingClientRect(), wrapR=wrap.getBoundingClientRect();
+  const scale=cvR.width/cv.width;
+  const x=(cvR.left-wrapR.left)+b.cx*scale;
+  const below=b.ty*TILE*scale<150;
+  el.classList.toggle("below",below);
+  el.style.left=x+"px";
+  el.style.top=below
+    ? ((cvR.top-wrapR.top)+(b.ty+b.h)*TILE*scale+14)+"px"
+    : ((cvR.top-wrapR.top)+b.ty*TILE*scale-14)+"px";
+  el.style.display="block";
+}
+/* 엘릭서 변동에 따른 버튼 활성화 실시간 갱신 */
+function refreshBubble(){
+  if(!S.selBld)return;
+  document.querySelectorAll("#bubble button[data-cost]").forEach(btn=>{
+    btn.disabled=S.elixir<+btn.dataset.cost;
+  });
 }
 function tierUp(){doTierUp("player");}
 function upgradeSel(){
@@ -700,6 +732,7 @@ function updateHUD(){
   document.getElementById("tier-label").textContent=TIER_NM[t]+(t<S.tier?" (강등)":"");
   const m=Math.floor(S.elapsed/60),s=Math.floor(S.elapsed%60);
   document.getElementById("time-label").textContent=m+":"+String(s).padStart(2,"0");
+  refreshBubble();
   /* 패널 dim 갱신 */
   document.querySelectorAll("#panel .p-item").forEach((el,i)=>{
     if(el.classList.contains("locked"))return;
