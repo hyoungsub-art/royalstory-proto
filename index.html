@@ -115,7 +115,7 @@ const BAL={
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
-  hall:         {nm:"본진",        w:3,h:3, hp:9600, cost:0, tier:1, panel:false},
+  hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false},   // 2026-08-30 재조정: ×2
   elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
                  transforms:[{key:"shooterGarden",tier:2},{key:"knightHall",tier:3}]},
@@ -133,7 +133,7 @@ const BAL={
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
   footman:      {nm:"풋맨",        hp:1766, dmg:202, hs:1.2, rng:0.8, spd:1.0, r:10, cat:"gp", melee:true},
-  rifleman:     {nm:"라이플맨",    hp:720,  dmg:218, hs:1.1, rng:4.0, spd:1.0, r:9,  cat:"gp", antiair:true},
+  rifleman:     {nm:"라이플맨",    hp:720,  dmg:218, hs:1.1, rng:5.0, spd:1.0, r:9,  cat:"gp", antiair:true},   // 사거리 = 타워와 동일 (T4 경계값)
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.5, r:11, cat:"gp", melee:true},
   flyingMachine:{nm:"플라잉 머신", hp:550,  dmg:130, hs:1.0, rng:3.5, spd:1.6, r:9,  cat:"ap", air:true, antiair:true},
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:4.2, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.2},

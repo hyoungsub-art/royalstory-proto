@@ -26,7 +26,7 @@ window.BALANCE = {
   /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함
      2026-08-30 조정: 전 건물 HP ×2, 타워류 공격력 ×2 */
   BUILDINGS: {
-    hall:          { hp: 9600 },
+    hall:          { hp: 19200 },
     elixirBase:    { hp: 1800, cost: 4 },
     barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
@@ -43,7 +43,7 @@ window.BALANCE = {
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
   UNITS: {
     footman:       { hp: 1766, dmg: 202, hs: 1.2, rng: 0.8, spd: 1.0 },
-    rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 4.0, spd: 1.0 },
+    rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 5.0, spd: 1.0 },   // 사거리 = 타워와 동일
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
     flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 4.2, spd: 1.0, splash: 1.2 },
