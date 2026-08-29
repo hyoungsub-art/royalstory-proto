@@ -111,7 +111,7 @@ let ctx=cv.getContext("2d");
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
  ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,6,8], upCost:4, transformCost:3},
- EXCLUDE_R:4, HALL_ZONE:4.25, TOWER_ZONE:2.5, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-08-30 영역 반경 절반 (판정은 건물 중심 기준으로 완화)
+ EXCLUDE_R:4, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-08-30 본진 +1칸, 타워 = 본진 동일 (판정은 건물 중심 기준)
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
