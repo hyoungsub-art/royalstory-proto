@@ -23,20 +23,21 @@ window.BALANCE = {
   HERO_COST: 6,     // 영웅 공통 코스트 (확정: 전원 동일)
   HERO_CD: 12,      // 영웅 사망 후 재소환 쿨다운 (초)
 
-  /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함 */
+  /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함
+     2026-08-30 조정: 전 건물 HP ×2, 타워류 공격력 ×2 */
   BUILDINGS: {
-    hall:          { hp: 4800 },
-    elixirBase:    { hp: 900,  cost: 4 },
-    barracks:      { hp: 1300, cost: 5, prod: { unit: "footman",       period: 8  } },
-    shooterGarden: { hp: 1300,          prod: { unit: "rifleman",      period: 9  } },
-    knightHall:    { hp: 1400,          prod: { unit: "knight",        period: 11 } },
-    blacksmith:    { hp: 1100, cost: 5 },
-    workshop:      { hp: 1300, cost: 6, prod: { unit: "flyingMachine", period: 10 } },
-    sanctum:       { hp: 1300, cost: 6, prod: { unit: "mage",          period: 10 } },
-    tower:         { hp: 1600, cost: 5, atk: { dmg: 109, hs: 0.8, rng: 5 } },
-    guardTower:    { hp: 1800,          atk: { dmg: 180, hs: 0.8, rng: 5 } },
-    arcaneTower:   { hp: 1700,          atk: { dmg: 135, hs: 1.0, rng: 5, splash: 1.5 } },
-    aviary:        { hp: 1500, cost: 8, prod: { unit: "gryphon",       period: 14 } },
+    hall:          { hp: 9600 },
+    elixirBase:    { hp: 1800, cost: 4 },
+    barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
+    shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
+    knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
+    blacksmith:    { hp: 2200, cost: 5 },
+    workshop:      { hp: 2600, cost: 6, prod: { unit: "flyingMachine", period: 10 } },
+    sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
+    tower:         { hp: 3200, cost: 5, atk: { dmg: 218, hs: 0.8, rng: 5 } },
+    guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 5 } },
+    arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 5, splash: 1.5 } },
+    aviary:        { hp: 3000, cost: 8, prod: { unit: "gryphon",       period: 14 } },
   },
 
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
