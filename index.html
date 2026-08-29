@@ -87,7 +87,10 @@
 <body>
 <div id="app">
   <div id="hud">
-    <button onclick="restart()">↺ 다시 시작</button>
+    <div style="display:flex;gap:4px;">
+      <button onclick="restart()">↺</button>
+      <button onclick="cycleDiff()" id="diff-btn" title="난이도 (변경 시 재시작)">보통</button>
+    </div>
     <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
     <div style="display:flex;gap:4px;">
       <button onclick="toggleEditor()" title="밸런스 에디터">⚙</button>
@@ -185,8 +188,12 @@ const BAL={
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
  ENEMY_BASE:[["hall",8,1]],
- /* 적 건설 AI: 시작 지연(초), 판단 주기(초) */
- AI:{delay:3, interval:1.5},
+ /* 난이도 프리셋: 적에게만 적용 — AI 속도·적 스탯 배율·적 경제 배율 */
+ DIFF:{
+  easy:  {aiDelay:10, aiInterval:3,   stat:0.7, econ:0.7},
+  normal:{aiDelay:3,  aiInterval:1.5, stat:1.0, econ:1.0},
+  hard:  {aiDelay:2,  aiInterval:1.0, stat:1.3, econ:1.3},
+ },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
  ROAD:{x0:8, x1:10, y0:4, y1:19},
  GAS_ZONES:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]],   // 2×2 지역 좌상단 (좌우 끝, 일정 간격)
@@ -207,6 +214,20 @@ const AURA_TESTS={
 const store=(()=>{try{localStorage.setItem("_t","1");localStorage.removeItem("_t");return localStorage;}
   catch(e){const m={};return{getItem:k=>(k in m?m[k]:null),setItem:(k,v)=>{m[k]=String(v);}};}})();
 let S=null, gameSpeed=1, rafId=null, lastTs=0, dragState=null, cvTouchAim=false;
+/* 난이도 (적 전용 배율) */
+let diffKey="normal";
+function diff(){return BAL.DIFF[diffKey]||BAL.DIFF.normal;}
+const DIFF_NM={easy:"쉬움",normal:"보통",hard:"어려움"};
+function cycleDiff(){
+  const order=["easy","normal","hard"];
+  diffKey=order[(order.indexOf(diffKey)+1)%order.length];
+  store.setItem("rs2_diff",diffKey);
+  syncDiffUI();
+  toast("난이도: "+DIFF_NM[diffKey]+" — 재시작");
+  restart();
+}
+function syncDiffUI(){const b=document.getElementById("diff-btn");if(b)b.textContent=DIFF_NM[diffKey]||diffKey;}
+function eMult(side){return side==="enemy"?diff().stat:1;}
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.style.display="block";
   clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
@@ -240,7 +261,8 @@ function newGame(){
 function restart(){ newGame(); }
 function addBuilding(key,side,tx,ty){
   const d=BAL.BUILDINGS[key];
-  const b={key,side,tx,ty,w:d.w,h:d.h,hp:d.hp,maxHp:d.hp,level:1,prodT:0,cd:0,flash:0,boomed:false,
+  const bhp=Math.round(d.hp*eMult(side));   // 난이도: 적 건물 HP 배율
+  const b={key,side,tx,ty,w:d.w,h:d.h,hp:bhp,maxHp:bhp,level:1,prodT:0,cd:0,flash:0,boomed:false,
            cx:(tx+d.w/2)*TILE, cy:(ty+d.h/2)*TILE};
   S.buildings.push(b); S.occ=null; S.zoneDirty=true;
   return b;
@@ -341,6 +363,7 @@ function spawnUnit(key,side,x,y,hero){
            cd:0, deploy:0.6, animT:Math.random()*6.28, swing:0, flash:0, fx:side==="player"?1:-1, moving:false,
            bAtk:1,bDef:1, slowT:0};
   u.spd=d.spd*TILE;   // 타일/초 → px/초
+  if(side==="enemy"&&!hero){const m=diff().stat;u.hp*=m;u.maxHp*=m;u.dmg*=m;}   // 난이도: 적 유닛 배율
   S.units.push(u);
   return u;
 }
@@ -465,14 +488,14 @@ function buildingUpdate(b,dt){
   if(d.hAtk){
     b.cd-=dt;
     if(b.cd<=0){
-      const t=effTier(b.side), a=d.hAtk;
+      const t=effTier(b.side), a=d.hAtk, hdm=a.dmg[t]*eMult(b.side);
       const foe=b.side==="player"?"enemy":"player";
       const inR=S.units.filter(e=>e.side===foe&&e.hp>0&&e.deploy<=0&&Math.hypot(b.cx-e.x,b.cy-e.y)<=a.rng*TILE)
         .sort((p,q)=>Math.hypot(b.cx-p.x,b.cy-p.y)-Math.hypot(b.cx-q.x,b.cy-q.y))
         .slice(0,a.targets[t]);
       if(inR.length){
         inR.forEach(e=>{
-          e.hp-=a.dmg[t]/(e.bDef*(e.hero?1:upgMult(e.side,e.cat||"gp")));e.flash=0.12;
+          e.hp-=hdm/(e.bDef*(e.hero?1:upgMult(e.side,e.cat||"gp")));e.flash=0.12;
           S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:e.x,y2:e.y,t:0.12,t0:0.12});
         });
         b.cd=a.hs;
@@ -488,8 +511,9 @@ function buildingUpdate(b,dt){
       S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0)return;
         const dd=Math.hypot(b.cx-e.x,b.cy-e.y);if(dd<bd&&dd<=d.atk.rng*TILE){bd=dd;best=e;}});
       if(best){
-        if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=d.atk.dmg/(e.bDef*(e.hero?1:upgMult(e.side,e.cat||"gp")));e.flash=0.12;}});}
-        else{best.hp-=d.atk.dmg/(best.bDef*(best.hero?1:upgMult(best.side,best.cat||"gp")));best.flash=0.12;}
+        const tdm=d.atk.dmg*eMult(b.side);   // 난이도: 적 타워 공격력 배율
+        if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=tdm/(e.bDef*(e.hero?1:upgMult(e.side,e.cat||"gp")));e.flash=0.12;}});}
+        else{best.hp-=tdm/(best.bDef*(best.hero?1:upgMult(best.side,best.cat||"gp")));best.flash=0.12;}
         b.cd=d.atk.hs;
         S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:best.x,y2:best.y,t:0.12,t0:0.12});
       } else b.cd=0.2;
@@ -529,9 +553,9 @@ function findSpot(key,side,pref){
   return best;
 }
 function aiUpdate(dt){
-  if(S.elapsed<(BAL.AI.delay||3))return;
+  if(S.elapsed<diff().aiDelay)return;   // 난이도: AI 시작 지연
   S.aiT+=dt;
-  if(S.aiT<(BAL.AI.interval||1.5))return;
+  if(S.aiT<diff().aiInterval)return;    // 난이도: AI 판단 주기
   S.aiT=0;
   const side="enemy", tier=effTier(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
@@ -765,7 +789,7 @@ function loop(ts){
     const gas=S.buildings.filter(b=>b.side==="player"&&b.key==="elixirBase"&&b.hp>0).length;
     S.elixir=Math.min(elixirCap(),S.elixir+dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen);
     const eGas=S.buildings.filter(b=>b.side==="enemy"&&b.key==="elixirBase"&&b.hp>0).length;
-    S.eElixir=Math.min(capFor("enemy"),S.eElixir+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
+    S.eElixir=Math.min(capFor("enemy"),S.eElixir+dt*diff().econ*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
     aiUpdate(dt);
     recomputeAuras();
     S.units.forEach(u=>unitUpdate(u,dt));
@@ -1407,7 +1431,8 @@ function edRow(path,label,step){
 /* 스키마 자동 탐색: 엔티티에 숫자 필드가 추가되면 에디터에 자동 노출됨 */
 const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"이속",splash:"광역 반경",period:"생산 주기(초)",
   cost:"비용",heal:"초당 회복",rad:"광역 반경",castRng:"시전 사거리",targets:"동시 대상",tier:"요구 티어",
-  kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)"};
+  kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)",
+  easy:"쉬움",normal:"보통",hard:"어려움",aiDelay:"AI 지연(초)",aiInterval:"AI 주기(초)",stat:"적 스탯 배율",econ:"적 경제 배율"};
 const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
   "air","antiair","melee","unit","test","label","key"]);
 function edWalk(obj,basePath,prefix){
@@ -1435,9 +1460,9 @@ function buildEditorUI(){
      ["ECON.upCost","업그레이드 비용"],["ECON.transformCost","변형 비용"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
-     ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
-     ["AI.delay","AI 시작 지연(초)"],["AI.interval","AI 판단 주기(초)"]]
+     ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"]]
      .forEach(([p,l])=>h+=edRow(p,l));
+    h+=`<div class="ed-sec">난이도 프리셋 (적 전용, 현재: ${DIFF_NM[diffKey]})</div>`+edWalk(BAL.DIFF,"DIFF","");
   } else {
     /* 스키마 자동 탐색 — 엔티티·수치 필드 추가 시 자동 반영 */
     Object.keys(BAL[edTab]).forEach(k=>{
@@ -1480,8 +1505,10 @@ function edReset(){
 }
 
 /* ---------- 시작 ---------- */
+diffKey=store.getItem("rs2_diff")||"normal";
 buildIcons();
 newGame();
+syncDiffUI();
 rafId=requestAnimationFrame(loop);
 </script>
 </body>
