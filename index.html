@@ -88,6 +88,7 @@
     <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
     <div style="display:flex;gap:4px;">
       <button onclick="toggleEditor()" title="밸런스 에디터">⚙</button>
+      <button onclick="togglePause()" id="pause-btn" title="일시 정지">⏸</button>
       <button onclick="toggleSpeed()" id="spd-btn">▶ ×1</button>
     </div>
   </div>
@@ -779,7 +780,19 @@ function endGame(win){
   document.getElementById("ov-detail").innerHTML=win?"적 본진 파괴 — 점령 완료":"본진이 파괴되었습니다";
   document.getElementById("overlay").style.display="flex";
 }
-function toggleSpeed(){gameSpeed=gameSpeed===1?2:gameSpeed===2?4:1;document.getElementById("spd-btn").textContent="▶ ×"+gameSpeed;}
+function toggleSpeed(){gameSpeed=gameSpeed===0?1:gameSpeed===1?2:gameSpeed===2?4:1;syncPauseUI();}
+let pausedPrev=1;
+function togglePause(){
+  if(gameSpeed===0)gameSpeed=pausedPrev||1;
+  else{pausedPrev=gameSpeed;gameSpeed=0;}
+  syncPauseUI();
+}
+function syncPauseUI(){
+  const p=gameSpeed===0;
+  document.getElementById("pause-btn").textContent=p?"▶":"⏸";
+  document.getElementById("spd-btn").textContent=p?"⏸ 정지":"▶ ×"+gameSpeed;
+  const ep=document.getElementById("ed-pause");if(ep)ep.textContent=p?"▶":"⏸";
+}
 function updateHUD(){
   const cap=elixirCap();
   document.getElementById("elixir-fill").style.width=(S.elixir/cap*100)+"%";
@@ -1324,6 +1337,13 @@ function draw(){
       if(bad){ctx.fillStyle="rgba(255,60,60,.4)";ctx.beginPath();ctx.arc(S.mouse.x,S.mouse.y,d.r*1.15,0,7);ctx.fill();}
     }
   }
+  /* 일시 정지 오버레이 */
+  if(gameSpeed===0&&!S.over){
+    ctx.fillStyle="rgba(10,14,26,.35)";ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="rgba(20,24,38,.85)";roundRectPath(W/2-70,H/2-24,140,48,10);ctx.fill();
+    ctx.fillStyle="#ffd27a";ctx.font="bold 18px sans-serif";ctx.textAlign="center";
+    ctx.fillText("⏸ 일시 정지",W/2,H/2+7);
+  }
   ctx.restore();
 }
 
@@ -1354,13 +1374,7 @@ function toggleEditor(){
   if(e.style.display==="block"){e.style.display="none";}
   else{buildEditorUI();e.style.display="block";}
 }
-let edPrevSpeed=1;
-function edPause(){
-  const btn=document.getElementById("ed-pause");
-  if(gameSpeed===0){gameSpeed=edPrevSpeed||1;btn.textContent="⏸";}
-  else{edPrevSpeed=gameSpeed;gameSpeed=0;btn.textContent="▶";}
-  document.getElementById("spd-btn").textContent="▶ ×"+gameSpeed;
-}
+function edPause(){togglePause();}
 function edRow(path,label,step){
   const v=bGet(path);
   if(v===undefined)return"";
