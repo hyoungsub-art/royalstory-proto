@@ -1182,8 +1182,8 @@ function draw(){
       } else if(fz){ctx.fillStyle="rgba(140,255,160,.12)";ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);}
     }
   }
-  /* 건물 */
-  S.buildings.forEach(b=>{
+  /* 건물 (y 정렬 — 아래쪽 건물이 위쪽 건물의 솟은 부분을 가리도록) */
+  [...S.buildings].sort((a,b)=>(a.ty+a.h)-(b.ty+b.h)).forEach(b=>{
     const px=b.tx*TILE,py=b.ty*TILE,pw=b.w*TILE,ph=b.h*TILE;
     if(b.hp<=0){ /* 잔해 */
       ctx.fillStyle="#9a978a";
