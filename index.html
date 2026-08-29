@@ -68,6 +68,17 @@
   #overlay button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;cursor:pointer;}
   #toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(20,24,38,.94);border:1px solid #39415c;
     padding:8px 16px;border-radius:8px;font-size:12.5px;display:none;z-index:9;max-width:90vw;text-align:center;}
+  /* 밸런스 에디터 */
+  #editor{position:fixed;top:0;right:0;bottom:0;width:min(340px,94vw);background:rgba(18,22,36,.97);z-index:20;display:none;
+    border-left:2px solid #39415c;padding:10px 12px calc(10px + env(safe-area-inset-bottom));overflow-y:auto;font-size:12px;}
+  .ed-btn{background:var(--panel2);color:var(--text);border:1px solid #39415c;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;}
+  .ed-sec{margin:10px 0 3px;font-weight:bold;color:var(--gold);font-size:12px;border-bottom:1px solid #39415c;padding-bottom:3px;}
+  .ed-sub{margin:6px 0 2px;font-weight:bold;color:#9fc0ff;font-size:11.5px;}
+  .ed-row{display:flex;justify-content:space-between;align-items:center;padding:1.5px 0;gap:6px;}
+  .ed-row label{color:var(--sub);flex:1;font-size:11.5px;white-space:nowrap;overflow:hidden;}
+  .ed-row input{width:66px;background:#171b28;color:#fff;border:1px solid #39415c;border-radius:5px;padding:3px 5px;font-size:12px;text-align:right;}
+  #ed-export{width:100%;height:100px;background:#171b28;color:#9fe8d8;border:1px solid #39415c;border-radius:5px;font-size:10px;
+    display:none;margin-bottom:6px;padding:4px;}
 </style>
 </head>
 <body>
@@ -75,7 +86,10 @@
   <div id="hud">
     <button onclick="restart()">↺ 다시 시작</button>
     <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
-    <button onclick="toggleSpeed()" id="spd-btn">▶ ×1</button>
+    <div style="display:flex;gap:4px;">
+      <button onclick="toggleEditor()" title="밸런스 에디터">⚙</button>
+      <button onclick="toggleSpeed()" id="spd-btn">▶ ×1</button>
+    </div>
   </div>
   <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas><div id="bubble"></div></div>
   <div id="bottom">
@@ -95,6 +109,18 @@
   <button onclick="restart()">다시 시작</button>
 </div></div>
 <div id="toast"></div>
+<div id="editor">
+  <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+    <b style="flex:1;color:var(--gold);">⚙ 밸런스 에디터</b>
+    <button class="ed-btn" onclick="edPause()" id="ed-pause">⏸</button>
+    <button class="ed-btn" onclick="edExport()">내보내기</button>
+    <button class="ed-btn" onclick="edReset()">초기화</button>
+    <button class="ed-btn" onclick="toggleEditor()">✕</button>
+  </div>
+  <div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;">변경 즉시 반영 · 유닛/영웅 스탯은 새로 나오는 개체부터 적용</div>
+  <textarea id="ed-export" readonly onclick="this.select()"></textarea>
+  <div id="ed-body"></div>
+</div>
 
 <script src="balance.js"></script><!-- 외부 밸런스 테이블 (없으면 내장 기본값) -->
 <script>
@@ -163,6 +189,7 @@ const BAL={
 if(window.BALANCE){ (function merge(dst,src){ for(const k in src){
   if(src[k]&&typeof src[k]==="object"&&!Array.isArray(src[k])&&dst[k]&&typeof dst[k]==="object"&&!Array.isArray(dst[k])) merge(dst[k],src[k]);
   else dst[k]=src[k]; } })(BAL, window.BALANCE); }
+const BAL0=JSON.parse(JSON.stringify(BAL));   // 에디터 초기화용 원본 스냅샷
 
 /* 오라 대상 판정 (사거리 축: melee/ranged, 분류: cat) */
 const AURA_TESTS={
@@ -1317,6 +1344,103 @@ function buildIcons(){
     ICONS["hero_"+key]=icv.toDataURL();
   });
   ctx=old;
+}
+
+/* ---------- 밸런스 에디터 ---------- */
+function bGet(p){return p.split(".").reduce((o,k)=>o&&o[k],BAL);}
+function bSet(p,v){const ks=p.split("."),last=ks.pop();const o=ks.reduce((o,k)=>o[k],BAL);o[last]=v;}
+function toggleEditor(){
+  const e=document.getElementById("editor");
+  if(e.style.display==="block"){e.style.display="none";}
+  else{buildEditorUI();e.style.display="block";}
+}
+let edPrevSpeed=1;
+function edPause(){
+  const btn=document.getElementById("ed-pause");
+  if(gameSpeed===0){gameSpeed=edPrevSpeed||1;btn.textContent="⏸";}
+  else{edPrevSpeed=gameSpeed;gameSpeed=0;btn.textContent="▶";}
+  document.getElementById("spd-btn").textContent="▶ ×"+gameSpeed;
+}
+function edRow(path,label,step){
+  const v=bGet(path);
+  if(v===undefined)return"";
+  return `<div class="ed-row"><label>${label}</label>`
+    +`<input type="number" step="${step||"any"}" value="${v}" data-path="${path}"></div>`;
+}
+function buildEditorUI(){
+  let h="";
+  h+=`<div class="ed-sec">경제 · 규칙</div>`;
+  [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
+   ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
+   ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierCost.2","킵 승급 비용"],["ECON.tierCost.3","캐슬 승급 비용"],
+   ["ECON.upCost","업그레이드 비용"],["ECON.transformCost","변형 비용"],
+   ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
+   ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
+   ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
+   ["AI.delay","AI 시작 지연(초)"],["AI.interval","AI 판단 주기(초)"]]
+   .forEach(([p,l])=>h+=edRow(p,l));
+  h+=`<div class="ed-sec">건물</div>`;
+  Object.keys(BAL.BUILDINGS).forEach(k=>{
+    const d=BAL.BUILDINGS[k];
+    h+=`<div class="ed-sub">${d.nm}</div>`;
+    h+=edRow(`BUILDINGS.${k}.hp`,"HP");
+    if(d.cost)h+=edRow(`BUILDINGS.${k}.cost`,"비용");
+    if(d.prod)h+=edRow(`BUILDINGS.${k}.prod.period`,"생산 주기(초)");
+    if(d.atk){h+=edRow(`BUILDINGS.${k}.atk.dmg`,"공격력")+edRow(`BUILDINGS.${k}.atk.hs`,"공속(초)")
+             +edRow(`BUILDINGS.${k}.atk.rng`,"사거리")+(d.atk.splash?edRow(`BUILDINGS.${k}.atk.splash`,"광역 반경"):"");}
+  });
+  h+=`<div class="ed-sec">유닛</div>`;
+  Object.keys(BAL.UNITS).forEach(k=>{
+    const d=BAL.UNITS[k];
+    h+=`<div class="ed-sub">${d.nm}</div>`;
+    h+=edRow(`UNITS.${k}.hp`,"HP")+edRow(`UNITS.${k}.dmg`,"공격력")+edRow(`UNITS.${k}.hs`,"공속(초)")
+      +edRow(`UNITS.${k}.rng`,"사거리")+edRow(`UNITS.${k}.spd`,"이속")
+      +(d.splash!==undefined?edRow(`UNITS.${k}.splash`,"광역 반경"):"");
+  });
+  h+=`<div class="ed-sec">영웅</div>`;
+  Object.keys(BAL.HEROES).forEach(k=>{
+    const d=BAL.HEROES[k];
+    h+=`<div class="ed-sub">${d.nm}</div>`;
+    h+=edRow(`HEROES.${k}.hp`,"HP");
+    if(d.dmg)h+=edRow(`HEROES.${k}.dmg`,"공격력")+edRow(`HEROES.${k}.hs`,"공속(초)")+edRow(`HEROES.${k}.rng`,"사거리");
+    if(d.spd)h+=edRow(`HEROES.${k}.spd`,"이속");
+    if(d.heal)h+=edRow(`HEROES.${k}.heal`,"초당 회복량");
+    if(d.aoe){h+=edRow(`HEROES.${k}.aoe.dmg`,"광역 피해")+edRow(`HEROES.${k}.aoe.rad`,"광역 반경")
+             +edRow(`HEROES.${k}.aoe.period`,"시전 주기(초)")+edRow(`HEROES.${k}.aoe.castRng`,"시전 사거리");}
+  });
+  const body=document.getElementById("ed-body");
+  body.innerHTML=h;
+  body.querySelectorAll("input[data-path]").forEach(inp=>{
+    inp.addEventListener("change",()=>{
+      const v=parseFloat(inp.value);
+      if(isNaN(v)){inp.value=bGet(inp.dataset.path);return;}
+      const p=inp.dataset.path;
+      /* 건물 HP는 기존 건물에도 비율 유지로 즉시 반영 */
+      const m=p.match(/^BUILDINGS\.(\w+)\.hp$/);
+      if(m){const old=bGet(p);bSet(p,v);
+        S.buildings.forEach(b=>{if(b.key===m[1]&&b.hp>0){b.hp=b.hp/old*v;b.maxHp=v;}});}
+      else bSet(p,v);
+      renderPanel();
+    });
+  });
+}
+function edExport(){
+  const ta=document.getElementById("ed-export");
+  const out={ECON:BAL.ECON,EXCLUDE_R:BAL.EXCLUDE_R,HALL_ZONE:BAL.HALL_ZONE,TOWER_ZONE:BAL.TOWER_ZONE,
+    AURA_R:BAL.AURA_R,AURA_PWR:BAL.AURA_PWR,UPG_PWR:BAL.UPG_PWR,UNIT_CAP:BAL.UNIT_CAP,
+    HERO_COST:BAL.HERO_COST,HERO_CD:BAL.HERO_CD,AI:BAL.AI,
+    BUILDINGS:BAL.BUILDINGS,UNITS:BAL.UNITS,HEROES:BAL.HEROES};
+  ta.value="window.BALANCE = "+JSON.stringify(out,null,1)+";";
+  ta.style.display=ta.style.display==="block"?"none":"block";
+  if(ta.style.display==="block"){ta.select();
+    try{navigator.clipboard.writeText(ta.value);toast("클립보드에 복사됨 — balance.js에 붙여넣으세요");}catch(e){toast("텍스트를 직접 복사하세요");}}
+}
+function edReset(){
+  const fresh=JSON.parse(JSON.stringify(BAL0));
+  Object.keys(BAL).forEach(k=>delete BAL[k]);
+  Object.assign(BAL,fresh);
+  buildEditorUI(); renderPanel();
+  toast("밸런스 기본값으로 초기화");
 }
 
 /* ---------- 시작 ---------- */
