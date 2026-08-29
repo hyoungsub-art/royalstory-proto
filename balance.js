@@ -42,8 +42,8 @@ window.BALANCE = {
 
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
   UNITS: {
-    footman:       { hp: 1766, dmg: 202, hs: 1.2, rng: 0.8, spd: 1.0 },
-    rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 5.0, spd: 1.0 },   // 사거리 = 타워와 동일
+    footman:       { hp: 883,  dmg: 101, hs: 1.2, rng: 0.8, spd: 1.0 },   // 공·방 절반 (2026-08-30)
+    rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 4.5, spd: 1.0 },   // 사거리 5.0→4.5
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
     flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 4.2, spd: 1.0, splash: 1.2 },
