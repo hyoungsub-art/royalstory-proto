@@ -961,18 +961,47 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
   const bx=px+pw*0.12,by=py+ph*0.18,bw=pw*0.76,bh=ph*0.55;
   switch(key){
     case "hall":{
-      ctx.fillStyle="#eceadf";roundRectPath(bx,by-ph*0.05,bw,bh+ph*0.1,8);ctx.fill();po(lw);
-      ctx.fillStyle="#eceadf";
-      for(let i=0;i<3;i++){roundRectPath(bx+bw*(0.08+i*0.34),by-ph*0.22,bw*0.16,ph*0.2,3);ctx.fill();po(lw*0.8);}
-      ctx.fillStyle="#ffcf3f";
-      const cx=px+pw/2;
-      ctx.beginPath();ctx.moveTo(cx-pw*0.16,by-ph*0.2);ctx.lineTo(cx-pw*0.12,by-ph*0.4);ctx.lineTo(cx-pw*0.04,by-ph*0.26);
-      ctx.lineTo(cx,by-ph*0.44);ctx.lineTo(cx+pw*0.04,by-ph*0.26);ctx.lineTo(cx+pw*0.12,by-ph*0.4);ctx.lineTo(cx+pw*0.16,by-ph*0.2);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#4a4048";ctx.beginPath();ctx.arc(cx,by+bh*0.55,pw*0.09,Math.PI,0);ctx.lineTo(cx+pw*0.09,by+bh*0.95);ctx.lineTo(cx-pw*0.09,by+bh*0.95);ctx.closePath();ctx.fill();po(lw*0.8);
-      /* 티어 배너 */
-      ctx.fillStyle=c1;roundRectPath(bx+bw*0.02,by+bh*0.1,bw*0.14,bh*0.7,3);ctx.fill();po(lw*0.7);
-      ctx.fillStyle="#fff";ctx.font="bold "+Math.round(ph*0.16)+"px sans-serif";ctx.textAlign="center";
-      ctx.fillText("I".repeat(tierNow||1),bx+bw*0.09,by+bh*0.55);
+      /* 티어별 외형 진화: 1 타운 홀(단층) → 2 킵(2층 증축) → 3 캐슬(대탑+금관). 강등 시 외형도 하락 */
+      const t=tierNow||1, cx=px+pw/2;
+      ctx.fillStyle="#eceadf";roundRectPath(bx,by,bw,bh+ph*0.05,8);ctx.fill();po(lw);
+      if(t===1){
+        /* 타운 홀: 총안 4개 + 목재 대문 */
+        ctx.fillStyle="#eceadf";
+        for(let i=0;i<4;i++){roundRectPath(bx+bw*(0.04+i*0.26),by-ph*0.13,bw*0.14,ph*0.14,2);ctx.fill();po(lw*0.7);}
+        ctx.fillStyle="#8a5a28";
+        ctx.beginPath();ctx.arc(cx,by+bh*0.5,pw*0.1,Math.PI,0);ctx.fill();
+        ctx.fillRect(cx-pw*0.1,by+bh*0.5,pw*0.2,bh*0.55);
+        ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.7;
+        ctx.strokeRect(cx-pw*0.1,by+bh*0.5,pw*0.2,bh*0.55);
+        ctx.beginPath();ctx.moveTo(cx,by+bh*0.5);ctx.lineTo(cx,by+bh*1.05);ctx.stroke();
+      } else if(t===2){
+        /* 킵: 중앙 2층 증축 + 상층 총안 + 진영 배너 */
+        ctx.fillStyle="#e2dfd2";roundRectPath(cx-bw*0.26,by-ph*0.3,bw*0.52,ph*0.36,4);ctx.fill();po(lw);
+        ctx.fillStyle="#e2dfd2";
+        for(let i=0;i<3;i++){roundRectPath(cx-bw*0.26+bw*0.52*(0.04+i*0.36),by-ph*0.42,bw*0.115,ph*0.13,2);ctx.fill();po(lw*0.7);}
+        for(let i=0;i<2;i++){roundRectPath(bx+bw*(0.04+i*0.78),by-ph*0.13,bw*0.14,ph*0.14,2);ctx.fill();po(lw*0.7);}
+        ctx.fillStyle=c1;roundRectPath(cx-bw*0.07,by-ph*0.24,bw*0.14,ph*0.3,3);ctx.fill();po(lw*0.7);
+        ctx.fillStyle="#4a4048";ctx.beginPath();ctx.arc(cx,by+bh*0.55,pw*0.09,Math.PI,0);ctx.fill();
+        ctx.fillRect(cx-pw*0.09,by+bh*0.55,pw*0.18,bh*0.5);
+      } else {
+        /* 캐슬: 좌우 대탑 + 진영색 원뿔 + 중앙 2층 + 금관 */
+        ctx.fillStyle="#e2dfd2";
+        roundRectPath(bx-pw*0.04,by-ph*0.28,bw*0.22,bh+ph*0.36,4);ctx.fill();po(lw);
+        roundRectPath(bx+bw-bw*0.22+pw*0.04,by-ph*0.28,bw*0.22,bh+ph*0.36,4);ctx.fill();po(lw);
+        ctx.fillStyle=c1;
+        [bx-pw*0.04+bw*0.11, bx+bw-bw*0.11+pw*0.04].forEach(tx=>{
+          ctx.beginPath();ctx.moveTo(tx-bw*0.16,by-ph*0.27);ctx.lineTo(tx+bw*0.16,by-ph*0.27);ctx.lineTo(tx,by-ph*0.5);ctx.closePath();ctx.fill();po(lw*0.8);});
+        ctx.fillStyle="#eceadf";roundRectPath(cx-bw*0.24,by-ph*0.24,bw*0.48,ph*0.3,4);ctx.fill();po(lw);
+        ctx.fillStyle="#ffcf3f";
+        ctx.beginPath();ctx.moveTo(cx-pw*0.15,by-ph*0.26);ctx.lineTo(cx-pw*0.11,by-ph*0.46);ctx.lineTo(cx-pw*0.04,by-ph*0.32);
+        ctx.lineTo(cx,by-ph*0.5);ctx.lineTo(cx+pw*0.04,by-ph*0.32);ctx.lineTo(cx+pw*0.11,by-ph*0.46);ctx.lineTo(cx+pw*0.15,by-ph*0.26);ctx.closePath();ctx.fill();po(lw);
+        ctx.fillStyle="#4a4048";ctx.beginPath();ctx.arc(cx,by+bh*0.55,pw*0.09,Math.PI,0);ctx.fill();
+        ctx.fillRect(cx-pw*0.09,by+bh*0.55,pw*0.18,bh*0.5);
+      }
+      /* 티어 배너 (로마자) — 공통 */
+      ctx.fillStyle=c1;roundRectPath(bx+bw*0.02,by+bh*0.15,bw*0.14,bh*0.65,3);ctx.fill();po(lw*0.7);
+      ctx.fillStyle="#fff";ctx.font="bold "+Math.round(ph*0.15)+"px sans-serif";ctx.textAlign="center";
+      ctx.fillText("I".repeat(t),bx+bw*0.09,by+bh*0.6);
       break;}
     case "elixirBase":{
       ctx.fillStyle="#5a4a78";roundRectPath(bx,by+bh*0.3,bw,bh*0.7,6);ctx.fill();po(lw);
