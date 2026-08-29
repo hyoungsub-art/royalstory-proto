@@ -104,14 +104,14 @@
    기획 근거: 맵건설영웅시스템_v0.1, 종족빌드트리_휴먼_v0.1
    좌표계: 타일 14×24, 1타일=34px. 위=적, 아래=플레이어
 ============================================================ */
-const TILE=34, COLS=15, ROWS=24, W=COLS*TILE, H=ROWS*TILE;   // 2026-08-26 가로 14→15 개정
+const TILE=34, COLS=19, ROWS=24, W=COLS*TILE, H=ROWS*TILE;   // 2026-08-30 가로 15→19 개정
 const cv=document.getElementById("cv"); cv.width=W; cv.height=H;
 let ctx=cv.getContext("2d");
 
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
  ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,6,8], upCost:4, transformCost:3},
- EXCLUDE_R:4, HALL_ZONE:8.5, TOWER_ZONE:5, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // HALL_ZONE 8→8.5 (가로 15 개정에 따른 가스 지역 도달 보정)
+ EXCLUDE_R:4, HALL_ZONE:4.25, TOWER_ZONE:2.5, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-08-30 영역 반경 절반 (판정은 건물 중심 기준으로 완화)
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
@@ -153,10 +153,12 @@ const BAL={
                 aura:{label:"마법 유닛 강화", test:"magic"}},
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
- ENEMY_BASE:[["hall",6,1]],
+ ENEMY_BASE:[["hall",8,1]],
  /* 적 건설 AI: 시작 지연(초), 판단 주기(초) */
  AI:{delay:3, interval:1.5},
- GAS_ZONES:[[0,5],[13,5],[0,11],[13,11],[0,17],[13,17]],   // 2×2 지역 좌상단 (좌우 끝, 일정 간격)
+ /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
+ ROAD:{x0:8, x1:10, y0:4, y1:19},
+ GAS_ZONES:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]],   // 2×2 지역 좌상단 (좌우 끝, 일정 간격)
 };
 if(window.BALANCE){ (function merge(dst,src){ for(const k in src){
   if(src[k]&&typeof src[k]==="object"&&!Array.isArray(src[k])&&dst[k]&&typeof dst[k]==="object"&&!Array.isArray(dst[k])) merge(dst[k],src[k]);
@@ -180,9 +182,13 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
 /* ---------- 맵 ---------- */
 function makeTiles(){
   const tiles=[];
-  for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false};}
+  for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false,road:false};}
   BAL.GAS_ZONES.forEach(([gx,gy])=>{for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)
     if(tiles[gy+dy]&&tiles[gy+dy][gx+dx])tiles[gy+dy][gx+dx].gas=true;});
+  /* 중앙 길: 건설 불가, 유닛 이동·배치 가능 */
+  const rd=BAL.ROAD;
+  for(let y=rd.y0;y<=rd.y1;y++)for(let x=rd.x0;x<=rd.x1;x++)
+    if(tiles[y]&&tiles[y][x]){tiles[y][x].road=true;tiles[y][x].build=false;}
   return tiles;
 }
 
@@ -193,7 +199,7 @@ function newGame(){
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      occ:null, zoneDirty:true};
-  addBuilding("hall","player",6,20);
+  addBuilding("hall","player",8,20);
   BAL.ENEMY_BASE.forEach(([k,x,y])=>addBuilding(k,"enemy",x,y));
   S.zoneDirty=true;
   renderPanel(); updateHUD(); hideStrip();
@@ -219,14 +225,15 @@ function occGrid(){
 }
 function tileDist(x1,y1,x2,y2){return Math.hypot(x1-x2,y1-y2);}
 /* 아군 영역: 본진(반경 HALL_ZONE)·타워류(반경 TOWER_ZONE) 중심 기준 */
-function inFriendlyZone(tx,ty,side){
+function inFriendlyZonePt(px,py,side){
   return S.buildings.some(b=>{
     if(b.side!==side||b.hp<=0)return false;
     const r=b.key==="hall"?BAL.HALL_ZONE:(b.key==="tower"||b.key==="guardTower"||b.key==="arcaneTower")?BAL.TOWER_ZONE:0;
     if(!r)return false;
-    return tileDist(tx+0.5,ty+0.5,b.cx/TILE,b.cy/TILE)<=r;
+    return tileDist(px,py,b.cx/TILE,b.cy/TILE)<=r;
   });
 }
+function inFriendlyZone(tx,ty,side){return inFriendlyZonePt(tx+0.5,ty+0.5,side);}
 function inEnemyExclusion(tx,ty,side){
   return S.buildings.some(b=>b.side!==side&&b.hp>0&&tileDist(tx+0.5,ty+0.5,b.cx/TILE,b.cy/TILE)<=BAL.EXCLUDE_R);
 }
@@ -236,13 +243,15 @@ function buildBlockReason(key,tx,ty,side){
   if(tx<0||ty<0||tx+d.w>COLS||ty+d.h>ROWS)return"맵 밖";
   for(let dy=0;dy<d.h;dy++)for(let dx=0;dx<d.w;dx++){
     const t=S.tiles[ty+dy][tx+dx];
+    if(t.road)return"길 위에는 건설 불가";
     if(!t.build)return"건설 불가 타일";
     if(occ[ty+dy][tx+dx])return"다른 건물과 겹침";
     if(d.gas&&!t.gas)return"엘릭서 가스 타일 필요";
     if(!d.gas&&t.gas)return"가스 타일에는 엘릭서 기지만";
-    if(!inFriendlyZone(tx+dx,ty+dy,side))return"아군 영역 밖";
     if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 건물 근접(배제 반경)";
   }
+  /* 영역 판정: 건물 중심 기준 (반경 절반 개정에 따른 완화 — 2026-08-30) */
+  if(!inFriendlyZonePt(tx+d.w/2,ty+d.h/2,side))return"아군 영역 밖";
   return null;
 }
 /* 영웅 배치 판정 */
@@ -439,12 +448,18 @@ function findSpot(key,side,pref){
   const d=BAL.BUILDINGS[key];
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(!hall)return null;
+  /* 미점유 가스 지역 중심 목록 (pref="gas"용) */
+  const gasTargets=BAL.GAS_ZONES
+    .filter(([gx,gy])=>!S.buildings.some(b=>b.side===side&&b.key==="elixirBase"&&b.hp>0&&b.tx===gx&&b.ty===gy))
+    .map(([gx,gy])=>[gx+1,gy+1]);
   let best=null,bestScore=-1e9;
   for(let ty=0;ty<=ROWS-d.h;ty++)for(let tx=0;tx<=COLS-d.w;tx++){
     if(buildBlockReason(key,tx,ty,side))continue;
     const cx=tx+d.w/2, cy=ty+d.h/2;
-    const score = pref==="fwd" ? (side==="enemy"?cy:-cy) - Math.abs(cx-COLS/2)*0.1
-                               : -tileDist(cx,cy,hall.cx/TILE,hall.cy/TILE);
+    let score;
+    if(pref==="fwd") score=(side==="enemy"?cy:-cy)-Math.abs(cx-COLS/2)*0.1;
+    else if(pref==="gas") score=gasTargets.length? -Math.min(...gasTargets.map(([gx,gy])=>tileDist(cx,cy,gx,gy))) : -1e9;
+    else score=-tileDist(cx,cy,hall.cx/TILE,hall.cy/TILE);
     if(score>bestScore){bestScore=score;best={tx,ty};}
   }
   return best;
@@ -470,14 +485,14 @@ function aiUpdate(dt){
     burst(b.cx,b.cy,"205,195,165",10,110);
     return true;
   };
-  /* 빌드 오더 (우선순위) */
-  if(cnt("elixirBase")<1&&tryB("elixirBase"))return;
+  /* 빌드 오더 (우선순위) — 가스가 영역 밖이면 가스 방향으로 타워를 이어 지음 */
+  if(cnt("elixirBase")<1){ if(tryB("elixirBase"))return; if(towerCnt<8&&tryB("tower","gas"))return; }
   if(prodCnt<1&&tryB("barracks"))return;
   if(cnt("blacksmith")<1&&tryB("blacksmith"))return;
   if(S.eTier<2&&doTierUp(side))return;
   if(towerCnt<1&&tryB("tower","fwd"))return;
   if(prodCnt<2&&tryB("barracks"))return;
-  if(cnt("elixirBase")<2&&tryB("elixirBase"))return;
+  if(cnt("elixirBase")<2){ if(tryB("elixirBase"))return; if(towerCnt<8&&tryB("tower","gas"))return; }
   if(cnt("sanctum")<1&&tryB("sanctum"))return;
   if(S.eTier<3&&doTierUp(side))return;
   if(cnt("workshop")<1&&tryB("workshop"))return;
@@ -493,10 +508,10 @@ function aiUpdate(dt){
     const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].upgCat&&b.level<Math.min(3,tier));
     if(up){spend(side,BAL.ECON.upCost);up.level++;burst(up.cx,up.cy,"140,220,255",8,100);return;}
   }
-  /* 자원이 넘치면 확장: 전진 타워(상한 5) → 생산 건물 추가(상한 4) */
+  /* 자원이 넘치면 확장: 전진 타워(상한 8 — 좁은 영역·가스 확장 감안) → 생산 건물 추가(상한 4) */
   if(elixirOf(side)>=capFor(side)-1){
-    if(towerCnt<5&&tryB("tower","fwd"))return;
-    if(prodCnt<4)tryB(tier>=3?"barracks":"barracks");
+    if(towerCnt<8&&tryB("tower","fwd"))return;
+    if(prodCnt<4)tryB("barracks");
   }
 }
 
@@ -1024,6 +1039,15 @@ function buildBG(){
   c.strokeStyle="rgba(30,60,20,.12)";c.lineWidth=1;
   for(let x=0;x<=COLS;x++){c.beginPath();c.moveTo(x*TILE,0);c.lineTo(x*TILE,H);c.stroke();}
   for(let y=0;y<=ROWS;y++){c.beginPath();c.moveTo(0,y*TILE);c.lineTo(W,y*TILE);c.stroke();}
+  /* 중앙 길 (본진↔본진, 건설 불가 통로) */
+  const rd=BAL.ROAD;
+  const rx=rd.x0*TILE, rw=(rd.x1-rd.x0+1)*TILE, ry2=rd.y0*TILE, rh2=(rd.y1-rd.y0+1)*TILE;
+  c.fillStyle="#cdb27a"; c.fillRect(rx,ry2,rw,rh2);
+  c.fillStyle="rgba(150,115,70,.45)";
+  for(let i=0;i<60;i++){ c.beginPath(); c.ellipse(rx+rnd()*rw, ry2+rnd()*rh2, 2.5, 1.7, 0, 0, 7); c.fill(); }
+  c.strokeStyle="rgba(120,90,50,.7)"; c.lineWidth=2;
+  c.beginPath(); c.moveTo(rx+1,ry2); c.lineTo(rx+1,ry2+rh2); c.stroke();
+  c.beginPath(); c.moveTo(rx+rw-1,ry2); c.lineTo(rx+rw-1,ry2+rh2); c.stroke();
   /* 가스 타일 */
   BAL.GAS_ZONES.forEach(([gx,gy])=>{
     c.fillStyle="rgba(160,90,220,.28)";
