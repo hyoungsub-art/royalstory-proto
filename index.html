@@ -980,16 +980,44 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.14);ctx.lineTo(px+pw*0.68,by+bh*0.5);ctx.lineTo(px+pw/2,by+bh*0.85);ctx.lineTo(px+pw*0.32,by+bh*0.5);ctx.closePath();ctx.fill();po(lw);
       ctx.fillStyle="#e8b3ff";ctx.beginPath();ctx.moveTo(px+pw/2,by);ctx.lineTo(px+pw*0.58,by+bh*0.42);ctx.lineTo(px+pw/2,by+bh*0.6);ctx.closePath();ctx.fill();
       break;}
-    case "barracks": case "shooterGarden": case "knightHall":{
-      const roof=key==="barracks"?c1:key==="shooterGarden"?"#3a8a5f":"#b8862e";
-      ctx.fillStyle="#eceadf";roundRectPath(bx,by+bh*0.25,bw,bh*0.75,5);ctx.fill();po(lw);
-      ctx.fillStyle=roof;
-      ctx.beginPath();ctx.moveTo(bx-pw*0.05,by+bh*0.3);ctx.lineTo(px+pw/2,by-ph*0.16);ctx.lineTo(bx+bw+pw*0.05,by+bh*0.3);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#4a4048";roundRectPath(px+pw/2-pw*0.09,by+bh*0.5,pw*0.18,bh*0.5,3);ctx.fill();po(lw*0.8);
-      ctx.strokeStyle="#cfd6de";ctx.lineWidth=lw;
-      if(key==="barracks"){ctx.beginPath();ctx.moveTo(bx+bw*0.15,by+bh*0.45);ctx.lineTo(bx+bw*0.3,by+bh*0.85);ctx.stroke();}
-      if(key==="shooterGarden"){ctx.beginPath();ctx.arc(bx+bw*0.22,by+bh*0.65,bw*0.12,-1.2,1.2);ctx.stroke();}
-      if(key==="knightHall"){ctx.fillStyle="#ffcf3f";ctx.beginPath();ctx.arc(bx+bw*0.22,by+bh*0.6,bw*0.09,0,7);ctx.fill();po(lw*0.7);}
+    case "barracks": case "shooterGarden":{
+      /* 군용 텐트 + 목책 + 문장 + 깃발 */
+      const tent=key==="barracks"?c1:"#3a8a5f";
+      ctx.fillStyle="#8a5a28";
+      for(let i=0;i<5;i++){roundRectPath(bx+bw*i*0.2,by-ph*0.08,bw*0.13,ph*0.26,3);ctx.fill();po(lw*0.7);}   // 목책
+      ctx.fillStyle=tent;
+      ctx.beginPath();ctx.moveTo(bx-pw*0.02,by+bh);ctx.lineTo(px+pw/2,by-ph*0.05);ctx.lineTo(bx+bw+pw*0.02,by+bh);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle="#3a3040";   // 입구
+      ctx.beginPath();ctx.moveTo(px+pw/2-bw*0.14,by+bh);ctx.lineTo(px+pw/2,by+bh*0.42);ctx.lineTo(px+pw/2+bw*0.14,by+bh);ctx.closePath();ctx.fill();po(lw*0.8);
+      if(key==="barracks"){      // 교차 검 문장
+        ctx.strokeStyle="#e8e6da";ctx.lineWidth=lw*1.1;
+        ctx.beginPath();ctx.moveTo(px+pw/2-bw*0.12,by+bh*0.1);ctx.lineTo(px+pw/2+bw*0.12,by+bh*0.34);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(px+pw/2+bw*0.12,by+bh*0.1);ctx.lineTo(px+pw/2-bw*0.12,by+bh*0.34);ctx.stroke();
+      } else {                   // 과녁 문장
+        ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.22,bw*0.13,0,7);ctx.fill();po(lw*0.7);
+        ctx.fillStyle="#d4453b";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.22,bw*0.07,0,7);ctx.fill();
+        ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.22,bw*0.03,0,7);ctx.fill();
+      }
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.8;   // 깃대+깃발
+      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.05);ctx.lineTo(px+pw/2,by-ph*0.3);ctx.stroke();
+      ctx.fillStyle=tent;
+      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.3);ctx.lineTo(px+pw/2+bw*0.24,by-ph*0.23);ctx.lineTo(px+pw/2,by-ph*0.16);ctx.closePath();ctx.fill();po(lw*0.7);
+      break;}
+    case "knightHall":{
+      /* 석조 요새 + 금 방패 문장 + 페넌트 */
+      ctx.fillStyle="#d8d5c8";roundRectPath(bx,by-ph*0.02,bw,bh+ph*0.05,4);ctx.fill();po(lw);
+      ctx.fillStyle="#d8d5c8";
+      for(let i=0;i<3;i++){roundRectPath(bx+bw*(0.06+i*0.36),by-ph*0.17,bw*0.18,ph*0.17,2);ctx.fill();po(lw*0.8);}
+      ctx.fillStyle="#4a4048";roundRectPath(px+pw/2-bw*0.11,by+bh*0.45,bw*0.22,bh*0.55,3);ctx.fill();po(lw*0.8);
+      ctx.fillStyle="#ffcf3f";   // 금 방패
+      ctx.beginPath();ctx.moveTo(px+pw/2,by+bh*0.02);
+      ctx.lineTo(px+pw/2+bw*0.13,by+bh*0.1);ctx.lineTo(px+pw/2+bw*0.11,by+bh*0.28);
+      ctx.lineTo(px+pw/2,by+bh*0.38);ctx.lineTo(px+pw/2-bw*0.11,by+bh*0.28);
+      ctx.lineTo(px+pw/2-bw*0.13,by+bh*0.1);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.8;   // 페넌트
+      ctx.beginPath();ctx.moveTo(bx+bw*0.15,by-ph*0.17);ctx.lineTo(bx+bw*0.15,by-ph*0.4);ctx.stroke();
+      ctx.fillStyle="#b8862e";
+      ctx.beginPath();ctx.moveTo(bx+bw*0.15,by-ph*0.4);ctx.lineTo(bx+bw*0.38,by-ph*0.33);ctx.lineTo(bx+bw*0.15,by-ph*0.26);ctx.closePath();ctx.fill();po(lw*0.7);
       break;}
     case "blacksmith":{
       ctx.fillStyle="#8a8078";roundRectPath(bx,by+bh*0.2,bw,bh*0.8,5);ctx.fill();po(lw);
@@ -1008,19 +1036,50 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         roundRectPath(-bw*0.045,-bw*0.045,bw*0.09,bw*0.09,2);ctx.fill();ctx.restore();}
       break;}
     case "sanctum":{
-      ctx.fillStyle="#cfc9e8";roundRectPath(bx,by+bh*0.35,bw,bh*0.65,5);ctx.fill();po(lw);
+      /* 마법 연구소: 보라 돔 천문대 + 골드 밴드 + 부유 크리스탈 궤도 */
+      ctx.fillStyle="#cfc9e8";roundRectPath(bx,by+bh*0.42,bw,bh*0.58,5);ctx.fill();po(lw);
       ctx.fillStyle="#7a5ab8";
-      ctx.beginPath();ctx.moveTo(bx+bw*0.1,by+bh*0.4);ctx.lineTo(px+pw/2,by-ph*0.2);ctx.lineTo(bx+bw*0.9,by+bh*0.4);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#b18aff";ctx.beginPath();ctx.arc(px+pw/2,by-ph*0.2,bw*0.1,0,7);ctx.fill();po(lw*0.7);
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.44,bw*0.42,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle="#ffcf3f";roundRectPath(px+pw/2-bw*0.44,by+bh*0.38,bw*0.88,bh*0.09,3);ctx.fill();po(lw*0.7);
+      ctx.fillStyle="#3a2a5a";roundRectPath(px+pw/2-bw*0.05,by+bh*0.08,bw*0.1,bh*0.3,3);ctx.fill();   // 관측 슬릿
+      ctx.fillStyle="#4a4048";   // 룬 문
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.78,bw*0.11,Math.PI,0);ctx.fill();
+      ctx.fillRect(px+pw/2-bw*0.11,by+bh*0.78,bw*0.22,bh*0.22);
+      ctx.strokeStyle="rgba(200,150,255,.85)";ctx.lineWidth=lw*0.8;   // 궤도 링
+      ctx.beginPath();ctx.ellipse(px+pw/2,by-ph*0.1,bw*0.3,bh*0.09,0,0,7);ctx.stroke();
+      ctx.fillStyle="#c86bfa";   // 부유 크리스탈
+      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.28);ctx.lineTo(px+pw/2+bw*0.08,by-ph*0.1);
+      ctx.lineTo(px+pw/2,by+ph*0.02);ctx.lineTo(px+pw/2-bw*0.08,by-ph*0.1);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.fillStyle="#e8b3ff";   // 궤도 위성
+      ctx.beginPath();ctx.arc(px+pw/2+bw*0.3,by-ph*0.1,2.5,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(px+pw/2-bw*0.3,by-ph*0.1,2.5,0,7);ctx.fill();
       break;}
     case "tower": case "guardTower": case "arcaneTower":{
-      const roof=key==="tower"?c1:key==="guardTower"?"#8a929c":"#8a4ad9";
-      ctx.fillStyle="#eceadf";roundRectPath(bx+bw*0.12,by,bw*0.76,bh,6);ctx.fill();po(lw);
-      ctx.fillStyle=roof;
-      ctx.beginPath();ctx.moveTo(bx,by+ph*0.04);ctx.lineTo(bx+bw,by+ph*0.04);ctx.lineTo(px+pw/2,by-ph*0.3);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#4a4048";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.4,bw*0.1,Math.PI,0);ctx.fill();
-      ctx.fillRect(px+pw/2-bw*0.1,by+bh*0.4,bw*0.2,bh*0.22);
-      if(key==="arcaneTower"){ctx.fillStyle="#d9a8ff";ctx.beginPath();ctx.arc(px+pw/2,by-ph*0.3,bw*0.1,0,7);ctx.fill();po(lw*0.7);}
+      /* 세로로 솟은 망루 (풋프린트 위로 연장) */
+      const shaftW=bw*0.52, sx=px+pw/2-shaftW/2, topY=by-ph*0.5, botY=by+bh;
+      ctx.fillStyle="#e2dfd2";roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
+      ctx.strokeStyle="rgba(120,120,100,.4)";ctx.lineWidth=1.2;   // 석재 밴드
+      for(let i=1;i<4;i++){const yy=topY+(botY-topY)*i/4;
+        ctx.beginPath();ctx.moveTo(sx+2,yy);ctx.lineTo(sx+shaftW-2,yy);ctx.stroke();}
+      ctx.fillStyle="#4a4048";roundRectPath(px+pw/2-2,topY+ph*0.3,4,ph*0.22,2);ctx.fill();   // 화살구멍
+      if(key==="guardTower"){
+        /* 중무장 총안 상판 */
+        const capW=shaftW+bw*0.26;
+        ctx.fillStyle="#9aa2ab";roundRectPath(px+pw/2-capW/2,topY-ph*0.12,capW,ph*0.14,3);ctx.fill();po(lw);
+        ctx.fillStyle="#9aa2ab";
+        for(let i=0;i<3;i++){roundRectPath(px+pw/2-capW/2+capW*(0.06+i*0.36),topY-ph*0.26,capW*0.2,ph*0.15,2);ctx.fill();po(lw*0.7);}
+      } else if(key==="arcaneTower"){
+        /* 첨탑 + 부유 오브 */
+        ctx.fillStyle="#8a4ad9";
+        ctx.beginPath();ctx.moveTo(sx-3,topY);ctx.lineTo(sx+shaftW+3,topY);ctx.lineTo(px+pw/2,topY-ph*0.3);ctx.closePath();ctx.fill();po(lw);
+        ctx.fillStyle="#d9a8ff";ctx.beginPath();ctx.arc(px+pw/2,topY-ph*0.44,bw*0.11,0,7);ctx.fill();po(lw*0.8);
+      } else {
+        /* 기본: 총안 3개 + 진영색 캡 */
+        ctx.fillStyle="#e2dfd2";
+        for(let i=0;i<3;i++){roundRectPath(sx+shaftW*(0.02+i*0.36),topY-ph*0.13,shaftW*0.24,ph*0.14,2);ctx.fill();po(lw*0.7);}
+        ctx.fillStyle=c1;
+        ctx.beginPath();ctx.moveTo(sx-2,topY-ph*0.11);ctx.lineTo(sx+shaftW+2,topY-ph*0.11);ctx.lineTo(px+pw/2,topY-ph*0.33);ctx.closePath();ctx.fill();po(lw);
+      }
       break;}
     case "aviary":{
       ctx.fillStyle="#c9a35e";roundRectPath(bx,by+bh*0.35,bw,bh*0.65,5);ctx.fill();po(lw);
