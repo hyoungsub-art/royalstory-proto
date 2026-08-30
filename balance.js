@@ -45,11 +45,11 @@ window.BALANCE = {
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
   UNITS: {
     footman:       { hp: 883,  dmg: 101, hs: 1.2, rng: 0.8, spd: 1.0 },   // 공·방 절반 (2026-08-30)
-    rifleman:      { hp: 720,  dmg: 218, hs: 1.1, rng: 4.5, spd: 1.0 },   // 사거리 5.0→4.5
+    rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
     flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
-    gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 0.9, spd: 1.4 },
+    gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 3.0, spd: 1.4 },   // 사거리 확대
   },
 
   /* 영웅 (5인 고정 덱, 코스트 공통 = HERO_COST) */

@@ -167,11 +167,11 @@ const BAL={
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
   footman:      {nm:"풋맨",        hp:883,  dmg:101, hs:1.2, rng:0.8, spd:1.0, r:10, cat:"gp", melee:true},   // 2026-08-30 공·방 절반
-  rifleman:     {nm:"라이플맨",    hp:720,  dmg:218, hs:1.1, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 사거리 5.0→4.5
+  rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.5, r:11, cat:"gp", melee:true},
   flyingMachine:{nm:"플라잉 머신", hp:550,  dmg:130, hs:1.0, rng:3.5, spd:1.6, r:9,  cat:"ap", air:true, antiair:true},
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
-  gryphon:      {nm:"그리폰",      hp:1900, dmg:260, hs:1.5, rng:0.9, spd:1.4, r:12, cat:"am", air:true, antiair:true, melee:true},
+  gryphon:      {nm:"그리폰",      hp:1900, dmg:260, hs:1.5, rng:3.0, spd:1.4, r:12, cat:"am", air:true, antiair:true},   // 사거리 0.9→3.0 (근접→원거리)
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
  HEROES:{
@@ -616,7 +616,11 @@ function buildLockReason(key){
   if(d.prereq&&!aliveB("player",d.prereq))return BAL.BUILDINGS[d.prereq].nm+" 필요";
   return null;
 }
+let panelDirty=false;
 function renderPanel(){
+  /* 드래그 중에는 패널을 다시 만들지 않는다 — DOM 교체 시 포인터 캡처가 끊겨 배치가 취소됨
+     (건물 파괴·영웅 쿨다운 등으로 renderPanel이 호출되던 문제. 드래그 종료 후 일괄 갱신) */
+  if(dragState){panelDirty=true;return;}
   const p=document.getElementById("panel"); p.innerHTML="";
   if(S.mode==="build"){
     PANEL_BUILDS.forEach(key=>{
@@ -663,10 +667,12 @@ function attachDrag(div,info){
     if(!dragState||dragState.id!==e.pointerId)return;
     const st=dragState; dragState=null; div.classList.remove("dragging");
     S.sel=null; S.mouse=null;
-    if(e.type==="pointercancel"||!st.moved||!st.pt)return;
-    if(st.rawAimY>H+20||st.rawX<-20||st.rawX>W+20)return;  // 취소 제스처
+    const finish=()=>{ if(panelDirty){panelDirty=false;renderPanel();} };
+    if(e.type==="pointercancel"||!st.moved||!st.pt){finish();return;}
+    if(st.rawAimY>H+20||st.rawX<-20||st.rawX>W+20){finish();return;}  // 취소 제스처
     if(st.type==="build")tryBuildAt(st.key,st.pt.x,st.pt.y);
     else tryHeroAt(st.slot,st.pt.x,st.pt.y);
+    finish();
   };
   div.addEventListener("pointerup",end);
   div.addEventListener("pointercancel",end);
@@ -1353,6 +1359,8 @@ function draw(){
     else if(p.smoke){ctx.beginPath();ctx.arc(p.x,p.y,p.size*(1+p.t),0,7);ctx.fill();}
     else{ctx.beginPath();ctx.arc(p.x,p.y,p.size*a+0.5,0,7);ctx.fill();}
   });
+  ctx.restore();   // 셰이크 해제 — 아래 배치 미리보기는 흔들리지 않게 (조준 안정)
+  ctx.save();
   /* 드래그 고스트 */
   if(S.sel&&S.mouse){
     if(S.sel.type==="build"){
