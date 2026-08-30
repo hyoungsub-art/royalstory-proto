@@ -1183,11 +1183,24 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.2);ctx.lineTo(px+pw*0.72,by+bh*0.36);ctx.lineTo(px+pw/2,by+bh*0.8);ctx.lineTo(px+pw*0.28,by+bh*0.36);ctx.closePath();ctx.fill();po(lw);
       ctx.fillStyle="#e8b3ff";ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.08);ctx.lineTo(px+pw*0.6,by+bh*0.3);ctx.lineTo(px+pw/2,by+bh*0.5);ctx.closePath();ctx.fill();
       break;}
-    case "barracks": case "shooterGarden":{
-      /* 형태: 사각 텐트 (수직 벽 + 마룻대 지붕 + 입구 플랩 + 버팀줄).
-         슈터 가든은 같은 사각 텐트에 관측 망대가 추가되어 계열로 읽힌다 */
-      const isSG=key==="shooterGarden";
-      const tw2=isSG?bw*0.78:bw+pw*0.04, tx2=isSG?bx-pw*0.02:bx-pw*0.02;
+    case "shooterGarden":{
+      /* 형태: 삼각 텐트 + 관측 망대 (배럭의 사각 텐트와 대비) */
+      ctx.fillStyle=T.main;
+      ctx.beginPath();ctx.moveTo(bx-pw*0.02,by+bh);ctx.lineTo(px+pw*0.4,by+ph*0.02);ctx.lineTo(px+pw*0.78,by+bh);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;   // 그늘 면
+      ctx.beginPath();ctx.moveTo(px+pw*0.4,by+ph*0.02);ctx.lineTo(px+pw*0.78,by+bh);ctx.lineTo(px+pw*0.4,by+bh);ctx.closePath();ctx.fill();
+      ctx.fillStyle=DARKGRAY;   // 입구
+      ctx.beginPath();ctx.moveTo(px+pw*0.3,by+bh);ctx.lineTo(px+pw*0.4,by+bh*0.42);ctx.lineTo(px+pw*0.5,by+bh);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(px+pw*0.4,by+bh*0.2,pw*0.05,0,7);ctx.fill();po(lw*0.7);   // 과녁
+      ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(px+pw*0.4,by+bh*0.2,pw*0.024,0,7);ctx.fill();
+      /* 관측 망대 */
+      ctx.fillStyle=CREAM;roundRectPath(px+pw*0.74,by-ph*0.34,pw*0.16,bh+ph*0.34,3);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(px+pw*0.68,by-ph*0.44,pw*0.28,ph*0.14,3);ctx.fill();po(lw*0.8);
+      break;}
+    case "barracks":{
+      /* 형태: 사각 텐트 (수직 벽 + 마룻대 지붕 + 입구 플랩 + 버팀줄) */
+      const isSG=false;
+      const tw2=bw+pw*0.04, tx2=bx-pw*0.02;
       const topY=by+ph*0.06, botY=by+bh;
       /* 버팀줄 + 말뚝 */
       ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.7;
@@ -1255,22 +1268,28 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(px+pw*0.42,by+bh*0.55,bw*0.08,0,7);ctx.fill();po(lw*0.7);
       break;}
     case "sanctum":{
-      /* 형태: 반구 돔 + 부유 크리스탈 궤도 (유일한 돔 실루엣) */
-      ctx.fillStyle=CREAM;roundRectPath(bx,by+bh*0.42,bw,bh*0.58,5);ctx.fill();po(lw);
-      ctx.fillStyle=T.main;
-      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.44,bw*0.44,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle=T.dark;   // 돔 그늘 반쪽
-      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.44,bw*0.44,Math.PI*1.5,0);ctx.lineTo(px+pw/2,by+bh*0.44);ctx.closePath();ctx.fill();
-      ctx.fillStyle=GOLD;roundRectPath(px+pw/2-bw*0.46,by+bh*0.36,bw*0.92,bh*0.1,3);ctx.fill();po(lw*0.7);
-      ctx.fillStyle="#2f2740";roundRectPath(px+pw/2-bw*0.05,by+bh*0.06,bw*0.1,bh*0.3,3);ctx.fill();   // 관측 슬릿
+      /* 형태: 마법 구슬 지붕 — 큰 오브를 얹은 탑 (삼각 지붕 없음) */
+      const cx0=px+pw/2, orbR=bw*0.34, orbY=by+ph*0.02;
+      ctx.fillStyle=T.main;roundRectPath(bx+bw*0.14,by+bh*0.3,bw*0.72,bh*0.7,5);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;   // 그늘 면
+      ctx.save();ctx.beginPath();roundRectPath(bx+bw*0.14,by+bh*0.3,bw*0.72,bh*0.7,5);ctx.clip();
+      ctx.fillRect(cx0+bw*0.12,by+bh*0.3,bw*0.3,bh*0.7);ctx.restore();
+      ctx.fillStyle=GOLD;roundRectPath(bx+bw*0.08,by+bh*0.28,bw*0.84,bh*0.11,3);ctx.fill();po(lw*0.7);   // 받침 링
+      /* 오브 받침 (진영색 초승달 홀더) */
+      ctx.fillStyle=T.dark;
+      ctx.beginPath();ctx.arc(cx0,orbY+orbR*0.55,orbR*0.95,Math.PI*0.15,Math.PI*0.85);ctx.closePath();ctx.fill();po(lw*0.8);
+      /* 마법 구슬 */
+      ctx.fillStyle="#b06bfa";ctx.beginPath();ctx.arc(cx0,orbY,orbR,0,7);ctx.fill();po(lw);
+      ctx.fillStyle="#e0b3ff";ctx.beginPath();ctx.arc(cx0-orbR*0.3,orbY-orbR*0.32,orbR*0.42,0,7);ctx.fill();   // 하이라이트
+      ctx.fillStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(cx0-orbR*0.42,orbY-orbR*0.45,orbR*0.16,0,7);ctx.fill();
+      /* 주위 반짝임 */
+      ctx.fillStyle="#e8b3ff";
+      [[-1.25,-0.35],[1.25,-0.2],[0,-1.45]].forEach(([dx,dy])=>{
+        ctx.beginPath();ctx.arc(cx0+orbR*dx,orbY+orbR*dy,2.2,0,7);ctx.fill();});
+      /* 룬 문 */
       ctx.fillStyle=DARKGRAY;
-      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.76,bw*0.11,Math.PI,0);ctx.fill();
-      ctx.fillRect(px+pw/2-bw*0.11,by+bh*0.76,bw*0.22,bh*0.24);
-      ctx.strokeStyle="rgba(200,150,255,.85)";ctx.lineWidth=lw*0.8;
-      ctx.beginPath();ctx.ellipse(px+pw/2,by-ph*0.12,bw*0.32,bh*0.1,0,0,7);ctx.stroke();
-      ctx.fillStyle="#c86bfa";
-      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.3);ctx.lineTo(px+pw/2+bw*0.09,by-ph*0.12);
-      ctx.lineTo(px+pw/2,by+ph*0.02);ctx.lineTo(px+pw/2-bw*0.09,by-ph*0.12);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.beginPath();ctx.arc(cx0,by+bh*0.74,bw*0.11,Math.PI,0);ctx.fill();
+      ctx.fillRect(cx0-bw*0.11,by+bh*0.74,bw*0.22,bh*0.26);
       break;}
     case "tower": case "guardTower": case "arcaneTower":{
       /* 세로로 솟은 망루 (풋프린트 위로 연장) */
@@ -1297,10 +1316,17 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         for(let i=0;i<3;i++){ctx.fillStyle=T.dark;
           roundRectPath(px+pw/2-capW/2+capW*(0.06+i*0.36),topY-ph*0.27,capW*0.2,ph*0.16,2);ctx.fill();po(lw*0.7);}
       } else if(key==="arcaneTower"){
-        /* 형태 차이: 뾰족 첨탑 + 부유 오브 */
-        ctx.fillStyle=T.dark;
-        ctx.beginPath();ctx.moveTo(sx-3,topY);ctx.lineTo(sx+shaftW+3,topY);ctx.lineTo(px+pw/2,topY-ph*0.34);ctx.closePath();ctx.fill();po(lw);
-        ctx.fillStyle="#d9a8ff";ctx.beginPath();ctx.arc(px+pw/2,topY-ph*0.48,bw*0.11,0,7);ctx.fill();po(lw*0.8);
+        /* 형태 차이: 마법 구슬 지붕 — 발톱 홀더에 물린 큰 오브 (삼각 첨탑 없음) */
+        const cxT=px+pw/2, oR=bw*0.24, oY=topY-ph*0.16;
+        ctx.fillStyle=T.dark;   // 발톱 홀더
+        for(let i=-1;i<=1;i+=2){
+          ctx.beginPath();ctx.moveTo(cxT+i*oR*0.95,topY+ph*0.02);
+          ctx.quadraticCurveTo(cxT+i*oR*1.35,oY,cxT+i*oR*0.55,oY-oR*0.75);
+          ctx.lineTo(cxT+i*oR*0.2,oY-oR*0.2);ctx.closePath();ctx.fill();po(lw*0.8);}
+        ctx.fillStyle=T.dark;roundRectPath(cxT-oR*1.05,topY-ph*0.02,oR*2.1,ph*0.06,3);ctx.fill();po(lw*0.8);
+        ctx.fillStyle="#b06bfa";ctx.beginPath();ctx.arc(cxT,oY,oR,0,7);ctx.fill();po(lw);
+        ctx.fillStyle="#e0b3ff";ctx.beginPath();ctx.arc(cxT-oR*0.3,oY-oR*0.32,oR*0.42,0,7);ctx.fill();
+        ctx.fillStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(cxT-oR*0.42,oY-oR*0.46,oR*0.16,0,7);ctx.fill();
       } else {
         /* 기본(낮은 티어): 단순 판자 지붕 + 작은 진영 깃발 */
         ctx.fillStyle=T.dark;
