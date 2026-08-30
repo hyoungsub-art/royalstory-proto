@@ -52,6 +52,13 @@ window.BALANCE = {
     gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 3.0, spd: 1.4 },   // 사거리 확대
   },
 
+  /* 난이도 = AI 전략 수준만 조정. 스탯·자원 규칙은 플레이어와 동등 (0/1은 사용 여부) */
+  DIFF: {
+    easy:   { aiDelay: 12, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 1, towerMax: 2, transform: 0, aviary: 0, defensive: 0 },
+    normal: { aiDelay: 4,  aiInterval: 1.8, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 2, towerMax: 5, transform: 1, aviary: 0, defensive: 1 },
+    hard:   { aiDelay: 2,  aiInterval: 1.0, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 4, towerMax: 8, transform: 1, aviary: 1, defensive: 1 },
+  },
+
   /* 영웅 (5인 고정 덱, 코스트 공통 = HERO_COST) */
   HEROES: {
     archmage:     { hp: 900,  dmg: 160, hs: 1.4, rng: 4.0, spd: 1.0 },

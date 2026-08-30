@@ -188,11 +188,13 @@ const BAL={
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
  ENEMY_BASE:[["hall",8,1]],
- /* 난이도 프리셋: 적에게만 적용 — AI 속도·적 스탯 배율·적 경제 배율 */
+ /* 난이도 = AI 전략 수준만 조정 (2026-08-30 개정).
+    스탯·자원·규칙은 플레이어와 완전 동등 — 적이 "더 잘 두는가"로만 난이도가 갈린다.
+    0/1 값은 사용 여부 스위치 */
  DIFF:{
-  easy:  {aiDelay:10, aiInterval:3,   stat:0.7, econ:0.7},
-  normal:{aiDelay:3,  aiInterval:1.5, stat:1.0, econ:1.0},
-  hard:  {aiDelay:2,  aiInterval:1.0, stat:1.3, econ:1.3},
+  easy:  {aiDelay:12, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:1, towerMax:2, transform:0, aviary:0, defensive:0},
+  normal:{aiDelay:4,  aiInterval:1.8, maxTier:3, maxLevel:2, gasBases:2, prodMax:2, towerMax:5, transform:1, aviary:0, defensive:1},
+  hard:  {aiDelay:2,  aiInterval:1.0, maxTier:3, maxLevel:3, gasBases:3, prodMax:4, towerMax:8, transform:1, aviary:1, defensive:1},
  },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
  ROAD:{x0:8, x1:10, y0:4, y1:19},
@@ -227,7 +229,7 @@ function cycleDiff(){
   restart();
 }
 function syncDiffUI(){const b=document.getElementById("diff-btn");if(b)b.textContent=DIFF_NM[diffKey]||diffKey;}
-function eMult(side){return side==="enemy"?diff().stat:1;}
+function eMult(){return 1;}   // 난이도는 스탯에 관여하지 않는다 (플레이어와 동등)
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.style.display="block";
   clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
@@ -261,7 +263,7 @@ function newGame(){
 function restart(){ newGame(); }
 function addBuilding(key,side,tx,ty){
   const d=BAL.BUILDINGS[key];
-  const bhp=Math.round(d.hp*eMult(side));   // 난이도: 적 건물 HP 배율
+  const bhp=d.hp;   // 건물 HP는 양측 동일
   const b={key,side,tx,ty,w:d.w,h:d.h,hp:bhp,maxHp:bhp,level:1,prodT:0,cd:0,flash:0,boomed:false,
            cx:(tx+d.w/2)*TILE, cy:(ty+d.h/2)*TILE};
   S.buildings.push(b); S.occ=null; S.zoneDirty=true;
@@ -363,7 +365,6 @@ function spawnUnit(key,side,x,y,hero,level){
   /* 유닛 레벨: 생산 건물 레벨을 그대로 계승 — 스탯에 즉시 반영 (영웅은 레벨 1) */
   u.level=hero?1:(level||1);
   if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;}
-  if(side==="enemy"&&!hero){const m=diff().stat;u.hp*=m;u.maxHp*=m;u.dmg*=m;}   // 난이도: 적 유닛 배율
   S.units.push(u);
   return u;
 }
@@ -490,7 +491,7 @@ function buildingUpdate(b,dt){
   if(d.hAtk){
     b.cd-=dt;
     if(b.cd<=0){
-      const t=effTier(b.side), a=d.hAtk, hdm=a.dmg[t]*eMult(b.side);
+      const t=effTier(b.side), a=d.hAtk, hdm=a.dmg[t];
       const foe=b.side==="player"?"enemy":"player";
       const inR=S.units.filter(e=>e.side===foe&&e.hp>0&&e.deploy<=0&&Math.hypot(b.cx-e.x,b.cy-e.y)<=a.rng*TILE)
         .sort((p,q)=>Math.hypot(b.cx-p.x,b.cy-p.y)-Math.hypot(b.cx-q.x,b.cy-q.y))
@@ -513,7 +514,7 @@ function buildingUpdate(b,dt){
       S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0)return;
         const dd=Math.hypot(b.cx-e.x,b.cy-e.y);if(dd<bd&&dd<=d.atk.rng*TILE){bd=dd;best=e;}});
       if(best){
-        const tdm=d.atk.dmg*eMult(b.side);   // 난이도: 적 타워 공격력 배율
+        const tdm=d.atk.dmg;
         if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=tdm/e.bDef;e.flash=0.12;}});}
         else{best.hp-=tdm/best.bDef;best.flash=0.12;}
         b.cd=d.atk.hs;
@@ -552,20 +553,27 @@ function findSpot(key,side,pref){
     let score;
     if(pref==="fwd") score=(side==="enemy"?cy:-cy)-Math.abs(cx-COLS/2)*0.1;
     else if(pref==="gas") score=gasTargets.length? -Math.min(...gasTargets.map(([gx,gy])=>tileDist(cx,cy,gx,gy))) : -1e9;
+    else if(pref&&pref.def) score=-tileDist(cx,cy,pref.def.x/TILE,pref.def.y/TILE);   // 위협 방향 방어 타워
     else score=-tileDist(cx,cy,hall.cx/TILE,hall.cy/TILE);
     if(score>bestScore){bestScore=score;best={tx,ty};}
   }
   return best;
 }
+/* ---------- 적 AI 전략 (난이도 = 전략 수준. 스탯·자원 규칙은 플레이어와 동등) ----------
+   쉬움  : 느린 판단·경제만·레벨/변형 없음·킵까지 (연습용)
+   보통  : 표준 운영 — 가스 2, 생산 2, 캐슬 테크, 유닛 Lv2, 변형 1회, 방어 반응
+   어려움: 공격적 — 빠른 테크, 가스 3, 생산 4, 유닛 Lv3 풀 투자, 변형 2종, 셰어리, 전진 타워 압박 */
 function aiUpdate(dt){
-  if(S.elapsed<diff().aiDelay)return;   // 난이도: AI 시작 지연
+  const st=diff();
+  if(S.elapsed<st.aiDelay)return;
   S.aiT+=dt;
-  if(S.aiT<diff().aiInterval)return;    // 난이도: AI 판단 주기
+  if(S.aiT<st.aiInterval)return;
   S.aiT=0;
   const side="enemy", tier=effTier(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
   const prodCnt=cnt("barracks")+cnt("shooterGarden")+cnt("knightHall");
   const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
+  const maxTier=st.maxTier, maxLv=Math.min(st.maxLevel,tier);
   const tryB=(key,pref)=>{
     const d=BAL.BUILDINGS[key];
     if(elixirOf(side)<d.cost)return false;
@@ -578,34 +586,60 @@ function aiUpdate(dt){
     burst(b.cx,b.cy,"205,195,165",10,110);
     return true;
   };
-  /* 빌드 오더 (우선순위) — 가스가 영역 밖이면 가스 방향으로 타워를 이어 지음 */
-  if(cnt("elixirBase")<1){ if(tryB("elixirBase"))return; if(towerCnt<8&&tryB("tower","gas"))return; }
+  const gasNeed=st.gasBases;
+
+  /* 0) 방어 반응 — 아군 진영(상단)에 침입한 플레이어 유닛 방향으로 타워 */
+  if(st.defensive){
+    const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
+    if(hall){
+      const intruder=S.units.find(u=>u.side==="player"&&u.hp>0&&tileDist(u.x/TILE,u.y/TILE,hall.cx/TILE,hall.cy/TILE)<=10);
+      if(intruder&&towerCnt<st.towerMax&&tryB("tower",{def:{x:intruder.x,y:intruder.y}}))return;
+    }
+  }
+  /* 1) 경제 우선 — 가스가 영역 밖이면 타워를 이어 확장 */
+  if(cnt("elixirBase")<gasNeed){
+    if(tryB("elixirBase"))return;
+    if(towerCnt<st.towerMax&&tryB("tower","gas"))return;
+  }
+  /* 2) 최소 생산 라인 */
   if(prodCnt<1&&tryB("barracks"))return;
-  if(cnt("workshop")<1&&tryB("workshop"))return;   // 킵 승급 조건
-  if(S.eTier<2&&doTierUp(side))return;
-  if(towerCnt<1&&tryB("tower","fwd"))return;
-  if(prodCnt<2&&tryB("barracks"))return;
-  if(cnt("elixirBase")<2){ if(tryB("elixirBase"))return; if(towerCnt<8&&tryB("tower","gas"))return; }
-  if(cnt("sanctum")<1&&tryB("sanctum"))return;
-  if(S.eTier<3&&doTierUp(side))return;
-  if(towerCnt<2&&tryB("tower","fwd"))return;
-  /* 변형: 배럭 1개 → 슈터 가든 (티어2 이후 1회) */
-  if(tier>=2&&cnt("shooterGarden")<1){
-    const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks");
+  /* 3) 테크: 워크숍 → 킵 */
+  if(maxTier>=2){
+    if(cnt("workshop")<1&&tryB("workshop"))return;
+    if(S.eTier<2&&doTierUp(side))return;
+  }
+  /* 4) 변형은 레벨 투자 전에 (변형 시 레벨이 초기화되므로 Lv1 건물만 대상) */
+  if(st.transform&&tier>=2&&cnt("shooterGarden")<1&&prodCnt>=1){
+    const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level===1);
     if(b&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(b,"shooterGarden");return;}
   }
-  if(cnt("aviary")<1&&tryB("aviary"))return;
-  /* 생산 건물 레벨업 (여유 자원) — 유닛 레벨 상승 */
-  {
-    const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<Math.min(3,tier));
+  /* 5) 방어선 확보 */
+  if(towerCnt<Math.min(2,st.towerMax)&&tryB("tower","fwd"))return;
+  /* 6) 테크: 생텀 → 캐슬 */
+  if(maxTier>=3){
+    if(cnt("sanctum")<1&&tryB("sanctum"))return;
+    if(S.eTier<3&&doTierUp(side))return;
+  }
+  /* 7) 캐슬 이후 변형·상위 건물 */
+  if(st.transform&&tier>=3&&cnt("knightHall")<1&&prodCnt>=2){
+    const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level===1);
+    if(b&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(b,"knightHall");return;}
+  }
+  if(st.aviary&&cnt("aviary")<1&&tryB("aviary"))return;
+  /* 8) 생산 증설 */
+  if(prodCnt<st.prodMax&&tryB("barracks"))return;
+  /* 9) 유닛 레벨 투자 — 변형 예정 건물은 제외 (레벨 낭비 방지) */
+  if(maxLv>1){
+    const pendingTransform=st.transform&&((tier>=2&&cnt("shooterGarden")<1)||(tier>=3&&cnt("knightHall")<1));
+    const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv
+      &&!(pendingTransform&&b.key==="barracks"));
     if(up){const c=upCostFor(up.level+1);
-      if(elixirOf(side)>=c+2){spend(side,c);up.level++;burst(up.cx,up.cy,"140,220,255",8,100);return;}}
+      if(elixirOf(side)>=c+2){spend(side,c);up.level++;
+        S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
+        burst(up.cx,up.cy,"140,220,255",8,100);return;}}
   }
-  /* 자원이 넘치면 확장: 전진 타워(상한 8 — 좁은 영역·가스 확장 감안) → 생산 건물 추가(상한 4) */
-  if(elixirOf(side)>=capFor(side)-1){
-    if(towerCnt<8&&tryB("tower","fwd"))return;
-    if(prodCnt<4)tryB("barracks");
-  }
+  /* 10) 여유 자원 → 전진 타워 압박 */
+  if(elixirOf(side)>=capFor(side)-2&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
 }
 
 /* ---------- 조작: 패널 & 드래그 ---------- */
@@ -804,7 +838,7 @@ function loop(ts){
     const gas=S.buildings.filter(b=>b.side==="player"&&b.key==="elixirBase"&&b.hp>0).length;
     S.elixir=Math.min(elixirCap(),S.elixir+dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen);
     const eGas=S.buildings.filter(b=>b.side==="enemy"&&b.key==="elixirBase"&&b.hp>0).length;
-    S.eElixir=Math.min(capFor("enemy"),S.eElixir+dt*diff().econ*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
+    S.eElixir=Math.min(capFor("enemy"),S.eElixir+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);   // 경제 공식 양측 동일
     aiUpdate(dt);
     recomputeAuras();
     S.units.forEach(u=>unitUpdate(u,dt));
@@ -1455,7 +1489,9 @@ function edRow(path,label,step){
 const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"이속",splash:"광역 반경",period:"생산 주기(초)",
   cost:"비용",heal:"초당 회복",rad:"광역 반경",castRng:"시전 사거리",targets:"동시 대상",tier:"요구 티어",
   kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)",
-  easy:"쉬움",normal:"보통",hard:"어려움",aiDelay:"AI 지연(초)",aiInterval:"AI 주기(초)",stat:"적 스탯 배율",econ:"적 경제 배율"};
+  easy:"쉬움",normal:"보통",hard:"어려움",aiDelay:"AI 지연(초)",aiInterval:"AI 주기(초)",
+  maxTier:"최대 티어",maxLevel:"최대 유닛 레벨",gasBases:"가스 기지 목표",prodMax:"생산 건물 목표",
+  towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"셰어리 건설(0/1)",defensive:"방어 반응(0/1)"};
 const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
   "air","antiair","melee","unit","test","label","key"]);
 function edWalk(obj,basePath,prefix){
@@ -1485,7 +1521,9 @@ function buildEditorUI(){
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"]]
      .forEach(([p,l])=>h+=edRow(p,l));
-    h+=`<div class="ed-sec">난이도 프리셋 (적 전용, 현재: ${DIFF_NM[diffKey]})</div>`+edWalk(BAL.DIFF,"DIFF","");
+    h+=`<div class="ed-sec">난이도 = AI 전략 수준 (현재: ${DIFF_NM[diffKey]})</div>`
+      +`<div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;">스탯·자원 규칙은 양측 동일 — 전략 차이로만 난이도가 갈립니다</div>`
+      +edWalk(BAL.DIFF,"DIFF","");
   } else {
     /* 스키마 자동 탐색 — 엔티티·수치 필드 추가 시 자동 반영 */
     Object.keys(BAL[edTab]).forEach(k=>{
