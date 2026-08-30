@@ -156,7 +156,7 @@ const BAL={
                  transforms:[{key:"shooterGarden",tier:2},{key:"knightHall",tier:3}]},
   shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:2, panel:false, prod:{unit:"rifleman",period:9}},
   knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:3, panel:false, prod:{unit:"knight",period:11}},
-  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prod:{unit:"flyingMachine",period:10}},
+  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prereq:"barracks", prod:{unit:"flyingMachine",period:10}},   // 선행: 배럭
   sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10}},
   tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true, atk:{dmg:218,hs:0.8,rng:5},
                  transforms:[{key:"guardTower",tier:2,prereq:"workshop"},{key:"arcaneTower",tier:3,prereq:"sanctum"}]},
