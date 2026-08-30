@@ -156,13 +156,14 @@ const BAL={
                  transforms:[{key:"shooterGarden",tier:2},{key:"knightHall",tier:3}]},
   shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:2, panel:false, prod:{unit:"rifleman",period:9}},
   knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:3, panel:false, prod:{unit:"knight",period:11}},
-  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prereq:"barracks", prod:{unit:"flyingMachine",period:10}},   // 선행: 배럭
+  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"flyingMachine",period:10},
+                 transforms:[{key:"aviary",tier:3,prereq:"sanctum"}]},   // 설치: 킵 / 변형: 그리폰 셰어리
   sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10}},
   tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true, atk:{dmg:218,hs:0.8,rng:5},
                  transforms:[{key:"guardTower",tier:2,prereq:"workshop"},{key:"arcaneTower",tier:3,prereq:"sanctum"}]},
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
   arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:5,splash:1.5}},
-  aviary:       {nm:"그리폰 셰어리",w:2,h:2, hp:3000, cost:8, tier:3, panel:true, prereq:"sanctum", prod:{unit:"gryphon",period:14}},
+  aviary:       {nm:"그리폰 셰어리",w:2,h:2, hp:3000, cost:0, tier:3, panel:false, prod:{unit:"gryphon",period:14}},   // 워크숍 변형으로만 획득
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
@@ -321,10 +322,13 @@ function heroBlockReason(x,y){
 }
 
 /* ---------- 티어 ---------- */
+/* 배럭 계열(배럭·슈터 가든·기사단 회당) 보유 여부 — 킵 승급 조건 */
+const BARRACKS_LINE=["barracks","shooterGarden","knightHall"];
+function hasBarracksLine(side){return BARRACKS_LINE.some(k=>aliveB(side,k));}
 function effTier(side){
   const purchased=side==="player"?S.tier:S.eTier;
   let chain=1;
-  if(aliveB(side,"workshop"))chain=2;      // 킵 조건: 워크숍 (2026-08-30 개정, 대장간 제거)
+  if(hasBarracksLine(side))chain=2;        // 킵 조건: 배럭 또는 그 변형 (2026-08-30 개정)
   if(chain===2&&aliveB(side,"sanctum"))chain=3;
   return Math.min(purchased,chain);
 }
@@ -337,8 +341,9 @@ function spend(side,amt){if(side==="player")S.elixir-=amt;else S.eElixir-=amt;}
 function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
   if(cur>=3)return false;
-  const nt=cur+1, need=nt===2?"workshop":"sanctum", cost=BAL.ECON.tierCost[nt];
-  if(!aliveB(side,need)||elixirOf(side)<cost)return false;
+  const nt=cur+1, cost=BAL.ECON.tierCost[nt];
+  const ok=nt===2?hasBarracksLine(side):aliveB(side,"sanctum");
+  if(!ok||elixirOf(side)<cost)return false;
   spend(side,cost);
   if(side==="player"){S.tier=nt;toast(TIER_NM[nt]+" 승급! 최대 엘릭서 "+BAL.ECON.cap[nt]);}
   else{S.eTier=nt;toast("⚠ 적이 "+TIER_NM[nt]+"(으)로 승급!");}
@@ -601,12 +606,12 @@ function aiUpdate(dt){
     if(tryB("elixirBase"))return;
     if(towerCnt<st.towerMax&&tryB("tower","gas"))return;
   }
-  /* 2) 최소 생산 라인 */
+  /* 2) 최소 생산 라인 (킵 승급 조건 = 배럭 계열) */
   if(prodCnt<1&&tryB("barracks"))return;
-  /* 3) 테크: 워크숍 → 킵 */
+  /* 3) 테크: 킵 승급 → 워크숍(킵 필요) */
   if(maxTier>=2){
-    if(cnt("workshop")<1&&tryB("workshop"))return;
     if(S.eTier<2&&doTierUp(side))return;
+    if(cnt("workshop")<1&&cnt("aviary")<1&&tryB("workshop"))return;
   }
   /* 4) 변형은 레벨 투자 전에 (변형 시 레벨이 초기화되므로 Lv1 건물만 대상) */
   if(st.transform&&tier>=2&&cnt("shooterGarden")<1&&prodCnt>=1){
@@ -625,14 +630,19 @@ function aiUpdate(dt){
     const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level===1);
     if(b&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(b,"knightHall");return;}
   }
-  if(st.aviary&&cnt("aviary")<1&&tryB("aviary"))return;
+  /* 셰어리는 워크숍 변형으로만 획득 (Lv1 워크숍 대상) */
+  if(st.aviary&&tier>=3&&cnt("aviary")<1&&aliveB(side,"sanctum")){
+    const wk=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="workshop"&&x.level===1);
+    if(wk&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(wk,"aviary");return;}
+  }
   /* 8) 생산 증설 */
   if(prodCnt<st.prodMax&&tryB("barracks"))return;
   /* 9) 유닛 레벨 투자 — 변형 예정 건물은 제외 (레벨 낭비 방지) */
   if(maxLv>1){
-    const pendingTransform=st.transform&&((tier>=2&&cnt("shooterGarden")<1)||(tier>=3&&cnt("knightHall")<1));
+    const pendingBar=st.transform&&((tier>=2&&cnt("shooterGarden")<1)||(tier>=3&&cnt("knightHall")<1));
+    const pendingWk=st.aviary&&tier>=3&&cnt("aviary")<1;   // 셰어리 변형 예정 워크숍도 제외
     const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv
-      &&!(pendingTransform&&b.key==="barracks"));
+      &&!(pendingBar&&b.key==="barracks")&&!(pendingWk&&b.key==="workshop"));
     if(up){const c=upCostFor(up.level+1);
       if(elixirOf(side)>=c+2){spend(side,c);up.level++;
         S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
@@ -648,7 +658,7 @@ function swapMode(){
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
   hideStrip(); renderPanel();
 }
-const PANEL_BUILDS=["elixirBase","barracks","workshop","sanctum","tower","aviary"];
+const PANEL_BUILDS=["elixirBase","barracks","workshop","sanctum","tower"];   // 셰어리는 워크숍 변형
 function buildLockReason(key){
   const d=BAL.BUILDINGS[key], t=effTier("player");
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
@@ -761,10 +771,12 @@ function showStrip(b){
   let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">유닛 Lv${Math.min(b.level,t)}</span>`:""}</div>`;
   if(b.key==="hall"){
     if(S.tier<3){
-      const nt=S.tier+1, need=nt===2?"workshop":"sanctum";
-      const hard=!aliveB("player",need), cost=BAL.ECON.tierCost[nt];
+      const nt=S.tier+1, cost=BAL.ECON.tierCost[nt];
+      const met=nt===2?hasBarracksLine("player"):aliveB("player","sanctum");
+      const needNm=nt===2?"배럭 계열":"아케인 생텀";
+      const hard=!met;
       html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
-          +`${TIER_NM[nt]} 승급 (${cost})${hard?`<br><span style="font-size:10px">${BAL.BUILDINGS[need].nm} 필요</span>`:""}</button>`;
+          +`${TIER_NM[nt]} 승급 (${cost})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
     if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
