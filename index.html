@@ -144,7 +144,8 @@ let ctx=cv.getContext("2d");
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
  /* upCost: 목표 레벨별 업그레이드 비용 (2026-08-30 대폭 상향 — 레벨업 vs 변형 선택을 무겁게) */
- ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,6,8], upCost:[0,0,10,18], transformCost:5},
+ /* 비용은 해당 티어의 엘릭서 상한 이하여야 함 (킵 승급은 T1 상한 10, 캐슬 승급은 T2 상한 15 이내) */
+ ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,9,14], upCost:[0,0,10,18], transformCost:10},   // 2026-08-30 변형·승급 비용 상향
  EXCLUDE_R:4, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-08-30 본진 +1칸, 타워 = 본진 동일 (판정은 건물 중심 기준)
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
