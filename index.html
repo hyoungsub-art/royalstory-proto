@@ -198,9 +198,11 @@ const BAL={
     스탯·자원·규칙은 플레이어와 완전 동등 — 적이 "더 잘 두는가"로만 난이도가 갈린다.
     0/1 값은 사용 여부 스위치 */
  DIFF:{
-  easy:  {aiDelay:12, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:1, towerMax:2, transform:0, aviary:0, defensive:0},
-  normal:{aiDelay:4,  aiInterval:1.8, maxTier:3, maxLevel:2, gasBases:2, prodMax:2, towerMax:5, transform:1, aviary:0, defensive:1},
-  hard:  {aiDelay:2,  aiInterval:1.0, maxTier:3, maxLevel:3, gasBases:3, prodMax:4, towerMax:8, transform:1, aviary:1, defensive:1},
+  /* aggro=1이면 생산 건물까지 전방에 지어 압박 (스폰 지점이 플레이어 쪽으로 전진) */
+  easy:   {aiDelay:12, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:1, towerMax:2, transform:0, aviary:0, defensive:0, aggro:0},
+  normal: {aiDelay:6,  aiInterval:2.2, maxTier:3, maxLevel:2, gasBases:2, prodMax:2, towerMax:4, transform:0, aviary:0, defensive:1, aggro:0},
+  hard:   {aiDelay:3,  aiInterval:1.2, maxTier:3, maxLevel:3, gasBases:3, prodMax:4, towerMax:5, transform:1, aviary:1, defensive:1, aggro:0},
+  extreme:{aiDelay:1,  aiInterval:0.6, maxTier:3, maxLevel:3, gasBases:3, prodMax:4, towerMax:5, transform:1, aviary:1, defensive:1, aggro:1},
  },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
  ROAD:{x0:8, x1:10, y0:4, y1:19},
@@ -225,9 +227,9 @@ let S=null, gameSpeed=1, rafId=null, lastTs=0, dragState=null, cvTouchAim=false;
 /* 난이도 (적 전용 배율) */
 let diffKey="normal";
 function diff(){return BAL.DIFF[diffKey]||BAL.DIFF.normal;}
-const DIFF_NM={easy:"쉬움",normal:"보통",hard:"어려움"};
+const DIFF_NM={easy:"쉬움",normal:"보통",hard:"어려움",extreme:"매우 어려움"};
 function cycleDiff(){
-  const order=["easy","normal","hard"];
+  const order=["easy","normal","hard","extreme"];
   diffKey=order[(order.indexOf(diffKey)+1)%order.length];
   store.setItem("rs2_diff",diffKey);
   syncDiffUI();
@@ -618,23 +620,30 @@ function aiUpdate(dt){
   /* 1) 경제 우선 — 가스가 영역 밖이면 타워를 이어 확장 */
   if(cnt("elixirBase")<gasNeed){
     if(tryB("elixirBase"))return;
-    if(towerCnt<st.towerMax&&tryB("tower","gas"))return;
+    /* 가스가 영역 밖이면 타워로 확장 (공격형은 생산 라인을 먼저 갖춘 뒤에만) */
+    if(towerCnt<st.towerMax&&(!st.aggro||prodCnt>=2)&&tryB("tower","gas"))return;
   }
+  const prodPref=st.aggro?"fwd":null;   // 공격형: 생산 건물도 전방 배치
   /* 2) 최소 생산 라인 (킵 승급 조건 = 배럭 계열) */
-  if(prodCnt<1&&tryB("barracks"))return;
+  if(prodCnt<1&&tryB("barracks",prodPref))return;
   /* 3) 테크: 킵 승급 → 워크숍(킵 필요) */
   if(maxTier>=2){
     if(S.eTier<2&&doTierUp(side))return;
     if(cnt("workshop")<1&&cnt("aviary")<1&&tryB("workshop"))return;
   }
   /* 4) 원거리 생산 라인 확보 (아처리) */
-  if(cnt("archery")<1&&cnt("shooterGarden")<1&&prodCnt>=1&&tryB("archery"))return;
-  /* 5) 방어선 확보 */
-  if(towerCnt<Math.min(2,st.towerMax)&&tryB("tower","fwd"))return;
-  /* 6) 테크: 생텀 → 캐슬 */
+  if(cnt("archery")<1&&cnt("shooterGarden")<1&&prodCnt>=1&&tryB("archery",prodPref))return;
+  /* 5) 방어선 확보 (공격형은 생산을 우선하므로 최소 1기만) */
+  if(towerCnt<Math.min(st.aggro?1:2,st.towerMax)&&tryB("tower","fwd"))return;
+  /* 5-1) 공격형: 초반 생산 라인 3채까지는 테크보다 먼저 (그 이상은 테크·레벨 이후) */
+  if(st.aggro&&prodCnt<Math.min(3,st.prodMax)&&tryB(cnt("archery")+cnt("shooterGarden")<2?"archery":"barracks","fwd"))return;
+  /* 6) 테크: 생텀 → 캐슬. 승급 조건이 갖춰지면 자원을 모은다 (선택적 지출 보류) */
   if(maxTier>=3){
     if(cnt("sanctum")<1&&tryB("sanctum"))return;
-    if(S.eTier<3&&doTierUp(side))return;
+    if(S.eTier<3){
+      if(doTierUp(side))return;
+      if(aliveB(side,"sanctum"))return;   // 캐슬 비용 저축 — 아래 선택적 지출 건너뜀
+    }
   }
   /* 7) 상위 변형 — Lv3 달성 건물만 대상 (레벨 투자가 선행되어야 함) */
   if(st.transform&&elixirOf(side)>=BAL.ECON.transformCost){
@@ -652,8 +661,8 @@ function aiUpdate(dt){
     const wk=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="workshop"&&x.level===1);
     if(wk&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(wk,"aviary");return;}
   }
-  /* 8) 생산 증설 */
-  if(prodCnt<st.prodMax&&tryB("barracks"))return;
+  /* 8) 생산 증설 (공격형은 전방으로) */
+  if(prodCnt<st.prodMax&&tryB(cnt("archery")+cnt("shooterGarden")<2?"archery":"barracks",prodPref))return;
   /* 9) 유닛 레벨 투자 — 변형 예정 건물은 제외 (레벨 낭비 방지) */
   if(maxLv>1){
     /* 상위 변형은 Lv3가 조건이므로 레벨 투자를 막지 않는다.
@@ -666,7 +675,7 @@ function aiUpdate(dt){
         S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
         burst(up.cx,up.cy,"140,220,255",8,100);return;}}
   }
-  /* 10) 여유 자원 → 전진 타워 압박 */
+  /* 10) 여유 자원 → 전진 타워 압박 (공격형은 여유 기준을 낮춰 더 자주 전진) */
   if(elixirOf(side)>=capFor(side)-2&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
 }
 
