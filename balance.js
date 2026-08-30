@@ -38,7 +38,7 @@ window.BALANCE = {
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
     tower:         { hp: 3200, cost: 5, atk: { dmg: 218, hs: 0.8, rng: 5 } },
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 5 } },
-    arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 5, splash: 1.5 } },
+    arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 6, splash: 2.0 } },   // 장사거리 광역 카운터
     aviary:        { hp: 3000, cost: 8, prod: { unit: "gryphon",       period: 14 } },
   },
 

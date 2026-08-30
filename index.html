@@ -163,7 +163,7 @@ const BAL={
                  transforms:[{key:"guardTower",tier:2,prereq:["workshop","aviary"]},   // 워크숍 계열(셰어리 변형 포함)
                              {key:"arcaneTower",tier:3,prereq:"sanctum"}]},
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
-  arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:5,splash:1.5}},
+  arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:6,splash:2.0}},   // 장사거리 광역 (T1 상한 6.1 이내)
   aviary:       {nm:"그리폰 셰어리",w:2,h:2, hp:3000, cost:0, tier:3, panel:false, prod:{unit:"gryphon",period:14}},   // 워크숍 변형으로만 획득
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
