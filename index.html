@@ -149,7 +149,7 @@ const BAL={
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
-                 hAtk:{hs:0.8, rng:5, dmg:[0,109,160,240], targets:[0,2,5,10]}},   // 티어 연동 다중 공격 (2026-08-30)
+                 hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]}},   // 티어 연동 다중 공격 (사거리 5→7)
   elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
                  transforms:[{key:"shooterGarden",tier:2},{key:"knightHall",tier:3}]},
