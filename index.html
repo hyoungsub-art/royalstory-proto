@@ -798,14 +798,6 @@ function showStrip(b){
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
     if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
-  if(d.prod){   // 유닛 생산 건물 = 레벨업 가능 (건물 레벨 = 생산 유닛 레벨). 변형과 택일 판단
-    const cost=upCostFor(b.level+1);
-    if(b.level<3){
-      const hard=b.level>=t;
-      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
-          +`레벨업 → 유닛 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
-    } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
-  }
   (d.transforms||[]).forEach((tr,i)=>{
     const nd=BAL.BUILDINGS[tr.key], cost=BAL.ECON.transformCost;
     const cond=[];
@@ -818,6 +810,16 @@ function showStrip(b){
     html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
         +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</button>`;
   });
+  /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) */
+  if(d.prod){
+    const cost=upCostFor(b.level+1);
+    if(b.level<3){
+      const hard=b.level>=t;
+      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+          +`레벨업 → 유닛 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
+    } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
+  }
+  html+=`<button onclick="hideStrip()">✕ 닫기</button>`;
   el.innerHTML=html;
   /* 위치: 건물 상단 중앙, 화면 위쪽 건물이면 아래로 뒤집기 */
   const wrap=document.getElementById("cv-wrap");
@@ -1222,24 +1224,23 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle=T.dark;roundRectPath(bx,by+bh*0.5,bw,bh*0.16,3);ctx.fill();po(lw*0.7);
       ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.6;   // 담장 결
       for(let i=1;i<4;i++){const lx=bx+bw*i/4;ctx.beginPath();ctx.moveTo(lx,by+bh*0.66);ctx.lineTo(lx,by+bh);ctx.stroke();}
-      /* 과녁 2기 (지지대 + 동심원) */
-      [[0.3,0.9],[0.7,1.05]].forEach(([fx,sc])=>{
-        const tcx=bx+bw*fx, tcy=by+bh*0.18, tr=bw*0.19*sc;
-        ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.9;   // 다리
-        ctx.beginPath();ctx.moveTo(tcx-tr*0.5,by+bh*0.62);ctx.lineTo(tcx,tcy+tr*0.6);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(tcx+tr*0.5,by+bh*0.62);ctx.lineTo(tcx,tcy+tr*0.6);ctx.stroke();
-        ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(tcx,tcy,tr,0,7);ctx.fill();po(lw);
-        ctx.fillStyle=T.main;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.62,0,7);ctx.fill();
-        ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.32,0,7);ctx.fill();
-        ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.14,0,7);ctx.fill();
-      });
-      /* 화살 다발 (우측) */
-      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.7;
-      for(let i=-1;i<=1;i++){
-        ctx.beginPath();ctx.moveTo(bx+bw*0.93+i*3,by+bh*0.5);ctx.lineTo(bx+bw*0.93+i*4.5,by+bh*0.08);ctx.stroke();
-        ctx.fillStyle=CREAM;
-        ctx.beginPath();ctx.arc(bx+bw*0.93+i*4.5,by+bh*0.06,2.2,0,7);ctx.fill();
-      }
+      /* 교차 소총 2정 (슈터 가든 상징 — 화기) */
+      const gcx=bx+bw*0.42, gcy=by+bh*0.24;
+      [[-1,-0.42],[1,0.42]].forEach(([dir,rot])=>{
+        ctx.save();ctx.translate(gcx,gcy);ctx.rotate(rot);
+        ctx.fillStyle="#3a3f45";roundRectPath(-bw*0.03,-bh*0.42,bw*0.06,bh*0.66,2);ctx.fill();po(lw*0.8);   // 총열
+        ctx.fillStyle="#8a5a28";   // 개머리판
+        ctx.beginPath();ctx.moveTo(-bw*0.05,bh*0.16);ctx.lineTo(bw*0.05,bh*0.16);
+        ctx.lineTo(bw*0.09,bh*0.4);ctx.lineTo(-bw*0.01,bh*0.4);ctx.closePath();ctx.fill();po(lw*0.8);
+        ctx.fillStyle=CREAM;roundRectPath(-bw*0.045,-bh*0.2,bw*0.09,bh*0.06,1.5);ctx.fill();   // 밴드
+        ctx.restore();});
+      /* 과녁 1기 (사격장 정체성 유지) */
+      const tcx=bx+bw*0.84, tcy=by+bh*0.26, tr=bw*0.15;
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.9;
+      ctx.beginPath();ctx.moveTo(tcx,by+bh*0.62);ctx.lineTo(tcx,tcy+tr*0.7);ctx.stroke();
+      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(tcx,tcy,tr,0,7);ctx.fill();po(lw);
+      ctx.fillStyle=T.main;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.6,0,7);ctx.fill();
+      ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.24,0,7);ctx.fill();
       break;}
     case "barracks":{
       /* 형태: 사각 텐트 (수직 벽 + 마룻대 지붕 + 입구 플랩 + 버팀줄) */
@@ -1264,9 +1265,14 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.beginPath();ctx.moveTo(cxT-tw2*0.17,botY);ctx.lineTo(cxT-tw2*0.1,topY+ (botY-topY)*0.35);
       ctx.lineTo(cxT+tw2*0.1,topY+(botY-topY)*0.35);ctx.lineTo(cxT+tw2*0.17,botY);ctx.closePath();ctx.fill();po(lw*0.8);
       if(!isSG){
-        ctx.strokeStyle=CREAM;ctx.lineWidth=lw*1.1;   // 교차 검 문장
-        ctx.beginPath();ctx.moveTo(cxT-tw2*0.14,topY+ph*0.05);ctx.lineTo(cxT+tw2*0.14,topY+ph*0.19);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cxT+tw2*0.14,topY+ph*0.05);ctx.lineTo(cxT-tw2*0.14,topY+ph*0.19);ctx.stroke();
+        /* 방패 문장 (배럭 상징) */
+        const sy=topY+ph*0.04, sw2=tw2*0.2, sh2=ph*0.2;
+        ctx.fillStyle=CREAM;
+        ctx.beginPath();ctx.moveTo(cxT-sw2,sy);ctx.lineTo(cxT+sw2,sy);
+        ctx.lineTo(cxT+sw2*0.85,sy+sh2*0.62);ctx.lineTo(cxT,sy+sh2);
+        ctx.lineTo(cxT-sw2*0.85,sy+sh2*0.62);ctx.closePath();ctx.fill();po(lw*0.9);
+        ctx.fillStyle=T.dark;   // 방패 중앙 띠
+        ctx.fillRect(cxT-sw2*0.16,sy+sh2*0.08,sw2*0.32,sh2*0.72);
       } else {
         /* 관측 망대 (형태 차이) */
         ctx.fillStyle=CREAM;roundRectPath(px+pw*0.74,by-ph*0.34,pw*0.16,bh+ph*0.34,3);ctx.fill();po(lw);
@@ -1295,9 +1301,19 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle=DARKGRAY;   // 문
       ctx.beginPath();ctx.arc(cxK,hy+hh*0.42,bw*0.12,Math.PI,0);ctx.fill();
       ctx.fillRect(cxK-bw*0.12,hy+hh*0.42,bw*0.24,hh*0.5);po(lw*0.8);
-      ctx.fillStyle=GOLD;   // 금 방패 문장
-      ctx.beginPath();ctx.moveTo(cxK,hy+hh*0.1);ctx.lineTo(cxK+bw*0.13,hy+hh*0.2);
-      ctx.lineTo(cxK,hy+hh*0.42);ctx.lineTo(cxK-bw*0.13,hy+hh*0.2);ctx.closePath();ctx.fill();po(lw*0.8);
+      /* 말 머리 문장 (기사단 회당 상징 — 기병) */
+      const hx=cxK, hyy=hy+hh*0.26, s=bw*0.115;
+      ctx.fillStyle=GOLD;
+      ctx.beginPath();
+      ctx.moveTo(hx-s*0.55,hyy+s*1.5);                       // 목 아래
+      ctx.lineTo(hx-s*0.75,hyy-s*0.1);                       // 목 뒤
+      ctx.quadraticCurveTo(hx-s*0.7,hyy-s*1.15,hx+s*0.1,hyy-s*1.1);  // 정수리
+      ctx.lineTo(hx+s*0.35,hyy-s*1.6);ctx.lineTo(hx+s*0.6,hyy-s*0.95); // 귀
+      ctx.quadraticCurveTo(hx+s*1.15,hyy-s*0.5,hx+s*0.95,hyy+s*0.25); // 주둥이
+      ctx.lineTo(hx+s*0.25,hyy+s*0.35);                      // 턱
+      ctx.quadraticCurveTo(hx+s*0.5,hyy+s*1.1,hx+s*0.5,hyy+s*1.5);   // 앞목
+      ctx.closePath();ctx.fill();po(lw*0.85);
+      ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(hx+s*0.28,hyy-s*0.45,s*0.14,0,7);ctx.fill();   // 눈
       break;}
     case "archery":{
       /* 형태: 궁수 컨셉 — 큰 활 아치 + 시위 + 화살 (활 실루엣) */
