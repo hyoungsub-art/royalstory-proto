@@ -983,9 +983,10 @@ function sprKnight(r,team,sw,u){
 function sprMusket(r,team,sw,u){
   const c1=team?"#3b6fd4":"#d4453b",lw=Math.max(1,r*0.13);
   chibiBase(r,c1,"#f6cfa2");
-  ctx.fillStyle="#6b4a86";
+  const TCm=team?TEAM_COL.player:TEAM_COL.enemy;
+  ctx.fillStyle=TCm.dark;
   ctx.beginPath();ctx.arc(0,-r*0.5,r*0.74,Math.PI*0.95,Math.PI*2.05);ctx.closePath();ctx.fill();po(lw);
-  ctx.fillStyle="#8a63b8";
+  ctx.fillStyle=TCm.main;
   ctx.beginPath();ctx.ellipse(0,-r*0.86,r*0.8,r*0.2,0,0,7);ctx.fill();po(lw);
   ctx.beginPath();ctx.arc(0,-r*0.9,r*0.42,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
   chibiEyes(r,-r*0.28);
@@ -1044,6 +1045,9 @@ function sprValk(r,team,sw,u){
 }
 function sprMage(r,team,sw,u,robe,hat){
   const lw=Math.max(1,r*0.13);
+  /* 진영색 로브 (영웅은 고유색 유지, 일반 마법사는 진영색) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy;
+  if(!robe){robe=TC.main;hat=TC.dark;}
   chibiBase(r,robe,"#f6cfa2");
   /* 지팡이 (오른손) */
   ctx.save();ctx.translate(r*0.6,r*0.42);
@@ -1078,6 +1082,7 @@ function sprGyro(r,team,sw,u){
 }
 function sprGryphon(r,team,sw,u){
   const lw=Math.max(1,r*0.12),at=u?u.animT:0;
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy;
   const flap=Math.sin(at*1.6)*0.35;
   /* 날개 */
   ctx.fillStyle="#e8e2d2";
@@ -1085,35 +1090,45 @@ function sprGryphon(r,team,sw,u){
   ctx.beginPath();ctx.ellipse(-r*0.7,-r*0.4,r*0.75,r*0.3,0.4,0,7);ctx.fill();po(lw);ctx.restore();
   ctx.save();ctx.rotate(0.3+flap);
   ctx.beginPath();ctx.ellipse(r*0.7,-r*0.4,r*0.75,r*0.3,-0.4,0,7);ctx.fill();po(lw);ctx.restore();
-  /* 몸통(사자) */
+  /* 몸통(사자) + 진영색 안장 마갑 */
   ctx.fillStyle="#c9a35e";roundRectPath(-r*0.55,-r*0.1,r*1.1,r*0.85,r*0.3);ctx.fill();po(lw);
-  /* 머리(독수리) */
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.5,r*0.16,r*1.0,r*0.34,r*0.1);ctx.fill();po(lw*0.8);
+  /* 머리(독수리) + 진영색 볏 */
   ctx.fillStyle="#f2f0e8";ctx.beginPath();ctx.arc(0,-r*0.45,r*0.62,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=TC.dark;
+  ctx.beginPath();ctx.moveTo(-r*0.3,-r*0.85);ctx.lineTo(r*0.05,-r*1.2);ctx.lineTo(r*0.2,-r*0.8);ctx.closePath();ctx.fill();po(lw*0.8);
   ctx.fillStyle="#f0b23e";
   ctx.beginPath();ctx.moveTo(-r*0.12,-r*0.32);ctx.lineTo(r*0.24,-r*0.22);ctx.lineTo(-r*0.12,-r*0.12);ctx.closePath();ctx.fill();po(lw*0.8);
   chibiEyes(r,-r*0.52,r*0.24);
 }
 const SPRU={footman:sprKnight,rifleman:sprMusket,knight:sprHog,flyingMachine:sprGyro,
-  mage:(r,t,s,u)=>sprMage(r,t,s,u,"#7a5ab8","#5a3f8a"),gryphon:sprGryphon};
+  mage:(r,t,s,u)=>sprMage(r,t,s,u),gryphon:sprGryphon};   // 마법사 로브 = 진영색
 const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
   mountainKing:sprValk, paladin:sprKnight,
   bloodMage:(r,t,s,u)=>sprMage(r,t,s,u,"#c03030","#8a1f1f"),
   skyMage:(r,t,s,u)=>sprMage(r,t,s,u,"#3a9ad9","#2a6fa8")};
 
-/* --- 건물 스프라이트 (플랫 치비 + 외곽선) --- */
+/* --- 건물 스프라이트 --- 색 = 진영, 형태 = 기능 (2026-08-30 아트 규칙) --- */
+const TEAM_COL={player:{main:"#3f74d8",dark:"#26437f",light:"#84aaf0"},
+                enemy: {main:"#d8493d",dark:"#8f2a23",light:"#f0928a"}};
+const CREAM="#f4f1e6", STONE="#c9c6b6", DARKGRAY="#463d47", GOLD="#ffcf3f";
 function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
   const lw=2, team=side==="player";
-  const c1=team?"#4a7ce0":"#e0564a";
-  ctx.fillStyle="#c9c6b6";roundRectPath(px+2,py+ph*0.55,pw-4,ph*0.42,6);ctx.fill();po(lw);   // 기단
+  const T=TEAM_COL[team?"player":"enemy"];
+  const c1=T.main;
+  /* 기단: 중립 석재 + 진영색 테두리 띠 (전 건물 공통 — 진영 식별) */
+  ctx.fillStyle=STONE;roundRectPath(px+2,py+ph*0.55,pw-4,ph*0.42,6);ctx.fill();po(lw);
+  ctx.fillStyle=T.dark;roundRectPath(px+2,py+ph*0.86,pw-4,ph*0.11,4);ctx.fill();po(lw*0.7);
   const bx=px+pw*0.12,by=py+ph*0.18,bw=pw*0.76,bh=ph*0.55;
   switch(key){
     case "hall":{
       /* 티어별 외형 진화: 1 타운 홀(단층) → 2 킵(2층 증축) → 3 캐슬(대탑+금관). 강등 시 외형도 하락 */
       const t=tierNow||1, cx=px+pw/2;
-      ctx.fillStyle="#eceadf";roundRectPath(bx,by,bw,bh+ph*0.05,8);ctx.fill();po(lw);
+      ctx.fillStyle=T.main;roundRectPath(bx,by,bw,bh+ph*0.05,8);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.62,by,bw*0.38,bh+ph*0.05,8);ctx.fill();   // 그늘 면
       if(t===1){
         /* 타운 홀: 총안 4개 + 목재 대문 */
-        ctx.fillStyle="#eceadf";
+        ctx.fillStyle=CREAM;
         for(let i=0;i<4;i++){roundRectPath(bx+bw*(0.04+i*0.26),by-ph*0.13,bw*0.14,ph*0.14,2);ctx.fill();po(lw*0.7);}
         ctx.fillStyle="#8a5a28";
         ctx.beginPath();ctx.arc(cx,by+bh*0.5,pw*0.1,Math.PI,0);ctx.fill();
@@ -1123,8 +1138,8 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         ctx.beginPath();ctx.moveTo(cx,by+bh*0.5);ctx.lineTo(cx,by+bh*1.05);ctx.stroke();
       } else if(t===2){
         /* 킵: 중앙 2층 증축 + 상층 총안 + 진영 배너 */
-        ctx.fillStyle="#e2dfd2";roundRectPath(cx-bw*0.26,by-ph*0.3,bw*0.52,ph*0.36,4);ctx.fill();po(lw);
-        ctx.fillStyle="#e2dfd2";
+        ctx.fillStyle=CREAM;roundRectPath(cx-bw*0.26,by-ph*0.3,bw*0.52,ph*0.36,4);ctx.fill();po(lw);
+        ctx.fillStyle=CREAM;
         for(let i=0;i<3;i++){roundRectPath(cx-bw*0.26+bw*0.52*(0.04+i*0.36),by-ph*0.42,bw*0.115,ph*0.13,2);ctx.fill();po(lw*0.7);}
         for(let i=0;i<2;i++){roundRectPath(bx+bw*(0.04+i*0.78),by-ph*0.13,bw*0.14,ph*0.14,2);ctx.fill();po(lw*0.7);}
         ctx.fillStyle=c1;roundRectPath(cx-bw*0.07,by-ph*0.24,bw*0.14,ph*0.3,3);ctx.fill();po(lw*0.7);
@@ -1132,13 +1147,13 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         ctx.fillRect(cx-pw*0.09,by+bh*0.55,pw*0.18,bh*0.5);
       } else {
         /* 캐슬: 좌우 대탑 + 진영색 원뿔 + 중앙 2층 + 금관 */
-        ctx.fillStyle="#e2dfd2";
+        ctx.fillStyle=CREAM;
         roundRectPath(bx-pw*0.04,by-ph*0.28,bw*0.22,bh+ph*0.36,4);ctx.fill();po(lw);
         roundRectPath(bx+bw-bw*0.22+pw*0.04,by-ph*0.28,bw*0.22,bh+ph*0.36,4);ctx.fill();po(lw);
         ctx.fillStyle=c1;
         [bx-pw*0.04+bw*0.11, bx+bw-bw*0.11+pw*0.04].forEach(tx=>{
           ctx.beginPath();ctx.moveTo(tx-bw*0.16,by-ph*0.27);ctx.lineTo(tx+bw*0.16,by-ph*0.27);ctx.lineTo(tx,by-ph*0.5);ctx.closePath();ctx.fill();po(lw*0.8);});
-        ctx.fillStyle="#eceadf";roundRectPath(cx-bw*0.24,by-ph*0.24,bw*0.48,ph*0.3,4);ctx.fill();po(lw);
+        ctx.fillStyle=CREAM;roundRectPath(cx-bw*0.24,by-ph*0.24,bw*0.48,ph*0.3,4);ctx.fill();po(lw);
         ctx.fillStyle="#ffcf3f";
         ctx.beginPath();ctx.moveTo(cx-pw*0.15,by-ph*0.26);ctx.lineTo(cx-pw*0.11,by-ph*0.46);ctx.lineTo(cx-pw*0.04,by-ph*0.32);
         ctx.lineTo(cx,by-ph*0.5);ctx.lineTo(cx+pw*0.04,by-ph*0.32);ctx.lineTo(cx+pw*0.11,by-ph*0.46);ctx.lineTo(cx+pw*0.15,by-ph*0.26);ctx.closePath();ctx.fill();po(lw);
@@ -1151,49 +1166,53 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillText("I".repeat(t),bx+bw*0.09,by+bh*0.6);
       break;}
     case "elixirBase":{
-      ctx.fillStyle="#5a4a78";roundRectPath(bx,by+bh*0.3,bw,bh*0.7,6);ctx.fill();po(lw);
+      /* 형태: 낮은 받침 + 큰 마름모 크리스탈 (다이아몬드 실루엣) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.42,bw,bh*0.58,6);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.1,by+bh*0.42,bw*0.8,bh*0.14,3);ctx.fill();po(lw*0.7);
       ctx.fillStyle="#c86bfa";
-      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.14);ctx.lineTo(px+pw*0.68,by+bh*0.5);ctx.lineTo(px+pw/2,by+bh*0.85);ctx.lineTo(px+pw*0.32,by+bh*0.5);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#e8b3ff";ctx.beginPath();ctx.moveTo(px+pw/2,by);ctx.lineTo(px+pw*0.58,by+bh*0.42);ctx.lineTo(px+pw/2,by+bh*0.6);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.2);ctx.lineTo(px+pw*0.72,by+bh*0.36);ctx.lineTo(px+pw/2,by+bh*0.8);ctx.lineTo(px+pw*0.28,by+bh*0.36);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle="#e8b3ff";ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.08);ctx.lineTo(px+pw*0.6,by+bh*0.3);ctx.lineTo(px+pw/2,by+bh*0.5);ctx.closePath();ctx.fill();
       break;}
-    case "barracks": case "shooterGarden":{
-      /* 군용 텐트 + 목책 + 문장 + 깃발 */
-      const tent=key==="barracks"?c1:"#3a8a5f";
-      ctx.fillStyle="#8a5a28";
-      for(let i=0;i<5;i++){roundRectPath(bx+bw*i*0.2,by-ph*0.08,bw*0.13,ph*0.26,3);ctx.fill();po(lw*0.7);}   // 목책
-      ctx.fillStyle=tent;
+    case "barracks":{
+      /* 형태: 단순 삼각 텐트 (가장 기본) */
+      ctx.fillStyle=T.main;
       ctx.beginPath();ctx.moveTo(bx-pw*0.02,by+bh);ctx.lineTo(px+pw/2,by-ph*0.05);ctx.lineTo(bx+bw+pw*0.02,by+bh);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#3a3040";   // 입구
-      ctx.beginPath();ctx.moveTo(px+pw/2-bw*0.14,by+bh);ctx.lineTo(px+pw/2,by+bh*0.42);ctx.lineTo(px+pw/2+bw*0.14,by+bh);ctx.closePath();ctx.fill();po(lw*0.8);
-      if(key==="barracks"){      // 교차 검 문장
-        ctx.strokeStyle="#e8e6da";ctx.lineWidth=lw*1.1;
-        ctx.beginPath();ctx.moveTo(px+pw/2-bw*0.12,by+bh*0.1);ctx.lineTo(px+pw/2+bw*0.12,by+bh*0.34);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(px+pw/2+bw*0.12,by+bh*0.1);ctx.lineTo(px+pw/2-bw*0.12,by+bh*0.34);ctx.stroke();
-      } else {                   // 과녁 문장
-        ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.22,bw*0.13,0,7);ctx.fill();po(lw*0.7);
-        ctx.fillStyle="#d4453b";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.22,bw*0.07,0,7);ctx.fill();
-        ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.22,bw*0.03,0,7);ctx.fill();
-      }
-      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.8;   // 깃대+깃발
-      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.05);ctx.lineTo(px+pw/2,by-ph*0.3);ctx.stroke();
-      ctx.fillStyle=tent;
-      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.3);ctx.lineTo(px+pw/2+bw*0.24,by-ph*0.23);ctx.lineTo(px+pw/2,by-ph*0.16);ctx.closePath();ctx.fill();po(lw*0.7);
+      ctx.fillStyle=T.dark;   // 그늘 면
+      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.05);ctx.lineTo(bx+bw+pw*0.02,by+bh);ctx.lineTo(px+pw/2,by+bh);ctx.closePath();ctx.fill();
+      ctx.fillStyle=DARKGRAY;
+      ctx.beginPath();ctx.moveTo(px+pw/2-bw*0.15,by+bh);ctx.lineTo(px+pw/2,by+bh*0.4);ctx.lineTo(px+pw/2+bw*0.15,by+bh);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.strokeStyle=CREAM;ctx.lineWidth=lw*1.1;   // 교차 검
+      ctx.beginPath();ctx.moveTo(px+pw/2-bw*0.11,by+bh*0.12);ctx.lineTo(px+pw/2+bw*0.11,by+bh*0.32);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(px+pw/2+bw*0.11,by+bh*0.12);ctx.lineTo(px+pw/2-bw*0.11,by+bh*0.32);ctx.stroke();
+      break;}
+    case "shooterGarden":{
+      /* 형태: 텐트 + 높은 관측 망대 (세로 기둥이 솟음) */
+      ctx.fillStyle=T.main;
+      ctx.beginPath();ctx.moveTo(bx-pw*0.02,by+bh);ctx.lineTo(px+pw*0.4,by+ph*0.05);ctx.lineTo(px+pw*0.78,by+bh);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle=DARKGRAY;
+      ctx.beginPath();ctx.moveTo(px+pw*0.3,by+bh);ctx.lineTo(px+pw*0.4,by+bh*0.45);ctx.lineTo(px+pw*0.5,by+bh);ctx.closePath();ctx.fill();po(lw*0.8);
+      /* 관측 망대 */
+      ctx.fillStyle=CREAM;roundRectPath(px+pw*0.72,by-ph*0.34,pw*0.16,bh+ph*0.34,3);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(px+pw*0.66,by-ph*0.44,pw*0.28,ph*0.14,3);ctx.fill();po(lw*0.8);
+      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(px+pw*0.8,by-ph*0.02,pw*0.05,0,7);ctx.fill();po(lw*0.7);   // 과녁
+      ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(px+pw*0.8,by-ph*0.02,pw*0.024,0,7);ctx.fill();
       break;}
     case "knightHall":{
-      /* 석조 요새 + 금 방패 문장 + 페넌트 */
-      ctx.fillStyle="#d8d5c8";roundRectPath(bx,by-ph*0.02,bw,bh+ph*0.05,4);ctx.fill();po(lw);
-      ctx.fillStyle="#d8d5c8";
-      for(let i=0;i<3;i++){roundRectPath(bx+bw*(0.06+i*0.36),by-ph*0.17,bw*0.18,ph*0.17,2);ctx.fill();po(lw*0.8);}
-      ctx.fillStyle="#4a4048";roundRectPath(px+pw/2-bw*0.11,by+bh*0.45,bw*0.22,bh*0.55,3);ctx.fill();po(lw*0.8);
-      ctx.fillStyle="#ffcf3f";   // 금 방패
+      /* 형태: 각진 요새 + 뾰족 첨탑 2기 (좌우 대칭 성채) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by,bw,bh+ph*0.05,4);ctx.fill();po(lw);
+      ctx.fillStyle=CREAM;
+      for(let i=0;i<2;i++){const tx=bx+(i?bw*0.78:bw*0.02);
+        roundRectPath(tx,by-ph*0.22,bw*0.2,bh*0.6,3);ctx.fill();po(lw);
+        ctx.fillStyle=T.dark;
+        ctx.beginPath();ctx.moveTo(tx-bw*0.03,by-ph*0.2);ctx.lineTo(tx+bw*0.23,by-ph*0.2);ctx.lineTo(tx+bw*0.1,by-ph*0.42);ctx.closePath();ctx.fill();po(lw*0.8);
+        ctx.fillStyle=CREAM;}
+      ctx.fillStyle=DARKGRAY;
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.45,bw*0.12,Math.PI,0);ctx.fill();
+      ctx.fillRect(px+pw/2-bw*0.12,by+bh*0.45,bw*0.24,bh*0.6);po(lw*0.8);
+      ctx.fillStyle=GOLD;   // 금 방패 (정예 상징)
       ctx.beginPath();ctx.moveTo(px+pw/2,by+bh*0.02);
-      ctx.lineTo(px+pw/2+bw*0.13,by+bh*0.1);ctx.lineTo(px+pw/2+bw*0.11,by+bh*0.28);
-      ctx.lineTo(px+pw/2,by+bh*0.38);ctx.lineTo(px+pw/2-bw*0.11,by+bh*0.28);
-      ctx.lineTo(px+pw/2-bw*0.13,by+bh*0.1);ctx.closePath();ctx.fill();po(lw*0.8);
-      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.8;   // 페넌트
-      ctx.beginPath();ctx.moveTo(bx+bw*0.15,by-ph*0.17);ctx.lineTo(bx+bw*0.15,by-ph*0.4);ctx.stroke();
-      ctx.fillStyle="#b8862e";
-      ctx.beginPath();ctx.moveTo(bx+bw*0.15,by-ph*0.4);ctx.lineTo(bx+bw*0.38,by-ph*0.33);ctx.lineTo(bx+bw*0.15,by-ph*0.26);ctx.closePath();ctx.fill();po(lw*0.7);
+      ctx.lineTo(px+pw/2+bw*0.12,by+bh*0.1);ctx.lineTo(px+pw/2,by+bh*0.34);
+      ctx.lineTo(px+pw/2-bw*0.12,by+bh*0.1);ctx.closePath();ctx.fill();po(lw*0.8);
       break;}
     case "blacksmith":{
       ctx.fillStyle="#8a8078";roundRectPath(bx,by+bh*0.2,bw,bh*0.8,5);ctx.fill();po(lw);
@@ -1202,67 +1221,75 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle="#ff9c3a";ctx.beginPath();ctx.arc(bx+bw*0.32,by+bh*0.42,bw*0.08,0,7);ctx.fill();
       break;}
     case "workshop":{
-      ctx.fillStyle="#a08a6a";roundRectPath(bx,by+bh*0.15,bw,bh*0.85,5);ctx.fill();po(lw);
-      /* 기어 */
-      ctx.fillStyle="#8a929c";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.45,bw*0.24,0,7);ctx.fill();po(lw);
-      ctx.fillStyle="#eceadf";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.45,bw*0.1,0,7);ctx.fill();po(lw*0.7);
+      /* 형태: 낮고 넓은 공방 + 굴뚝 + 큰 기어 (톱니 실루엣) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.15,bw,bh*0.85,5);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.62,by-ph*0.16,bw*0.2,bh*0.5,3);ctx.fill();po(lw*0.8);   // 굴뚝
+      ctx.fillStyle="rgba(120,120,120,.55)";
+      ctx.beginPath();ctx.arc(bx+bw*0.72,by-ph*0.22,pw*0.05,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(bx+bw*0.78,by-ph*0.31,pw*0.035,0,7);ctx.fill();
+      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(px+pw*0.42,by+bh*0.55,bw*0.22,0,7);ctx.fill();po(lw);   // 기어
       for(let i=0;i<6;i++){const a=i*Math.PI/3;
-        ctx.fillStyle="#8a929c";
-        ctx.save();ctx.translate(px+pw/2+Math.cos(a)*bw*0.26,by+bh*0.45+Math.sin(a)*bw*0.26);
-        roundRectPath(-bw*0.045,-bw*0.045,bw*0.09,bw*0.09,2);ctx.fill();ctx.restore();}
+        ctx.save();ctx.translate(px+pw*0.42+Math.cos(a)*bw*0.24,by+bh*0.55+Math.sin(a)*bw*0.24);ctx.rotate(a);
+        ctx.fillStyle=CREAM;roundRectPath(-bw*0.05,-bw*0.05,bw*0.1,bw*0.1,2);ctx.fill();po(lw*0.6);ctx.restore();}
+      ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(px+pw*0.42,by+bh*0.55,bw*0.08,0,7);ctx.fill();po(lw*0.7);
       break;}
     case "sanctum":{
-      /* 마법 연구소: 보라 돔 천문대 + 골드 밴드 + 부유 크리스탈 궤도 */
-      ctx.fillStyle="#cfc9e8";roundRectPath(bx,by+bh*0.42,bw,bh*0.58,5);ctx.fill();po(lw);
-      ctx.fillStyle="#7a5ab8";
-      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.44,bw*0.42,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#ffcf3f";roundRectPath(px+pw/2-bw*0.44,by+bh*0.38,bw*0.88,bh*0.09,3);ctx.fill();po(lw*0.7);
-      ctx.fillStyle="#3a2a5a";roundRectPath(px+pw/2-bw*0.05,by+bh*0.08,bw*0.1,bh*0.3,3);ctx.fill();   // 관측 슬릿
-      ctx.fillStyle="#4a4048";   // 룬 문
-      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.78,bw*0.11,Math.PI,0);ctx.fill();
-      ctx.fillRect(px+pw/2-bw*0.11,by+bh*0.78,bw*0.22,bh*0.22);
-      ctx.strokeStyle="rgba(200,150,255,.85)";ctx.lineWidth=lw*0.8;   // 궤도 링
-      ctx.beginPath();ctx.ellipse(px+pw/2,by-ph*0.1,bw*0.3,bh*0.09,0,0,7);ctx.stroke();
-      ctx.fillStyle="#c86bfa";   // 부유 크리스탈
-      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.28);ctx.lineTo(px+pw/2+bw*0.08,by-ph*0.1);
-      ctx.lineTo(px+pw/2,by+ph*0.02);ctx.lineTo(px+pw/2-bw*0.08,by-ph*0.1);ctx.closePath();ctx.fill();po(lw*0.8);
-      ctx.fillStyle="#e8b3ff";   // 궤도 위성
-      ctx.beginPath();ctx.arc(px+pw/2+bw*0.3,by-ph*0.1,2.5,0,7);ctx.fill();
-      ctx.beginPath();ctx.arc(px+pw/2-bw*0.3,by-ph*0.1,2.5,0,7);ctx.fill();
+      /* 형태: 반구 돔 + 부유 크리스탈 궤도 (유일한 돔 실루엣) */
+      ctx.fillStyle=CREAM;roundRectPath(bx,by+bh*0.42,bw,bh*0.58,5);ctx.fill();po(lw);
+      ctx.fillStyle=T.main;
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.44,bw*0.44,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;   // 돔 그늘 반쪽
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.44,bw*0.44,Math.PI*1.5,0);ctx.lineTo(px+pw/2,by+bh*0.44);ctx.closePath();ctx.fill();
+      ctx.fillStyle=GOLD;roundRectPath(px+pw/2-bw*0.46,by+bh*0.36,bw*0.92,bh*0.1,3);ctx.fill();po(lw*0.7);
+      ctx.fillStyle="#2f2740";roundRectPath(px+pw/2-bw*0.05,by+bh*0.06,bw*0.1,bh*0.3,3);ctx.fill();   // 관측 슬릿
+      ctx.fillStyle=DARKGRAY;
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.76,bw*0.11,Math.PI,0);ctx.fill();
+      ctx.fillRect(px+pw/2-bw*0.11,by+bh*0.76,bw*0.22,bh*0.24);
+      ctx.strokeStyle="rgba(200,150,255,.85)";ctx.lineWidth=lw*0.8;
+      ctx.beginPath();ctx.ellipse(px+pw/2,by-ph*0.12,bw*0.32,bh*0.1,0,0,7);ctx.stroke();
+      ctx.fillStyle="#c86bfa";
+      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.3);ctx.lineTo(px+pw/2+bw*0.09,by-ph*0.12);
+      ctx.lineTo(px+pw/2,by+ph*0.02);ctx.lineTo(px+pw/2-bw*0.09,by-ph*0.12);ctx.closePath();ctx.fill();po(lw*0.8);
       break;}
     case "tower": case "guardTower": case "arcaneTower":{
       /* 세로로 솟은 망루 (풋프린트 위로 연장) */
+      /* 형태: 가늘고 높은 세로 망루 (유일한 수직 실루엣) */
       const shaftW=bw*0.52, sx=px+pw/2-shaftW/2, topY=by-ph*0.5, botY=by+bh;
-      ctx.fillStyle="#e2dfd2";roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
-      ctx.strokeStyle="rgba(120,120,100,.4)";ctx.lineWidth=1.2;   // 석재 밴드
-      for(let i=1;i<4;i++){const yy=topY+(botY-topY)*i/4;
-        ctx.beginPath();ctx.moveTo(sx+2,yy);ctx.lineTo(sx+shaftW-2,yy);ctx.stroke();}
-      ctx.fillStyle="#4a4048";roundRectPath(px+pw/2-2,topY+ph*0.3,4,ph*0.22,2);ctx.fill();   // 화살구멍
+      ctx.fillStyle=T.main;roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(sx+shaftW*0.6,topY,shaftW*0.4,botY-topY,4);ctx.fill();   // 그늘 면
+      ctx.fillStyle=CREAM;   // 석재 밴드 (중립)
+      roundRectPath(sx-2,topY+(botY-topY)*0.45,shaftW+4,ph*0.1,2);ctx.fill();po(lw*0.7);
+      ctx.fillStyle=DARKGRAY;roundRectPath(px+pw/2-2.5,topY+ph*0.24,5,ph*0.16,2);ctx.fill();   // 화살구멍
       if(key==="guardTower"){
-        /* 중무장 총안 상판 */
-        const capW=shaftW+bw*0.26;
-        ctx.fillStyle="#9aa2ab";roundRectPath(px+pw/2-capW/2,topY-ph*0.12,capW,ph*0.14,3);ctx.fill();po(lw);
-        ctx.fillStyle="#9aa2ab";
-        for(let i=0;i<3;i++){roundRectPath(px+pw/2-capW/2+capW*(0.06+i*0.36),topY-ph*0.26,capW*0.2,ph*0.15,2);ctx.fill();po(lw*0.7);}
+        /* 형태 차이: 넓은 중무장 총안 상판 */
+        const capW=shaftW+bw*0.3;
+        ctx.fillStyle=CREAM;roundRectPath(px+pw/2-capW/2,topY-ph*0.12,capW,ph*0.15,3);ctx.fill();po(lw);
+        for(let i=0;i<3;i++){ctx.fillStyle=T.dark;
+          roundRectPath(px+pw/2-capW/2+capW*(0.06+i*0.36),topY-ph*0.27,capW*0.2,ph*0.16,2);ctx.fill();po(lw*0.7);}
       } else if(key==="arcaneTower"){
-        /* 첨탑 + 부유 오브 */
-        ctx.fillStyle="#8a4ad9";
-        ctx.beginPath();ctx.moveTo(sx-3,topY);ctx.lineTo(sx+shaftW+3,topY);ctx.lineTo(px+pw/2,topY-ph*0.3);ctx.closePath();ctx.fill();po(lw);
-        ctx.fillStyle="#d9a8ff";ctx.beginPath();ctx.arc(px+pw/2,topY-ph*0.44,bw*0.11,0,7);ctx.fill();po(lw*0.8);
+        /* 형태 차이: 뾰족 첨탑 + 부유 오브 */
+        ctx.fillStyle=T.dark;
+        ctx.beginPath();ctx.moveTo(sx-3,topY);ctx.lineTo(sx+shaftW+3,topY);ctx.lineTo(px+pw/2,topY-ph*0.34);ctx.closePath();ctx.fill();po(lw);
+        ctx.fillStyle="#d9a8ff";ctx.beginPath();ctx.arc(px+pw/2,topY-ph*0.48,bw*0.11,0,7);ctx.fill();po(lw*0.8);
       } else {
-        /* 기본: 총안 3개 + 진영색 캡 */
-        ctx.fillStyle="#e2dfd2";
+        /* 기본: 총안 3개 + 뾰족 캡 */
+        ctx.fillStyle=CREAM;
         for(let i=0;i<3;i++){roundRectPath(sx+shaftW*(0.02+i*0.36),topY-ph*0.13,shaftW*0.24,ph*0.14,2);ctx.fill();po(lw*0.7);}
-        ctx.fillStyle=c1;
+        ctx.fillStyle=T.dark;
         ctx.beginPath();ctx.moveTo(sx-2,topY-ph*0.11);ctx.lineTo(sx+shaftW+2,topY-ph*0.11);ctx.lineTo(px+pw/2,topY-ph*0.33);ctx.closePath();ctx.fill();po(lw);
       }
       break;}
     case "aviary":{
-      ctx.fillStyle="#c9a35e";roundRectPath(bx,by+bh*0.35,bw,bh*0.65,5);ctx.fill();po(lw);
-      /* 둥지 */
-      ctx.fillStyle="#8a6a3a";ctx.beginPath();ctx.ellipse(px+pw/2,by+bh*0.25,bw*0.4,bh*0.2,0,0,7);ctx.fill();po(lw);
-      ctx.fillStyle="#f2f0e8";ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.05,bw*0.16,0,7);ctx.fill();po(lw*0.8);
-      ctx.fillStyle="#f0b23e";ctx.beginPath();ctx.moveTo(px+pw/2,by+bh*0.05);ctx.lineTo(px+pw/2+bw*0.1,by+bh*0.1);ctx.lineTo(px+pw/2,by+bh*0.15);ctx.closePath();ctx.fill();
+      /* 형태: 아치 기둥 + 펼친 날개 (유일한 좌우 날개 실루엣) */
+      ctx.fillStyle=T.main;roundRectPath(bx+bw*0.28,by+bh*0.1,bw*0.44,bh*0.9,5);ctx.fill();po(lw);
+      ctx.fillStyle=CREAM;   // 펼친 날개
+      ctx.beginPath();ctx.ellipse(bx+bw*0.14,by+bh*0.3,bw*0.3,bh*0.16,-0.35,0,7);ctx.fill();po(lw);
+      ctx.beginPath();ctx.ellipse(bx+bw*0.86,by+bh*0.3,bw*0.3,bh*0.16,0.35,0,7);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.34,by+bh*0.55,bw*0.32,bh*0.16,3);ctx.fill();po(lw*0.7);
+      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(px+pw/2,by-ph*0.02,bw*0.15,0,7);ctx.fill();po(lw*0.8);   // 그리폰 두상
+      ctx.fillStyle=GOLD;
+      ctx.beginPath();ctx.moveTo(px+pw/2+bw*0.04,by-ph*0.03);ctx.lineTo(px+pw/2+bw*0.2,by+ph*0.01);ctx.lineTo(px+pw/2+bw*0.04,by+ph*0.05);ctx.closePath();ctx.fill();po(lw*0.6);
+      ctx.fillStyle=OUTLINE;ctx.beginPath();ctx.arc(px+pw/2-bw*0.02,by-ph*0.04,pw*0.018,0,7);ctx.fill();
       break;}
   }
   /* 업그레이드 핍 */
