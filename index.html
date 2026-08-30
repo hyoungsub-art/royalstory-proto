@@ -143,7 +143,8 @@ let ctx=cv.getContext("2d");
 
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
- ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,6,8], upCost:4, transformCost:3},
+ /* upCost: 목표 레벨별 업그레이드 비용 (2026-08-30 대폭 상향 — 레벨업 vs 변형 선택을 무겁게) */
+ ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,6,8], upCost:[0,0,10,18], transformCost:5},
  EXCLUDE_R:4, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-08-30 본진 +1칸, 타워 = 본진 동일 (판정은 건물 중심 기준)
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
@@ -155,14 +156,13 @@ const BAL={
                  transforms:[{key:"shooterGarden",tier:2},{key:"knightHall",tier:3}]},
   shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:2, panel:false, prod:{unit:"rifleman",period:9}},
   knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:3, panel:false, prod:{unit:"knight",period:11}},
-  blacksmith:   {nm:"블랙 스미스", w:2,h:2, hp:2200, cost:5, tier:1, panel:true, upgCat:"gp"},
-  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prod:{unit:"flyingMachine",period:10}, upgCat:"ap"},
-  sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10}, upgCat:"gm"},
+  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prod:{unit:"flyingMachine",period:10}},
+  sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10}},
   tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true, atk:{dmg:218,hs:0.8,rng:5},
-                 transforms:[{key:"guardTower",tier:2,prereq:"blacksmith"},{key:"arcaneTower",tier:3,prereq:"sanctum"}]},
+                 transforms:[{key:"guardTower",tier:2,prereq:"workshop"},{key:"arcaneTower",tier:3,prereq:"sanctum"}]},
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
   arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:5,splash:1.5}},
-  aviary:       {nm:"그리폰 셰어리",w:2,h:2, hp:3000, cost:8, tier:3, panel:true, prereq:"sanctum", prod:{unit:"gryphon",period:14}, upgCat:"am"},
+  aviary:       {nm:"그리폰 셰어리",w:2,h:2, hp:3000, cost:8, tier:3, panel:true, prereq:"sanctum", prod:{unit:"gryphon",period:14}},
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
@@ -322,7 +322,7 @@ function heroBlockReason(x,y){
 function effTier(side){
   const purchased=side==="player"?S.tier:S.eTier;
   let chain=1;
-  if(aliveB(side,"blacksmith"))chain=2;
+  if(aliveB(side,"workshop"))chain=2;      // 킵 조건: 워크숍 (2026-08-30 개정, 대장간 제거)
   if(chain===2&&aliveB(side,"sanctum"))chain=3;
   return Math.min(purchased,chain);
 }
@@ -335,27 +335,24 @@ function spend(side,amt){if(side==="player")S.elixir-=amt;else S.eElixir-=amt;}
 function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
   if(cur>=3)return false;
-  const nt=cur+1, need=nt===2?"blacksmith":"sanctum", cost=BAL.ECON.tierCost[nt];
+  const nt=cur+1, need=nt===2?"workshop":"sanctum", cost=BAL.ECON.tierCost[nt];
   if(!aliveB(side,need)||elixirOf(side)<cost)return false;
   spend(side,cost);
   if(side==="player"){S.tier=nt;toast(TIER_NM[nt]+" 승급! 최대 엘릭서 "+BAL.ECON.cap[nt]);}
   else{S.eTier=nt;toast("⚠ 적이 "+TIER_NM[nt]+"(으)로 승급!");}
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(hall)burst(hall.cx,hall.cy,"255,220,120",20,160);
-  if(side==="player"){renderPanel();if(S.selBld)showStrip(S.selBld);}
+  if(side==="player"){renderPanel();hideStrip();}   // 실행 후 말풍선 닫기
   return true;
 }
 
-/* 업그레이드 분류 배율 (지속 보유: 살아있는 건물 기준 실시간) */
-function upgLevel(side,cat){
-  let lv=1;
-  S.buildings.forEach(b=>{if(b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].upgCat===cat)lv=Math.max(lv,Math.min(b.level,effTier(side)));});
-  return lv;
-}
-function upgMult(side,cat){return 1+BAL.UPG_PWR*(upgLevel(side,cat)-1);}
+/* 유닛 레벨 배율: 생산 건물 레벨이 곧 유닛 레벨 (2026-08-30 개정) */
+function lvMult(level){return 1+BAL.UPG_PWR*((level||1)-1);}
+/* 목표 레벨별 업그레이드 비용 (숫자 단일값도 허용) */
+function upCostFor(targetLv){const c=BAL.ECON.upCost;return Array.isArray(c)?(c[targetLv]||c[c.length-1]):c;}
 
 /* ---------- 유닛/영웅 ---------- */
-function spawnUnit(key,side,x,y,hero){
+function spawnUnit(key,side,x,y,hero,level){
   const d=hero?BAL.HEROES[key]:BAL.UNITS[key];
   const u={key,side,hero:!!hero,nm:d.nm,x,y,hp:d.hp,maxHp:d.hp,dmg:d.dmg,hs:d.hs,rng:d.rng,spd:d.spd*TILE,r:d.r,
            cat:d.cat||null, air:!!d.air, antiair:!!d.antiair, melee:!!d.melee, splash:d.splash||0,
@@ -363,6 +360,9 @@ function spawnUnit(key,side,x,y,hero){
            cd:0, deploy:0.6, animT:Math.random()*6.28, swing:0, flash:0, fx:side==="player"?1:-1, moving:false,
            bAtk:1,bDef:1, slowT:0};
   u.spd=d.spd*TILE;   // 타일/초 → px/초
+  /* 유닛 레벨: 생산 건물 레벨을 그대로 계승 — 스탯에 즉시 반영 (영웅은 레벨 1) */
+  u.level=hero?1:(level||1);
+  if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;}
   if(side==="enemy"&&!hero){const m=diff().stat;u.hp*=m;u.maxHp*=m;u.dmg*=m;}   // 난이도: 적 유닛 배율
   S.units.push(u);
   return u;
@@ -383,9 +383,9 @@ function nearestTarget(u){
   return best;
 }
 function dealDamage(att,tgt,amount){
-  const side=att.side;
-  let dmg=amount*(att.hero?1:upgMult(side,att.cat))*att.bAtk;
-  if(tgt.maxHp!==undefined&&tgt.bDef)dmg/= tgt.bDef*(tgt.hero?1:upgMult(tgt.side,tgt.cat||"gp"));
+  /* 레벨 보정은 스폰 시 스탯에 반영됨 — 여기서는 오라 배율만 적용 */
+  let dmg=amount*att.bAtk;
+  if(tgt.maxHp!==undefined&&tgt.bDef)dmg/=tgt.bDef;
   tgt.hp-=dmg; tgt.flash=0.15;
 }
 function unitUpdate(u,dt){
@@ -481,7 +481,9 @@ function buildingUpdate(b,dt){
     if(b.prodT>=d.prod.period){
       b.prodT=0;
       const dir=b.side==="player"?-1:1;
-      spawnUnit(d.prod.unit,b.side,b.cx+(Math.random()-0.5)*TILE,b.cy+dir*(d.h/2+0.7)*TILE,false);
+      /* 생산 건물의 레벨이 곧 유닛 레벨 (티어 상한 적용) */
+      spawnUnit(d.prod.unit,b.side,b.cx+(Math.random()-0.5)*TILE,b.cy+dir*(d.h/2+0.7)*TILE,false,
+                Math.min(b.level,effTier(b.side)));
     }
   }
   /* 본진 공격: 티어에 따라 동시 공격 대상 수·공격력 상승 */
@@ -495,7 +497,7 @@ function buildingUpdate(b,dt){
         .slice(0,a.targets[t]);
       if(inR.length){
         inR.forEach(e=>{
-          e.hp-=hdm/(e.bDef*(e.hero?1:upgMult(e.side,e.cat||"gp")));e.flash=0.12;
+          e.hp-=hdm/e.bDef;e.flash=0.12;
           S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:e.x,y2:e.y,t:0.12,t0:0.12});
         });
         b.cd=a.hs;
@@ -512,8 +514,8 @@ function buildingUpdate(b,dt){
         const dd=Math.hypot(b.cx-e.x,b.cy-e.y);if(dd<bd&&dd<=d.atk.rng*TILE){bd=dd;best=e;}});
       if(best){
         const tdm=d.atk.dmg*eMult(b.side);   // 난이도: 적 타워 공격력 배율
-        if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=tdm/(e.bDef*(e.hero?1:upgMult(e.side,e.cat||"gp")));e.flash=0.12;}});}
-        else{best.hp-=tdm/(best.bDef*(best.hero?1:upgMult(best.side,best.cat||"gp")));best.flash=0.12;}
+        if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=tdm/e.bDef;e.flash=0.12;}});}
+        else{best.hp-=tdm/best.bDef;best.flash=0.12;}
         b.cd=d.atk.hs;
         S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:best.x,y2:best.y,t:0.12,t0:0.12});
       } else b.cd=0.2;
@@ -529,7 +531,7 @@ function transformBuilding(b,newKey){
   const ratio=b.hp/b.maxHp;
   b.key=newKey; b.maxHp=nd.hp; b.hp=Math.round(nd.hp*ratio); b.prodT=0; b.level=1;
   S.occ=null; burst(b.cx,b.cy,"255,220,120",14,140);
-  if(b.side==="player"){renderPanel(); showStrip(b);}
+  if(b.side==="player"){renderPanel(); hideStrip();}   // 실행 후 말풍선 닫기
 }
 /* ---------- 적 건설 AI ---------- */
 function findSpot(key,side,pref){
@@ -576,14 +578,13 @@ function aiUpdate(dt){
   /* 빌드 오더 (우선순위) — 가스가 영역 밖이면 가스 방향으로 타워를 이어 지음 */
   if(cnt("elixirBase")<1){ if(tryB("elixirBase"))return; if(towerCnt<8&&tryB("tower","gas"))return; }
   if(prodCnt<1&&tryB("barracks"))return;
-  if(cnt("blacksmith")<1&&tryB("blacksmith"))return;
+  if(cnt("workshop")<1&&tryB("workshop"))return;   // 킵 승급 조건
   if(S.eTier<2&&doTierUp(side))return;
   if(towerCnt<1&&tryB("tower","fwd"))return;
   if(prodCnt<2&&tryB("barracks"))return;
   if(cnt("elixirBase")<2){ if(tryB("elixirBase"))return; if(towerCnt<8&&tryB("tower","gas"))return; }
   if(cnt("sanctum")<1&&tryB("sanctum"))return;
   if(S.eTier<3&&doTierUp(side))return;
-  if(cnt("workshop")<1&&tryB("workshop"))return;
   if(towerCnt<2&&tryB("tower","fwd"))return;
   /* 변형: 배럭 1개 → 슈터 가든 (티어2 이후 1회) */
   if(tier>=2&&cnt("shooterGarden")<1){
@@ -591,10 +592,11 @@ function aiUpdate(dt){
     if(b&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(b,"shooterGarden");return;}
   }
   if(cnt("aviary")<1&&tryB("aviary"))return;
-  /* 업그레이드 (여유 자원) */
-  if(elixirOf(side)>=BAL.ECON.upCost+2){
-    const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].upgCat&&b.level<Math.min(3,tier));
-    if(up){spend(side,BAL.ECON.upCost);up.level++;burst(up.cx,up.cy,"140,220,255",8,100);return;}
+  /* 생산 건물 레벨업 (여유 자원) — 유닛 레벨 상승 */
+  {
+    const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<Math.min(3,tier));
+    if(up){const c=upCostFor(up.level+1);
+      if(elixirOf(side)>=c+2){spend(side,c);up.level++;burst(up.cx,up.cy,"140,220,255",8,100);return;}}
   }
   /* 자원이 넘치면 확장: 전진 타워(상한 8 — 좁은 영역·가스 확장 감안) → 생산 건물 추가(상한 4) */
   if(elixirOf(side)>=capFor(side)-1){
@@ -609,7 +611,7 @@ function swapMode(){
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
   hideStrip(); renderPanel();
 }
-const PANEL_BUILDS=["elixirBase","barracks","blacksmith","workshop","sanctum","tower","aviary"];
+const PANEL_BUILDS=["elixirBase","barracks","workshop","sanctum","tower","aviary"];
 function buildLockReason(key){
   const d=BAL.BUILDINGS[key], t=effTier("player");
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
@@ -719,23 +721,23 @@ function showStrip(b){
   S.selBld=b;
   const el=document.getElementById("bubble");
   const d=BAL.BUILDINGS[b.key], t=effTier("player");
-  let html=`<div class="b-title">${d.nm}${d.upgCat?` Lv${b.level}`:""}</div>`;
+  let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">유닛 Lv${Math.min(b.level,t)}</span>`:""}</div>`;
   if(b.key==="hall"){
     if(S.tier<3){
-      const nt=S.tier+1, need=nt===2?"blacksmith":"sanctum";
+      const nt=S.tier+1, need=nt===2?"workshop":"sanctum";
       const hard=!aliveB("player",need), cost=BAL.ECON.tierCost[nt];
       html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
           +`${TIER_NM[nt]} 승급 (${cost})${hard?`<br><span style="font-size:10px">${BAL.BUILDINGS[need].nm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
     if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
-  if(d.upgCat){
-    const cost=BAL.ECON.upCost;
+  if(d.prod){   // 유닛 생산 건물 = 레벨업 가능 (건물 레벨 = 생산 유닛 레벨). 변형과 택일 판단
+    const cost=upCostFor(b.level+1);
     if(b.level<3){
       const hard=b.level>=t;
       html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
-          +`업그레이드 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
-    } else html+=`<div class="b-note" style="color:var(--sub)">최대 강화</div>`;
+          +`레벨업 → 유닛 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
+    } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
   (d.transforms||[]).forEach((tr,i)=>{
     const nd=BAL.BUILDINGS[tr.key], cost=BAL.ECON.transformCost;
@@ -770,10 +772,12 @@ function refreshBubble(){
 function tierUp(){doTierUp("player");}
 function upgradeSel(){
   const b=S.selBld; if(!b)return;
-  if(b.level>=Math.min(3,effTier("player"))||S.elixir<BAL.ECON.upCost)return;
-  S.elixir-=BAL.ECON.upCost; b.level++;
+  const cost=upCostFor(b.level+1);
+  if(b.level>=Math.min(3,effTier("player"))||S.elixir<cost)return;
+  S.elixir-=cost; b.level++;
   burst(b.cx,b.cy,"140,220,255",10,120);
-  renderPanel(); showStrip(b);
+  S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"150,220,255"});
+  renderPanel(); hideStrip();   // 실행 후 말풍선 닫기
 }
 function transformSel(i){
   const b=S.selBld; if(!b)return;
@@ -1212,7 +1216,7 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
   }
   /* 업그레이드 핍 */
   const dd=BAL.BUILDINGS[key];
-  if(dd&&dd.upgCat&&level>1){
+  if(dd&&dd.prod&&level>1){
     ctx.fillStyle="#ffd24d";
     for(let i=0;i<level-1;i++){ctx.beginPath();ctx.arc(px+pw-8-i*10,py+8,3.5,0,7);ctx.fill();po(1);}
   }
@@ -1321,6 +1325,12 @@ function draw(){
       ctx.beginPath();ctx.arc(u.x,u.y+dropY+hover,u.r*1.05,0,7);ctx.fill();}
     if(u.bAtk>1){ctx.strokeStyle="rgba(255,210,80,.7)";ctx.lineWidth=1.5;
       ctx.beginPath();ctx.arc(u.x,u.y+hover,u.r+3,0,7);ctx.stroke();}
+    if(u.level>1){   // 유닛 레벨 표시 (Lv2+)
+      ctx.fillStyle="#ffd24d";ctx.font="bold 10px sans-serif";ctx.textAlign="left";
+      ctx.strokeStyle="rgba(30,25,15,.9)";ctx.lineWidth=2.5;
+      ctx.strokeText("L"+u.level,u.x+u.r*0.6,u.y-u.r*0.5+hover+dropY);
+      ctx.fillText("L"+u.level,u.x+u.r*0.6,u.y-u.r*0.5+hover+dropY);
+    }
     if(u.hp<u.maxHp)drawHpBar(u.x,u.y-u.r-13+dropY+hover,u.hp,u.maxHp,u.hero?36:26,u.side);
   });
   /* 이펙트 */
@@ -1465,7 +1475,7 @@ function buildEditorUI(){
     [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
      ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
      ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierCost.2","킵 승급 비용"],["ECON.tierCost.3","캐슬 승급 비용"],
-     ["ECON.upCost","업그레이드 비용"],["ECON.transformCost","변형 비용"],
+     ["ECON.upCost.2","레벨2 업그레이드 비용"],["ECON.upCost.3","레벨3 업그레이드 비용"],["ECON.transformCost","변형 비용"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"]]

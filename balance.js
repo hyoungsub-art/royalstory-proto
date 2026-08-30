@@ -9,8 +9,9 @@
 window.BALANCE = {
 
   /* 경제: 회복 주기(초/1), 시작량, 티어별 최대치, 가스 기지 1개당 보너스(+50%), 티어 승급 비용 */
+  /* upCost: 목표 레벨별 비용 [_, _, Lv2, Lv3] — 레벨업 vs 변형을 택일 판단으로 만들기 위해 상향 */
   ECON: { regen: 2.8, start: 6, cap: [0, 10, 15, 20], gasBonus: 0.5, tierCost: [0, 0, 6, 8],
-          upCost: 4, transformCost: 3 },
+          upCost: [0, 0, 10, 18], transformCost: 5 },
 
   /* 규칙 수치 */
   EXCLUDE_R: 4,     // 적 건물 건설 배제 반경 (타일)
@@ -18,7 +19,7 @@ window.BALANCE = {
   TOWER_ZONE: 5.25, // 타워 전선 확장 반경 = 본진과 동일
   AURA_R: 4,        // 영웅 오라 반경
   AURA_PWR: 0.25,   // 오라 공·방 +25% (중첩 허용 — 이슈 #11 가정)
-  UPG_PWR: 0.12,    // 건물 업그레이드 단계당 공·방 +12%
+  UPG_PWR: 0.12,    // 유닛 레벨 1단계당 스탯 +12% (생산 건물 레벨 = 유닛 레벨)
   UNIT_CAP: 60,     // 진영당 일반 유닛 상한
   HERO_COST: 6,     // 영웅 공통 코스트 (확정: 전원 동일)
   HERO_CD: 12,      // 영웅 사망 후 재소환 쿨다운 (초)
@@ -33,7 +34,6 @@ window.BALANCE = {
     barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
     knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
-    blacksmith:    { hp: 2200, cost: 5 },
     workshop:      { hp: 2600, cost: 6, prod: { unit: "flyingMachine", period: 10 } },
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
     tower:         { hp: 3200, cost: 5, atk: { dmg: 218, hs: 0.8, rng: 5 } },
