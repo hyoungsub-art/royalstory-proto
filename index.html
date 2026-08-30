@@ -529,7 +529,10 @@ function transformBuilding(b,newKey){
   spend(b.side,cost);
   const nd=BAL.BUILDINGS[newKey];
   const ratio=b.hp/b.maxHp;
+  /* 변형 시 레벨 초기화 (확정 규칙): 업그레이드한 건물을 변형하면 새 건물 Lv1부터 시작 */
+  const lostLv=b.level;
   b.key=newKey; b.maxHp=nd.hp; b.hp=Math.round(nd.hp*ratio); b.prodT=0; b.level=1;
+  if(lostLv>1&&b.side==="player")toast(nd.nm+"(으)로 변형 — 레벨 Lv"+lostLv+" → Lv1 초기화");
   S.occ=null; burst(b.cx,b.cy,"255,220,120",14,140);
   if(b.side==="player"){renderPanel(); hideStrip();}   // 실행 후 말풍선 닫기
 }
@@ -745,8 +748,10 @@ function showStrip(b){
     if(t<tr.tier)cond.push(TIER_NM[tr.tier]);
     if(tr.prereq&&!aliveB("player",tr.prereq))cond.push(BAL.BUILDINGS[tr.prereq].nm);
     const hard=cond.length>0;
+    /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
+    const warn=(!hard&&b.level>1)?`<br><span style="font-size:10px;color:#ffb0b0">⚠ Lv${b.level} → Lv1 초기화</span>`:"";
     html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
-        +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:""}</button>`;
+        +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</button>`;
   });
   el.innerHTML=html;
   /* 위치: 건물 상단 중앙, 화면 위쪽 건물이면 아래로 뒤집기 */
