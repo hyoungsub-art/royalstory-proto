@@ -35,6 +35,7 @@ window.BALANCE = {
                      hAtk: { hs: 0.8, rng: 7, dmg: [0, 109, 160, 240], targets: [0, 2, 5, 10] } },
     elixirBase:    { hp: 1800, cost: 4 },
     barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
+    archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },   // Lv3 → 슈터 가든 변형
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
     knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
     workshop:      { hp: 2600, cost: 6, prod: { unit: "flyingMachine", period: 10 } },
@@ -48,6 +49,7 @@ window.BALANCE = {
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
   UNITS: {
     footman:       { hp: 883,  dmg: 101, hs: 1.2, rng: 0.8, spd: 1.0 },   // 공·방 절반 (2026-08-30)
+    archer:        { hp: 620,  dmg: 110, hs: 1.3, rng: 4.0, spd: 1.0 },   // 기본 원거리 (아처리)
     rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
     flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },

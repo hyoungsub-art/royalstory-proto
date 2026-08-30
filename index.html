@@ -154,9 +154,11 @@ const BAL={
                  hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]}},   // 티어 연동 다중 공격 (사거리 5→7)
   elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
-                 transforms:[{key:"knightHall",tier:3}]},
-  shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prod:{unit:"rifleman",period:9}},   // 독립 건물 (조건: 타운 홀 — 배럭과 동일)
-  knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:3, panel:false, prod:{unit:"knight",period:11}},
+                 transforms:[{key:"knightHall",minLevel:3}]},        // 배럭 Lv3 → 기사단 회당
+  archery:      {nm:"아처리",      w:2,h:2, hp:2400, cost:6, tier:1, panel:true, prod:{unit:"archer",period:9},
+                 transforms:[{key:"shooterGarden",minLevel:3}]},     // 아처리 Lv3 → 슈터 가든
+  shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:1, panel:false, prod:{unit:"rifleman",period:9}},
+  knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:1, panel:false, prod:{unit:"knight",period:11}},
   workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"flyingMachine",period:10},
                  transforms:[{key:"aviary",tier:3,prereq:"sanctum"}]},   // 설치: 킵 / 변형: 그리폰 셰어리
   sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10}},
@@ -170,6 +172,7 @@ const BAL={
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
   footman:      {nm:"풋맨",        hp:883,  dmg:101, hs:1.2, rng:0.8, spd:1.0, r:10, cat:"gp", melee:true},   // 2026-08-30 공·방 절반
+  archer:       {nm:"아처",        hp:620,  dmg:110, hs:1.3, rng:4.0, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.5, r:11, cat:"gp", melee:true},
   flyingMachine:{nm:"플라잉 머신", hp:550,  dmg:130, hs:1.0, rng:3.5, spd:1.6, r:9,  cat:"ap", air:true, antiair:true},
@@ -334,7 +337,7 @@ function heroBlockReason(x,y){
 
 /* ---------- 티어 ---------- */
 /* 배럭 계열(배럭·슈터 가든·기사단 회당) 보유 여부 — 킵 승급 조건 */
-const BARRACKS_LINE=["barracks","shooterGarden","knightHall"];
+const BARRACKS_LINE=["barracks","knightHall","archery","shooterGarden"];
 function hasBarracksLine(side){return BARRACKS_LINE.some(k=>aliveB(side,k));}
 function effTier(side){
   const purchased=side==="player"?S.tier:S.eTier;
@@ -624,8 +627,8 @@ function aiUpdate(dt){
     if(S.eTier<2&&doTierUp(side))return;
     if(cnt("workshop")<1&&cnt("aviary")<1&&tryB("workshop"))return;
   }
-  /* 4) 원거리 생산 라인 확보 (슈터 가든은 독립 건물) */
-  if(cnt("shooterGarden")<1&&prodCnt>=1&&tryB("shooterGarden"))return;
+  /* 4) 원거리 생산 라인 확보 (아처리) */
+  if(cnt("archery")<1&&cnt("shooterGarden")<1&&prodCnt>=1&&tryB("archery"))return;
   /* 5) 방어선 확보 */
   if(towerCnt<Math.min(2,st.towerMax)&&tryB("tower","fwd"))return;
   /* 6) 테크: 생텀 → 캐슬 */
@@ -633,10 +636,16 @@ function aiUpdate(dt){
     if(cnt("sanctum")<1&&tryB("sanctum"))return;
     if(S.eTier<3&&doTierUp(side))return;
   }
-  /* 7) 캐슬 이후 변형·상위 건물 */
-  if(st.transform&&tier>=3&&cnt("knightHall")<1&&prodCnt>=2){
-    const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level===1);
-    if(b&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(b,"knightHall");return;}
+  /* 7) 상위 변형 — Lv3 달성 건물만 대상 (레벨 투자가 선행되어야 함) */
+  if(st.transform&&elixirOf(side)>=BAL.ECON.transformCost){
+    if(cnt("knightHall")<1){
+      const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level>=3);
+      if(b){transformBuilding(b,"knightHall");return;}
+    }
+    if(cnt("shooterGarden")<1){
+      const a=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="archery"&&x.level>=3);
+      if(a){transformBuilding(a,"shooterGarden");return;}
+    }
   }
   /* 셰어리는 워크숍 변형으로만 획득 (Lv1 워크숍 대상) */
   if(st.aviary&&tier>=3&&cnt("aviary")<1&&aliveB(side,"sanctum")){
@@ -647,10 +656,11 @@ function aiUpdate(dt){
   if(prodCnt<st.prodMax&&tryB("barracks"))return;
   /* 9) 유닛 레벨 투자 — 변형 예정 건물은 제외 (레벨 낭비 방지) */
   if(maxLv>1){
-    const pendingBar=st.transform&&tier>=3&&cnt("knightHall")<1;   // 기사단 회당 변형 예정 배럭 제외
-    const pendingWk=st.aviary&&tier>=3&&cnt("aviary")<1;   // 셰어리 변형 예정 워크숍도 제외
+    /* 상위 변형은 Lv3가 조건이므로 레벨 투자를 막지 않는다.
+       단 셰어리 변형 예정 워크숍만 제외 (레벨 조건 없는 변형이라 낭비 방지) */
+    const pendingWk=st.aviary&&tier>=3&&cnt("aviary")<1&&aliveB(side,"sanctum");
     const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv
-      &&!(pendingBar&&b.key==="barracks")&&!(pendingWk&&b.key==="workshop"));
+      &&!(pendingWk&&b.key==="workshop"));
     if(up){const c=upCostFor(up.level+1);
       if(elixirOf(side)>=c+2){spend(side,c);up.level++;
         S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
@@ -666,7 +676,7 @@ function swapMode(){
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
   hideStrip(); renderPanel();
 }
-const PANEL_BUILDS=["elixirBase","barracks","shooterGarden","workshop","sanctum","tower"];   // 셰어리는 워크숍 변형
+const PANEL_BUILDS=["elixirBase","barracks","archery","workshop","sanctum","tower"];   // 상위 생산 건물은 변형으로 획득
 function buildLockReason(key){
   const d=BAL.BUILDINGS[key], t=effTier("player");
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
@@ -799,7 +809,8 @@ function showStrip(b){
   (d.transforms||[]).forEach((tr,i)=>{
     const nd=BAL.BUILDINGS[tr.key], cost=BAL.ECON.transformCost;
     const cond=[];
-    if(t<tr.tier)cond.push(TIER_NM[tr.tier]);
+    if(tr.tier&&t<tr.tier)cond.push(TIER_NM[tr.tier]);
+    if(tr.minLevel&&b.level<tr.minLevel)cond.push("Lv"+tr.minLevel);   // 레벨 조건
     if(!hasPrereq("player",tr.prereq))cond.push(prereqName(tr.prereq));
     const hard=cond.length>0;
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
@@ -842,7 +853,7 @@ function transformSel(i){
   const b=S.selBld; if(!b)return;
   const tr=(BAL.BUILDINGS[b.key].transforms||[])[i]; if(!tr)return;
   const t=effTier("player");
-  if(t<tr.tier||!hasPrereq("player",tr.prereq))return;
+  if((tr.tier&&t<tr.tier)||(tr.minLevel&&b.level<tr.minLevel)||!hasPrereq("player",tr.prereq))return;
   transformBuilding(b,tr.key);
 }
 
@@ -1070,6 +1081,30 @@ function sprMage(r,team,sw,u,robe,hat){
   ctx.beginPath();ctx.moveTo(-r*0.5,-r*0.82);ctx.lineTo(r*0.5,-r*0.82);ctx.lineTo(r*0.05,-r*1.7);ctx.closePath();ctx.fill();po(lw);
   chibiEyes(r,-r*0.3);
 }
+function sprArcher(r,team,sw,u){
+  /* 아처: 큰 활 + 화살 (라이플맨의 총과 구분) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.13);
+  chibiBase(r,TC.main,"#f6cfa2");
+  /* 후드 */
+  ctx.fillStyle=TC.dark;
+  ctx.beginPath();ctx.arc(0,-r*0.46,r*0.8,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#5f7a3a";   // 깃털
+  ctx.beginPath();ctx.moveTo(r*0.34,-r*0.9);ctx.lineTo(r*0.78,-r*1.24);ctx.lineTo(r*0.42,-r*1.02);ctx.closePath();ctx.fill();po(lw*0.7);
+  chibiEyes(r,-r*0.24);
+  /* 활 (앞쪽) */
+  ctx.save();ctx.translate(r*0.66,r*0.16);
+  ctx.strokeStyle="#8a5a28";ctx.lineWidth=lw*1.8;
+  ctx.beginPath();ctx.arc(0,0,r*0.86,-1.15,1.15);ctx.stroke();
+  ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.5;
+  ctx.beginPath();ctx.arc(0,0,r*0.86,-1.15,1.15);ctx.stroke();
+  ctx.strokeStyle="#f2efe4";ctx.lineWidth=lw*0.8;   // 시위
+  const dr=sw>0?r*0.3:0;
+  ctx.beginPath();ctx.moveTo(Math.cos(-1.15)*r*0.86,Math.sin(-1.15)*r*0.86);
+  ctx.lineTo(-dr,0);ctx.lineTo(Math.cos(1.15)*r*0.86,Math.sin(1.15)*r*0.86);ctx.stroke();
+  if(sw>0){ctx.strokeStyle="#8a5a28";ctx.lineWidth=lw;
+    ctx.beginPath();ctx.moveTo(-dr,0);ctx.lineTo(r*0.9,0);ctx.stroke();}
+  ctx.restore();
+}
 function sprGyro(r,team,sw,u){
   const lw=Math.max(1,r*0.13),at=u?u.animT*4:0;
   /* 로터 */
@@ -1109,7 +1144,7 @@ function sprGryphon(r,team,sw,u){
   ctx.beginPath();ctx.moveTo(-r*0.12,-r*0.32);ctx.lineTo(r*0.24,-r*0.22);ctx.lineTo(-r*0.12,-r*0.12);ctx.closePath();ctx.fill();po(lw*0.8);
   chibiEyes(r,-r*0.52,r*0.24);
 }
-const SPRU={footman:sprKnight,rifleman:sprMusket,knight:sprHog,flyingMachine:sprGyro,
+const SPRU={footman:sprKnight,archer:sprArcher,rifleman:sprMusket,knight:sprHog,flyingMachine:sprGyro,
   mage:(r,t,s,u)=>sprMage(r,t,s,u),gryphon:sprGryphon};   // 마법사 로브 = 진영색
 const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
   mountainKing:sprValk, paladin:sprKnight,
@@ -1241,21 +1276,54 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       }
       break;}
     case "knightHall":{
-      /* 형태: 각진 요새 + 뾰족 첨탑 2기 (좌우 대칭 성채) */
-      ctx.fillStyle=T.main;roundRectPath(bx,by,bw,bh+ph*0.05,4);ctx.fill();po(lw);
+      /* 형태: 배럭(사각 텐트)의 강화판 — 박공 지붕 홀 + 좌우 랜스 + 금 방패 (본진과 구분: 탑·총안 없음) */
+      const cxK=px+pw/2, hy=by+ph*0.14, hh=bh+ph*0.02;
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.8;   // 좌우 랜스(창)
+      [[-1],[1]].forEach(([s])=>{
+        ctx.beginPath();ctx.moveTo(cxK+s*bw*0.52,by+bh);ctx.lineTo(cxK+s*bw*0.52,by-ph*0.16);ctx.stroke();
+        ctx.fillStyle=CREAM;
+        ctx.beginPath();ctx.moveTo(cxK+s*bw*0.52,by-ph*0.28);ctx.lineTo(cxK+s*bw*0.56,by-ph*0.14);
+        ctx.lineTo(cxK+s*bw*0.48,by-ph*0.14);ctx.closePath();ctx.fill();po(lw*0.7);});
+      ctx.fillStyle=T.main;roundRectPath(bx+bw*0.04,hy,bw*0.92,hh-ph*0.12,4);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;   // 그늘 면
+      ctx.save();ctx.beginPath();roundRectPath(bx+bw*0.04,hy,bw*0.92,hh-ph*0.12,4);ctx.clip();
+      ctx.fillRect(cxK+bw*0.16,hy,bw*0.32,hh);ctx.restore();
+      ctx.fillStyle=T.dark;   // 박공 지붕
+      ctx.beginPath();ctx.moveTo(bx-pw*0.02,hy+ph*0.03);ctx.lineTo(bx+bw+pw*0.02,hy+ph*0.03);
+      ctx.lineTo(cxK,hy-ph*0.16);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle=CREAM;roundRectPath(bx-pw*0.02,hy+ph*0.01,bw+pw*0.04,ph*0.05,2);ctx.fill();po(lw*0.7);
+      ctx.fillStyle=DARKGRAY;   // 문
+      ctx.beginPath();ctx.arc(cxK,hy+hh*0.42,bw*0.12,Math.PI,0);ctx.fill();
+      ctx.fillRect(cxK-bw*0.12,hy+hh*0.42,bw*0.24,hh*0.5);po(lw*0.8);
+      ctx.fillStyle=GOLD;   // 금 방패 문장
+      ctx.beginPath();ctx.moveTo(cxK,hy+hh*0.1);ctx.lineTo(cxK+bw*0.13,hy+hh*0.2);
+      ctx.lineTo(cxK,hy+hh*0.42);ctx.lineTo(cxK-bw*0.13,hy+hh*0.2);ctx.closePath();ctx.fill();po(lw*0.8);
+      break;}
+    case "archery":{
+      /* 형태: 궁수 컨셉 — 큰 활 아치 + 시위 + 화살 (활 실루엣) */
+      const cxA=px+pw/2, ay=by+bh*0.45;
+      ctx.fillStyle=T.main;roundRectPath(bx+bw*0.06,by+bh*0.5,bw*0.88,bh*0.5,4);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.06,by+bh*0.5,bw*0.88,bh*0.15,3);ctx.fill();po(lw*0.7);
+      /* 큰 활 (아치) */
+      ctx.strokeStyle="#8a5a28";ctx.lineWidth=lw*2.6;
+      ctx.beginPath();ctx.arc(cxA,ay,bw*0.42,Math.PI*1.15,Math.PI*1.85);ctx.stroke();
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.6;
+      ctx.beginPath();ctx.arc(cxA,ay,bw*0.42,Math.PI*1.15,Math.PI*1.85);ctx.stroke();
+      /* 시위 */
+      const bx1=cxA+Math.cos(Math.PI*1.15)*bw*0.42, by1=ay+Math.sin(Math.PI*1.15)*bw*0.42;
+      const bx2=cxA+Math.cos(Math.PI*1.85)*bw*0.42, by2=ay+Math.sin(Math.PI*1.85)*bw*0.42;
+      ctx.strokeStyle=CREAM;ctx.lineWidth=lw*0.9;
+      ctx.beginPath();ctx.moveTo(bx1,by1);ctx.lineTo(bx2,by2);ctx.stroke();
+      /* 화살 (활에 메긴) */
+      ctx.strokeStyle="#8a5a28";ctx.lineWidth=lw*1.1;
+      ctx.beginPath();ctx.moveTo(cxA,ay-bw*0.06);ctx.lineTo(cxA,ay-bw*0.55);ctx.stroke();
       ctx.fillStyle=CREAM;
-      for(let i=0;i<2;i++){const tx=bx+(i?bw*0.78:bw*0.02);
-        roundRectPath(tx,by-ph*0.22,bw*0.2,bh*0.6,3);ctx.fill();po(lw);
-        ctx.fillStyle=T.dark;
-        ctx.beginPath();ctx.moveTo(tx-bw*0.03,by-ph*0.2);ctx.lineTo(tx+bw*0.23,by-ph*0.2);ctx.lineTo(tx+bw*0.1,by-ph*0.42);ctx.closePath();ctx.fill();po(lw*0.8);
-        ctx.fillStyle=CREAM;}
-      ctx.fillStyle=DARKGRAY;
-      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.45,bw*0.12,Math.PI,0);ctx.fill();
-      ctx.fillRect(px+pw/2-bw*0.12,by+bh*0.45,bw*0.24,bh*0.6);po(lw*0.8);
-      ctx.fillStyle=GOLD;   // 금 방패 (정예 상징)
-      ctx.beginPath();ctx.moveTo(px+pw/2,by+bh*0.02);
-      ctx.lineTo(px+pw/2+bw*0.12,by+bh*0.1);ctx.lineTo(px+pw/2,by+bh*0.34);
-      ctx.lineTo(px+pw/2-bw*0.12,by+bh*0.1);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.beginPath();ctx.moveTo(cxA,ay-bw*0.66);ctx.lineTo(cxA-bw*0.07,ay-bw*0.48);
+      ctx.lineTo(cxA+bw*0.07,ay-bw*0.48);ctx.closePath();ctx.fill();po(lw*0.7);
+      /* 화살통 */
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.72,by+bh*0.55,bw*0.16,bh*0.4,3);ctx.fill();po(lw*0.8);
+      ctx.fillStyle=CREAM;
+      for(let i=-1;i<=1;i++){ctx.beginPath();ctx.arc(bx+bw*0.8+i*3.5,by+bh*0.53,2,0,7);ctx.fill();}
       break;}
     case "blacksmith":{
       ctx.fillStyle="#8a8078";roundRectPath(bx,by+bh*0.2,bw,bh*0.8,5);ctx.fill();po(lw);
