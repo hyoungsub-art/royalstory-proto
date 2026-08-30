@@ -154,8 +154,8 @@ const BAL={
                  hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]}},   // 티어 연동 다중 공격 (사거리 5→7)
   elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
-                 transforms:[{key:"shooterGarden",tier:2},{key:"knightHall",tier:3}]},
-  shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:2, panel:false, prod:{unit:"rifleman",period:9}},
+                 transforms:[{key:"knightHall",tier:3}]},
+  shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:6, tier:1, panel:true, prod:{unit:"rifleman",period:9}},   // 독립 건물 (조건: 타운 홀 — 배럭과 동일)
   knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:3, panel:false, prod:{unit:"knight",period:11}},
   workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"flyingMachine",period:10},
                  transforms:[{key:"aviary",tier:3,prereq:"sanctum"}]},   // 설치: 킵 / 변형: 그리폰 셰어리
@@ -624,11 +624,8 @@ function aiUpdate(dt){
     if(S.eTier<2&&doTierUp(side))return;
     if(cnt("workshop")<1&&cnt("aviary")<1&&tryB("workshop"))return;
   }
-  /* 4) 변형은 레벨 투자 전에 (변형 시 레벨이 초기화되므로 Lv1 건물만 대상) */
-  if(st.transform&&tier>=2&&cnt("shooterGarden")<1&&prodCnt>=1){
-    const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level===1);
-    if(b&&elixirOf(side)>=BAL.ECON.transformCost){transformBuilding(b,"shooterGarden");return;}
-  }
+  /* 4) 원거리 생산 라인 확보 (슈터 가든은 독립 건물) */
+  if(cnt("shooterGarden")<1&&prodCnt>=1&&tryB("shooterGarden"))return;
   /* 5) 방어선 확보 */
   if(towerCnt<Math.min(2,st.towerMax)&&tryB("tower","fwd"))return;
   /* 6) 테크: 생텀 → 캐슬 */
@@ -650,7 +647,7 @@ function aiUpdate(dt){
   if(prodCnt<st.prodMax&&tryB("barracks"))return;
   /* 9) 유닛 레벨 투자 — 변형 예정 건물은 제외 (레벨 낭비 방지) */
   if(maxLv>1){
-    const pendingBar=st.transform&&((tier>=2&&cnt("shooterGarden")<1)||(tier>=3&&cnt("knightHall")<1));
+    const pendingBar=st.transform&&tier>=3&&cnt("knightHall")<1;   // 기사단 회당 변형 예정 배럭 제외
     const pendingWk=st.aviary&&tier>=3&&cnt("aviary")<1;   // 셰어리 변형 예정 워크숍도 제외
     const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv
       &&!(pendingBar&&b.key==="barracks")&&!(pendingWk&&b.key==="workshop"));
@@ -669,7 +666,7 @@ function swapMode(){
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
   hideStrip(); renderPanel();
 }
-const PANEL_BUILDS=["elixirBase","barracks","workshop","sanctum","tower"];   // 셰어리는 워크숍 변형
+const PANEL_BUILDS=["elixirBase","barracks","shooterGarden","workshop","sanctum","tower"];   // 셰어리는 워크숍 변형
 function buildLockReason(key){
   const d=BAL.BUILDINGS[key], t=effTier("player");
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
@@ -1185,18 +1182,29 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle="#e8b3ff";ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.08);ctx.lineTo(px+pw*0.6,by+bh*0.3);ctx.lineTo(px+pw/2,by+bh*0.5);ctx.closePath();ctx.fill();
       break;}
     case "shooterGarden":{
-      /* 형태: 삼각 텐트 + 관측 망대 (배럭의 사각 텐트와 대비) */
-      ctx.fillStyle=T.main;
-      ctx.beginPath();ctx.moveTo(bx-pw*0.02,by+bh);ctx.lineTo(px+pw*0.4,by+ph*0.02);ctx.lineTo(px+pw*0.78,by+bh);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle=T.dark;   // 그늘 면
-      ctx.beginPath();ctx.moveTo(px+pw*0.4,by+ph*0.02);ctx.lineTo(px+pw*0.78,by+bh);ctx.lineTo(px+pw*0.4,by+bh);ctx.closePath();ctx.fill();
-      ctx.fillStyle=DARKGRAY;   // 입구
-      ctx.beginPath();ctx.moveTo(px+pw*0.3,by+bh);ctx.lineTo(px+pw*0.4,by+bh*0.42);ctx.lineTo(px+pw*0.5,by+bh);ctx.closePath();ctx.fill();po(lw*0.8);
-      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(px+pw*0.4,by+bh*0.2,pw*0.05,0,7);ctx.fill();po(lw*0.7);   // 과녁
-      ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(px+pw*0.4,by+bh*0.2,pw*0.024,0,7);ctx.fill();
-      /* 관측 망대 */
-      ctx.fillStyle=CREAM;roundRectPath(px+pw*0.74,by-ph*0.34,pw*0.16,bh+ph*0.34,3);ctx.fill();po(lw);
-      ctx.fillStyle=T.dark;roundRectPath(px+pw*0.68,by-ph*0.44,pw*0.28,ph*0.14,3);ctx.fill();po(lw*0.8);
+      /* 형태: 야외 사격장 — 낮은 담장 + 나란한 원형 과녁 2기 + 화살 다발 (텐트 계열과 무관) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.5,bw,bh*0.5,4);ctx.fill();po(lw);   // 낮고 넓은 담장
+      ctx.fillStyle=T.dark;roundRectPath(bx,by+bh*0.5,bw,bh*0.16,3);ctx.fill();po(lw*0.7);
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.6;   // 담장 결
+      for(let i=1;i<4;i++){const lx=bx+bw*i/4;ctx.beginPath();ctx.moveTo(lx,by+bh*0.66);ctx.lineTo(lx,by+bh);ctx.stroke();}
+      /* 과녁 2기 (지지대 + 동심원) */
+      [[0.3,0.9],[0.7,1.05]].forEach(([fx,sc])=>{
+        const tcx=bx+bw*fx, tcy=by+bh*0.18, tr=bw*0.19*sc;
+        ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.9;   // 다리
+        ctx.beginPath();ctx.moveTo(tcx-tr*0.5,by+bh*0.62);ctx.lineTo(tcx,tcy+tr*0.6);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(tcx+tr*0.5,by+bh*0.62);ctx.lineTo(tcx,tcy+tr*0.6);ctx.stroke();
+        ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(tcx,tcy,tr,0,7);ctx.fill();po(lw);
+        ctx.fillStyle=T.main;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.62,0,7);ctx.fill();
+        ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.32,0,7);ctx.fill();
+        ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.14,0,7);ctx.fill();
+      });
+      /* 화살 다발 (우측) */
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.7;
+      for(let i=-1;i<=1;i++){
+        ctx.beginPath();ctx.moveTo(bx+bw*0.93+i*3,by+bh*0.5);ctx.lineTo(bx+bw*0.93+i*4.5,by+bh*0.08);ctx.stroke();
+        ctx.fillStyle=CREAM;
+        ctx.beginPath();ctx.arc(bx+bw*0.93+i*4.5,by+bh*0.06,2.2,0,7);ctx.fill();
+      }
       break;}
     case "barracks":{
       /* 형태: 사각 텐트 (수직 벽 + 마룻대 지붕 + 입구 플랩 + 버팀줄) */
