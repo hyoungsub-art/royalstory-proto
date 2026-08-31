@@ -1255,7 +1255,7 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       /* 형태: 사각 텐트 (수직 벽 + 마룻대 지붕 + 입구 플랩 + 버팀줄) */
       const isSG=false;
       const tw2=bw+pw*0.04, tx2=bx-pw*0.02;
-      const topY=by+ph*0.06, botY=by+bh;
+      const topY=by+ph*0.24, botY=by+bh;   // 텐트 높이 축소 (2026-08-31)
       /* 버팀줄 + 말뚝 */
       ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.7;
       ctx.beginPath();ctx.moveTo(tx2+tw2*0.06,topY+ph*0.02);ctx.lineTo(tx2-pw*0.06,botY);ctx.stroke();
@@ -1398,7 +1398,7 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       /* 형태: 세로 망루. 기본은 낮은 목조 망루, 상위 변형은 높은 석조 */
       const isBase=key==="tower";
       const shaftW=bw*0.52, sx=px+pw/2-shaftW/2;
-      const topY=by+(isBase?-ph*0.16:-ph*0.5), botY=by+bh;
+      const topY=by+(isBase?-ph*0.16:-ph*0.28), botY=by+bh;   // 상위 타워 높이 축소 (2026-08-31)
       ctx.fillStyle=T.main;roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
       ctx.fillStyle=T.dark;roundRectPath(sx+shaftW*0.6,topY,shaftW*0.4,botY-topY,4);ctx.fill();   // 그늘 면
       if(isBase){
