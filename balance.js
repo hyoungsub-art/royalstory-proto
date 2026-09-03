@@ -44,6 +44,7 @@ window.BALANCE = {
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 5 } },
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 6, splash: 2.0 } },   // 장사거리 광역 카운터
     aviary:        { hp: 3000, cost: 8, prod: { unit: "gryphon",       period: 14 } },
+    dragonNest:    { hp: 3200,          prod: { unit: "dragon",        period: 16 } },   // 생텀 Lv3 변형
   },
 
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
@@ -55,6 +56,7 @@ window.BALANCE = {
     flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
     gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 3.0, spd: 1.4 },   // 사거리 확대
+    dragon:        { hp: 2400, dmg: 320, hs: 1.6, rng: 3.0, spd: 1.2, splash: 1.2 },   // 최상위 공중 마법 (광역 브레스)
   },
 
   /* 난이도 = AI 전략 수준만 조정. 스탯·자원 규칙은 플레이어와 동등 (0/1은 사용 여부) */
