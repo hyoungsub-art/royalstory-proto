@@ -10,11 +10,12 @@ window.BALANCE = {
 
   /* 경제: 회복 주기(초/1), 시작량, 티어별 최대치, 가스 기지 1개당 보너스(+50%), 티어 승급 비용 */
   /* upCost: 목표 레벨별 비용 [_, _, Lv2, Lv3] — 레벨업 vs 변형을 택일 판단으로 만들기 위해 상향 */
-  ECON: { regen: 2.8, start: 6, cap: [0, 10, 15, 20], gasBonus: 0.5,
-          /* 주의: 승급 비용은 직전 티어의 엘릭서 상한 이하여야 함 (킵≤10, 캐슬≤15) */
-          tierCost: [0, 0, 9, 14],       // 킵 9 / 캐슬 14 (상향)
+  /* cap 10/20/30 (2026-09-04): 자연 회복으로 상한 도달 → 엘릭서 스타 1개 적립(바 0으로).
+     스타 녹이기 = 현재 상한만큼 환원. 영웅 비용 = 스타(HERO_COST) */
+  ECON: { regen: 2.8, start: 6, cap: [0, 10, 20, 30], gasBonus: 0.5,
+          tierCost: [0, 0, 9, 14],       // 킵 9 / 캐슬 14
           upCost: [0, 0, 10, 18],        // 레벨2 10 / 레벨3 18
-          transformCost: 10 },           // 변형 10 (상향)
+          transformCost: 10 },           // 변형 10
 
   /* 규칙 수치 */
   EXCLUDE_R: 5.25,  // 적 "본진" 주변 건설 배제 반경 (2026-08-31: 본진에만 적용, 타 건물 옆 건설 허용)
@@ -24,7 +25,7 @@ window.BALANCE = {
   AURA_PWR: 0.25,   // 오라 공·방 +25% (중첩 허용 — 이슈 #11 가정)
   UPG_PWR: 0.12,    // 유닛 레벨 1단계당 스탯 +12% (생산 건물 레벨 = 유닛 레벨)
   UNIT_CAP: 60,     // 진영당 일반 유닛 상한
-  HERO_COST: 6,     // 영웅 공통 코스트 (확정: 전원 동일)
+  HERO_COST: 1,     // 영웅 공통 코스트 — 단위: 엘릭서 스타 (최소 1, 전원 동일)
   HERO_CD: 12,      // 영웅 사망 후 재소환 쿨다운 (초)
 
   /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함
@@ -73,12 +74,12 @@ window.BALANCE = {
     extreme: { aiDelay: 1,  aiInterval: 0.6, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 9, towerMax: 12, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99 },
   },
 
-  /* 영웅 (5인 고정 덱, 코스트 공통 = HERO_COST) */
+  /* 영웅 (5인 고정 덱, 비용 = 엘릭서 스타). 스탯은 최상위 유닛(드래곤 2400/320) 초과로 상향 (2026-09-04) */
   HEROES: {
-    archmage:     { hp: 900,  dmg: 160, hs: 1.4, rng: 4.0, spd: 1.0 },
-    mountainKing: { hp: 2600, dmg: 320, hs: 1.4, rng: 0.9, spd: 1.1 },
-    paladin:      { hp: 2200, dmg: 180, hs: 1.3, rng: 0.9, spd: 1.0, heal: 25 },
-    bloodMage:    { hp: 800,  aoe: { dmg: 260, rad: 1.8, period: 3, castRng: 5 } },
-    skyMage:      { hp: 850,  dmg: 150, hs: 1.3, rng: 4.0, spd: 1.0 },
+    archmage:     { hp: 2600, dmg: 380, hs: 1.4, rng: 4.0, spd: 1.0 },
+    mountainKing: { hp: 4200, dmg: 520, hs: 1.4, rng: 0.9, spd: 1.1 },
+    paladin:      { hp: 3800, dmg: 300, hs: 1.3, rng: 0.9, spd: 1.0, heal: 50 },
+    bloodMage:    { hp: 2800, aoe: { dmg: 450, rad: 1.8, period: 3, castRng: 5 } },
+    skyMage:      { hp: 2500, dmg: 360, hs: 1.3, rng: 4.0, spd: 1.0 },
   },
 };

@@ -45,6 +45,11 @@
   #elixir-num{font-weight:bold;color:#fff;min-width:52px;height:34px;text-align:center;font-size:13px;line-height:34px;padding:0 6px;
     background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;
     border-radius:17px;text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
+  /* 엘릭서 스타 칩 (탭 = 녹이기) */
+  #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;cursor:pointer;
+    background:radial-gradient(circle at 35% 28%,#ffe9a8,#ffc94d 55%,#c98a1a);border:2px solid #fff;color:#5a3d08;
+    text-shadow:0 1px 1px rgba(255,255,255,.5);box-shadow:0 2px 4px rgba(0,0,0,.4);}
+  #star-chip:disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed;}
   #mode-row{display:flex;gap:6px;align-items:stretch;}
   #swap-btn{flex:none;width:58px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
@@ -106,6 +111,7 @@
     <div id="elixir-row">
       <div id="elixir-num">0/10</div>
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
+      <button id="star-chip" onclick="meltStar()" title="탭하면 스타 1개를 현재 상한만큼 엘릭서로 녹입니다">⭐0</button>
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
@@ -146,11 +152,12 @@ let ctx=cv.getContext("2d");
 
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
- /* upCost: 목표 레벨별 업그레이드 비용 (2026-08-30 대폭 상향 — 레벨업 vs 변형 선택을 무겁게) */
- /* 비용은 해당 티어의 엘릭서 상한 이하여야 함 (킵 승급은 T1 상한 10, 캐슬 승급은 T2 상한 15 이내) */
- ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,9,14], upCost:[0,0,10,18], transformCost:10},   // 2026-08-30 변형·승급 비용 상향
+ /* cap: 티어별 엘릭서 상한 10/20/30 (2026-09-04). 자연 회복으로 상한 도달 시 엘릭서 스타 1개 적립(바 초기화),
+    스타는 녹여서 "현재 상한만큼" 엘릭서로 환원. 영웅 소환 비용 = 스타(HERO_COST 단위).
+    승급·업그레이드 비용은 해당 시점 상한 이하 유지 */
+ ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierCost:[0,0,9,14], upCost:[0,0,10,18], transformCost:10},
  EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
- UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
+ UNIT_CAP:60, HERO_COST:1, HERO_CD:12,   // HERO_COST 단위 = 엘릭서 스타 (최소 1, 2026-09-04)
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
@@ -191,16 +198,17 @@ const BAL={
   dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:18, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 (드래곤 네스트) — 대형 (r 14→18)
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
+ /* 영웅: 소환 비용 = 엘릭서 스타. 스탯은 최상위 유닛(드래곤 2400/320)보다 상위 (2026-09-04 상향) */
  HEROES:{
-  archmage:    {nm:"아크메이지",   hp:900,  dmg:160, hs:1.4, rng:4.0, spd:1.0, r:13, antiair:true,
+  archmage:    {nm:"아크메이지",   hp:2600, dmg:380, hs:1.4, rng:4.0, spd:1.0, r:14, antiair:true,
                 aura:{label:"지상 원거리 강화", test:"groundRanged"}},
-  mountainKing:{nm:"마운틴 킹",    hp:2600, dmg:320, hs:1.4, rng:0.9, spd:1.1, r:13, melee:true,
+  mountainKing:{nm:"마운틴 킹",    hp:4200, dmg:520, hs:1.4, rng:0.9, spd:1.1, r:14, melee:true,
                 aura:{label:"지상 근접 물리 강화", test:"groundMeleePhys"}},
-  paladin:     {nm:"팔라딘",       hp:2200, dmg:180, hs:1.3, rng:0.9, spd:1.0, r:13, melee:true,
-                heal:25},
-  bloodMage:   {nm:"블러드 메이지",hp:800,  dmg:0,   hs:1,   rng:0,   spd:1.0, r:13,
-                aoe:{dmg:260, rad:1.8, period:3, castRng:5}},
-  skyMage:     {nm:"스카이 메이지",hp:850,  dmg:150, hs:1.3, rng:4.0, spd:1.0, r:13, antiair:true,
+  paladin:     {nm:"팔라딘",       hp:3800, dmg:300, hs:1.3, rng:0.9, spd:1.0, r:14, melee:true,
+                heal:50},
+  bloodMage:   {nm:"블러드 메이지",hp:2800, dmg:0,   hs:1,   rng:0,   spd:1.0, r:14,
+                aoe:{dmg:450, rad:1.8, period:3, castRng:5}},
+  skyMage:     {nm:"스카이 메이지",hp:2500, dmg:360, hs:1.3, rng:4.0, spd:1.0, r:14, antiair:true,
                 aura:{label:"마법 유닛 강화", test:"magic"}},
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
@@ -270,7 +278,7 @@ function makeTiles(){
 /* ---------- 초기화 ---------- */
 function newGame(){
   S={tiles:makeTiles(), buildings:[], units:[], effects:[], particles:[], shake:0,
-     elixir:BAL.ECON.start, tier:1, eElixir:BAL.ECON.start, eTier:1, aiT:0, elapsed:0, over:false,
+     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, aiT:0, elapsed:0, over:false,
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      occ:null, zoneDirty:true};
@@ -368,6 +376,16 @@ function capFor(side){return BAL.ECON.cap[effTier(side)];}
 function elixirCap(){return capFor("player");}
 function elixirOf(side){return side==="player"?S.elixir:S.eElixir;}
 function spend(side,amt){if(side==="player")S.elixir-=amt;else S.eElixir-=amt;}
+function starsOf(side){return side==="player"?S.stars:S.eStars;}
+/* 스타 녹이기: 저장 시점과 무관하게 "현재 상한"만큼 엘릭서로 환원 (상한 초과분은 소실) */
+function meltStar(side){
+  side=side||"player";
+  if(starsOf(side)<=0)return false;
+  if(side==="player"){S.stars--;S.elixir=Math.min(elixirCap(),S.elixir+elixirCap());
+    toast("⭐ 스타 1개 → 엘릭서 "+elixirCap());renderPanel();}
+  else{S.eStars--;S.eElixir=Math.min(capFor("enemy"),S.eElixir+capFor("enemy"));}
+  return true;
+}
 /* 티어 승급 (양측 공용) */
 function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
@@ -626,6 +644,8 @@ function aiUpdate(dt){
   if(S.aiT<st.aiInterval)return;
   S.aiT=0;
   const side="enemy", tier=effTier(side);
+  /* 스타 활용: 엘릭서가 부족하면 스타를 녹여 지출 여력 확보 (플레이어와 동일 규칙) */
+  if(S.eStars>0&&S.eElixir<=capFor(side)*0.4)meltStar(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
   const prodCnt=cnt("barracks")+cnt("shieldBarracks")+cnt("assaultBarracks")+cnt("shooterGarden")+cnt("knightHall");
   const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
@@ -768,9 +788,10 @@ function renderPanel(){
   } else {
     S.heroSlots.forEach((slot,i)=>{
       const d=BAL.HEROES[slot.key];
+      const cost=Math.max(1,BAL.HERO_COST);
       const div=document.createElement("div");
-      div.className="p-item"+(slot.state!=="ready"?" locked":(S.elixir<BAL.HERO_COST?" dim":""));
-      div.innerHTML=`<div class="p-cost">${BAL.HERO_COST}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
+      div.className="p-item"+(slot.state!=="ready"?" locked":(S.stars<cost?" dim":""));
+      div.innerHTML=`<div class="p-cost" style="background:radial-gradient(circle at 35% 28%,#ffe9a8,#ffc94d 55%,#c98a1a);color:#5a3d08;text-shadow:none;">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(slot.state==="field"?`<div class="p-cd" style="font-size:10px;">출전 중</div>`:
           slot.state==="cd"?`<div class="p-cd" data-cd="${i}">${Math.ceil(slot.cd)}</div>`:"");
       if(slot.state==="ready")attachDrag(div,{type:"hero",slot:i});
@@ -825,10 +846,11 @@ function tryBuildAt(key,x,y){
 function tryHeroAt(slotIdx,x,y){
   const slot=S.heroSlots[slotIdx];
   if(slot.state!=="ready")return;
-  if(S.elixir<BAL.HERO_COST){toast("엘릭서 부족");return;}
+  const cost=Math.max(1,BAL.HERO_COST);   // 영웅 비용 = 엘릭서 스타 (최소 1)
+  if(S.stars<cost){toast("엘릭서 스타 부족 (⭐"+cost+" 필요)");return;}
   const reason=heroBlockReason(x,y);
   if(reason){toast(reason);return;}
-  S.elixir-=BAL.HERO_COST;
+  S.stars-=cost;
   slot.state="field"; slot.unit=spawnUnit(slot.key,"player",x,y,true);
   renderPanel();
 }
@@ -961,11 +983,17 @@ function loop(ts){
   lastTs=ts;
   if(!S.over){
     S.elapsed+=dt;
-    /* 경제 (양측 동일 공식) */
+    /* 경제 (양측 동일 공식). 자연 회복으로 상한 도달 시 → 엘릭서 스타 1개 적립, 바 초기화.
+       (녹이기로 채운 상한 상태는 재적립되지 않음 — 상한 "미만→도달" 순간에만 적립) */
     const gas=S.buildings.filter(b=>b.side==="player"&&b.key==="elixirBase"&&b.hp>0).length;
-    S.elixir=Math.min(elixirCap(),S.elixir+dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen);
+    const pb=S.elixir, pCap=elixirCap();
+    S.elixir=Math.min(pCap,pb+dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen);
+    if(pb<pCap&&S.elixir>=pCap){S.stars++;S.elixir=0;
+      toast("⭐ 엘릭서 스타 +1 (보유 "+S.stars+")");renderPanel();}
     const eGas=S.buildings.filter(b=>b.side==="enemy"&&b.key==="elixirBase"&&b.hp>0).length;
-    S.eElixir=Math.min(capFor("enemy"),S.eElixir+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);   // 경제 공식 양측 동일
+    const eb=S.eElixir, eCap=capFor("enemy");
+    S.eElixir=Math.min(eCap,eb+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
+    if(eb<eCap&&S.eElixir>=eCap){S.eStars++;S.eElixir=0;}
     aiUpdate(dt);
     recomputeAuras();
     S.units.forEach(u=>unitUpdate(u,dt));
@@ -1027,9 +1055,13 @@ function updateHUD(){
   /* 패널 dim 갱신 */
   document.querySelectorAll("#panel .p-item").forEach((el,i)=>{
     if(el.classList.contains("locked"))return;
-    const cost=S.mode==="build"?BAL.BUILDINGS[PANEL_BUILDS[i]].cost:BAL.HERO_COST;
-    el.classList.toggle("dim",S.elixir<cost);
+    if(S.mode==="build")el.classList.toggle("dim",S.elixir<BAL.BUILDINGS[PANEL_BUILDS[i]].cost);
+    else el.classList.toggle("dim",S.stars<Math.max(1,BAL.HERO_COST));
   });
+  /* 엘릭서 스타 칩 */
+  const sc=document.getElementById("star-chip");
+  sc.textContent="⭐"+S.stars;
+  sc.disabled=S.stars<=0;
 }
 
 /* ============================================================ 렌더링 (치비 스타일 — v1 계승) ============================================================ */
