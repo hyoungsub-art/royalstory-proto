@@ -38,12 +38,12 @@ window.BALANCE = {
     archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },   // Lv3 → 슈터 가든 변형
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
     knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
-    workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 10 } },   // 공성추 생산, Lv3 → 시즈 워크숍
+    workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 13 } },   // 공성추 생산, Lv3 → 시즈 워크숍
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
     tower:         { hp: 3200, cost: 5, atk: { dmg: 218, hs: 0.8, rng: 5 } },
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 5 } },
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 6, splash: 2.0 } },   // 장사거리 광역 카운터
-    siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 16 } },   // 워크숍 Lv3 변형
+    siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 20 } },   // 워크숍 Lv3 변형
     dragonNest:    { hp: 3200,          prod: { unit: "dragon",        period: 16 } },   // 생텀 Lv3 변형
   },
 

@@ -162,7 +162,7 @@ const BAL={
                  transforms:[{key:"shooterGarden",minLevel:3}]},     // 아처리 Lv3 → 슈터 가든
   shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:1, panel:false, prod:{unit:"rifleman",period:9}},
   knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:1, panel:false, prod:{unit:"knight",period:11}},
-  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"ram",period:10},
+  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"ram",period:13},
                  transforms:[{key:"siegeWorkshop",minLevel:3}]},         // 워크숍 Lv3 → 시즈 워크숍 (2026-08-31 공성 라인 개편)
   sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10},
                  transforms:[{key:"dragonNest",minLevel:3}]},            // 생텀 Lv3 → 드래곤 네스트
@@ -172,7 +172,7 @@ const BAL={
                              {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest"]}]},   // 생텀 계열
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
   arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:6,splash:2.0}},   // 장사거리 광역 (T1 상한 6.1 이내)
-  siegeWorkshop:{nm:"시즈 워크숍", w:2,h:2, hp:3000, cost:0, tier:1, panel:false, prod:{unit:"siegeTank",period:16}},   // 워크숍 Lv3 변형 (셰어리 폐기 대체)
+  siegeWorkshop:{nm:"시즈 워크숍", w:2,h:2, hp:3000, cost:0, tier:1, panel:false, prod:{unit:"siegeTank",period:20}},   // 워크숍 Lv3 변형 (셰어리 폐기 대체)
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
