@@ -38,12 +38,12 @@ window.BALANCE = {
     archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },   // Lv3 → 슈터 가든 변형
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
     knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
-    workshop:      { hp: 2600, cost: 6, prod: { unit: "flyingMachine", period: 10 } },
+    workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 10 } },   // 공성추 생산, Lv3 → 시즈 워크숍
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
     tower:         { hp: 3200, cost: 5, atk: { dmg: 218, hs: 0.8, rng: 5 } },
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 5 } },
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 6, splash: 2.0 } },   // 장사거리 광역 카운터
-    aviary:        { hp: 3000, cost: 8, prod: { unit: "gryphon",       period: 14 } },
+    siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 16 } },   // 워크숍 Lv3 변형
     dragonNest:    { hp: 3200,          prod: { unit: "dragon",        period: 16 } },   // 생텀 Lv3 변형
   },
 
@@ -53,9 +53,9 @@ window.BALANCE = {
     archer:        { hp: 310,  dmg: 55,  hs: 1.3, rng: 3.2, spd: 1.0 },   // 기본 원거리 (아처리) — 공·방·사거리 하향
     rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
-    flyingMachine: { hp: 550,  dmg: 130, hs: 1.0, rng: 3.5, spd: 1.6 },
+    ram:           { hp: 2600, dmg: 450, hs: 1.8, rng: 0.9, spd: 0.8 },   // 공성추 — 건물만 공격 (근접)
+    siegeTank:     { hp: 1500, dmg: 700, hs: 3.0, rng: 4.5, spd: 0.7 },   // 공성 전차 — 건물만 공격 (장거리)
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
-    gryphon:       { hp: 1900, dmg: 260, hs: 1.5, rng: 3.0, spd: 1.4 },   // 사거리 확대
     dragon:        { hp: 2400, dmg: 320, hs: 1.6, rng: 3.0, spd: 1.2, splash: 1.2 },   // 최상위 공중 마법 (광역 브레스)
   },
 

@@ -162,17 +162,17 @@ const BAL={
                  transforms:[{key:"shooterGarden",minLevel:3}]},     // 아처리 Lv3 → 슈터 가든
   shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:1, panel:false, prod:{unit:"rifleman",period:9}},
   knightHall:   {nm:"기사단 회당", w:2,h:2, hp:2800, cost:0, tier:1, panel:false, prod:{unit:"knight",period:11}},
-  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"flyingMachine",period:10},
-                 transforms:[{key:"aviary",minLevel:3}]},                // 워크숍 Lv3 → 그리폰 셰어리
+  workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"ram",period:10},
+                 transforms:[{key:"siegeWorkshop",minLevel:3}]},         // 워크숍 Lv3 → 시즈 워크숍 (2026-08-31 공성 라인 개편)
   sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10},
                  transforms:[{key:"dragonNest",minLevel:3}]},            // 생텀 Lv3 → 드래곤 네스트
   dragonNest:   {nm:"드래곤 네스트",w:2,h:2, hp:3200, cost:0, tier:1, panel:false, prod:{unit:"dragon",period:16}},
   tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true, atk:{dmg:218,hs:0.8,rng:5},
-                 transforms:[{key:"guardTower",tier:2,prereq:["workshop","aviary"]},   // 워크숍 계열(셰어리 변형 포함)
+                 transforms:[{key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},   // 워크숍 계열
                              {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest"]}]},   // 생텀 계열
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
   arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:6,splash:2.0}},   // 장사거리 광역 (T1 상한 6.1 이내)
-  aviary:       {nm:"그리폰 셰어리",w:2,h:2, hp:3000, cost:0, tier:3, panel:false, prod:{unit:"gryphon",period:14}},   // 워크숍 변형으로만 획득
+  siegeWorkshop:{nm:"시즈 워크숍", w:2,h:2, hp:3000, cost:0, tier:1, panel:false, prod:{unit:"siegeTank",period:16}},   // 워크숍 Lv3 변형 (셰어리 폐기 대체)
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
@@ -180,9 +180,9 @@ const BAL={
   archer:       {nm:"아처",        hp:310,  dmg:55,  hs:1.3, rng:3.2, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리 (공·방 절반, 사거리 하향)
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.5, r:11, cat:"gp", melee:true},
-  flyingMachine:{nm:"플라잉 머신", hp:550,  dmg:130, hs:1.0, rng:3.5, spd:1.6, r:9,  cat:"ap", air:true, antiair:true},
+  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.8, r:13, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 (워크숍)
+  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:700, hs:3.0, rng:4.5, spd:0.7, r:13, cat:"gp", bldgOnly:true},              // 건물만 공격·장거리 (시즈 워크숍)
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
-  gryphon:      {nm:"그리폰",      hp:1900, dmg:260, hs:1.5, rng:3.0, spd:1.4, r:12, cat:"am", air:true, antiair:true},   // 사거리 0.9→3.0 (근접→원거리)
   dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:14, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 (드래곤 네스트)
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
@@ -386,7 +386,7 @@ function upCostFor(targetLv){const c=BAL.ECON.upCost;return Array.isArray(c)?(c[
 function spawnUnit(key,side,x,y,hero,level){
   const d=hero?BAL.HEROES[key]:BAL.UNITS[key];
   const u={key,side,hero:!!hero,nm:d.nm,x,y,hp:d.hp,maxHp:d.hp,dmg:d.dmg,hs:d.hs,rng:d.rng,spd:d.spd*TILE,r:d.r,
-           cat:d.cat||null, air:!!d.air, antiair:!!d.antiair, melee:!!d.melee, splash:d.splash||0,
+           cat:d.cat||null, air:!!d.air, antiair:!!d.antiair, melee:!!d.melee, splash:d.splash||0, bldgOnly:!!d.bldgOnly,
            aura:d.aura||null, heal:d.heal||0, aoe:d.aoe?{...d.aoe,t:0}:null,
            cd:0, deploy:0.6, animT:Math.random()*6.28, swing:0, flash:0, fx:side==="player"?1:-1, moving:false,
            bAtk:1,bDef:1, slowT:0};
@@ -403,10 +403,13 @@ function canHit(att,tgt){return tgt.air?!!att.antiair:true;}
 function nearestTarget(u){
   const foe=u.side==="player"?"enemy":"player";
   let best=null,bd=1e9;
-  S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0)return;
-    if(!canHit(u,e))return;
-    const d=Math.hypot(u.x-e.x,u.y-e.y); if(d<bd&&d<=6*TILE){bd=d;best=e;}});
-  if(best)return best;
+  /* 공성 유닛(bldgOnly)은 유닛을 완전히 무시하고 건물만 노린다 */
+  if(!u.bldgOnly){
+    S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0)return;
+      if(!canHit(u,e))return;
+      const d=Math.hypot(u.x-e.x,u.y-e.y); if(d<bd&&d<=6*TILE){bd=d;best=e;}});
+    if(best)return best;
+  }
   best=null;bd=1e9;
   S.buildings.forEach(b=>{if(b.side!==foe||b.hp<=0)return;
     const d=Math.hypot(u.x-b.cx,u.y-b.cy); if(d<bd){bd=d;best=b;}});
@@ -637,7 +640,7 @@ function aiUpdate(dt){
   /* 3) 테크: 킵 승급 → 워크숍(킵 필요) */
   if(maxTier>=2){
     if(S.eTier<2&&doTierUp(side))return;
-    if(cnt("workshop")<1&&cnt("aviary")<1&&tryB("workshop"))return;
+    if(cnt("workshop")<1&&cnt("siegeWorkshop")<1&&tryB("workshop"))return;
   }
   /* 4) 원거리 생산 라인 확보 (아처리) */
   if(cnt("archery")<1&&cnt("shooterGarden")<1&&prodCnt>=1&&tryB("archery",prodPref))return;
@@ -664,11 +667,11 @@ function aiUpdate(dt){
       if(a){transformBuilding(a,"shooterGarden");return;}
     }
   }
-  /* 상위 공중 변형: Lv3 달성 건물만 대상 (워크숍→셰어리, 생텀→드래곤 네스트) */
+  /* 상위 변형: Lv3 달성 건물만 대상 (워크숍→시즈 워크숍, 생텀→드래곤 네스트) */
   if(st.aviary&&elixirOf(side)>=BAL.ECON.transformCost){
-    if(cnt("aviary")<1){
+    if(cnt("siegeWorkshop")<1){
       const wk=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="workshop"&&x.level>=3);
-      if(wk){transformBuilding(wk,"aviary");return;}
+      if(wk){transformBuilding(wk,"siegeWorkshop");return;}
     }
     if(cnt("dragonNest")<1){
       const sn=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="sanctum"&&x.level>=3);
@@ -1155,23 +1158,55 @@ function sprArcher(r,team,sw,u){
     ctx.beginPath();ctx.moveTo(-dr,0);ctx.lineTo(r*0.9,0);ctx.stroke();}
   ctx.restore();
 }
-function sprGyro(r,team,sw,u){
-  const lw=Math.max(1,r*0.13),at=u?u.animT*4:0;
-  /* 로터 */
-  ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw;
-  ctx.save();ctx.translate(0,-r*0.95);ctx.rotate(at);
-  ctx.strokeStyle="#8a929c";ctx.lineWidth=lw*1.4;
-  ctx.beginPath();ctx.moveTo(-r*0.95,0);ctx.lineTo(r*0.95,0);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(0,-r*0.5);ctx.lineTo(0,r*0.5);ctx.stroke();
+function sprRam(r,team,sw,u){
+  /* 공성추: 바퀴 수레 + 지붕 + 앞으로 찌르는 통나무 램 (건물 전용) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
+  const at=u?u.animT:0, run=u&&u.moving?at*1.2:0;
+  const push=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.4:0;
+  /* 바퀴 2 */
+  [[-0.45],[0.45]].forEach(([fx])=>{
+    ctx.save();ctx.translate(r*fx,r*0.72);ctx.rotate(run);
+    ctx.fillStyle="#6a4a26";ctx.beginPath();ctx.arc(0,0,r*0.3,0,7);ctx.fill();po(lw);
+    ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.6;
+    ctx.beginPath();ctx.moveTo(-r*0.22,0);ctx.lineTo(r*0.22,0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-r*0.22);ctx.lineTo(0,r*0.22);ctx.stroke();
+    ctx.restore();});
+  /* 통나무 램 (전방 돌출) */
+  ctx.fillStyle="#8a5a28";roundRectPath(-r*0.4,-r*0.12+ (0), r*1.35+push, r*0.28, r*0.12);ctx.fill();po(lw);
+  ctx.fillStyle="#9aa2ab";roundRectPath(r*0.8+push,-r*0.18,r*0.3,r*0.4,r*0.08);ctx.fill();po(lw);   // 금속 램 헤드
+  /* 지붕 몸체 */
+  ctx.fillStyle=TC.main;
+  ctx.beginPath();ctx.moveTo(-r*0.75,r*0.5);ctx.lineTo(-r*0.55,-r*0.55);ctx.lineTo(r*0.4,-r*0.55);
+  ctx.lineTo(r*0.6,r*0.5);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle=TC.dark;
+  ctx.beginPath();ctx.moveTo(-r*0.55,-r*0.55);ctx.lineTo(r*0.4,-r*0.55);ctx.lineTo(r*0.5,-r*0.2);
+  ctx.lineTo(-r*0.62,-r*0.2);ctx.closePath();ctx.fill();
+  ctx.fillStyle=CREAM;roundRectPath(-r*0.35,-r*0.05,r*0.62,r*0.22,r*0.08);ctx.fill();po(lw*0.7);   // 밴드
+}
+function sprSiegeTank(r,team,sw,u){
+  /* 공성 전차: 바퀴 + 투석 암 + 돌 (건물 전용 장거리) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
+  const at=u?u.animT:0, run=u&&u.moving?at*1.2:0;
+  const fire=sw>0?Math.sin((0.28-sw)/0.28*Math.PI):0;   // 발사 시 암이 앞으로 젖혀짐
+  [[-0.5],[0.45]].forEach(([fx])=>{
+    ctx.save();ctx.translate(r*fx,r*0.72);ctx.rotate(run);
+    ctx.fillStyle="#6a4a26";ctx.beginPath();ctx.arc(0,0,r*0.28,0,7);ctx.fill();po(lw);
+    ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.6;
+    ctx.beginPath();ctx.moveTo(-r*0.2,0);ctx.lineTo(r*0.2,0);ctx.stroke();
+    ctx.restore();});
+  /* 차체 */
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.75,r*0.05,r*1.5,r*0.5,r*0.14);ctx.fill();po(lw);
+  ctx.fillStyle=TC.dark;roundRectPath(r*0.1,r*0.05,r*0.65,r*0.5,r*0.14);ctx.fill();
+  /* 투석 암 */
+  ctx.save();ctx.translate(-r*0.25,r*0.08);ctx.rotate(-0.9+fire*1.1);
+  ctx.fillStyle="#8a5a28";roundRectPath(-r*0.08,-r*1.15,r*0.16,r*1.2,r*0.06);ctx.fill();po(lw);
+  ctx.fillStyle="#5a5048";ctx.beginPath();ctx.arc(0,-r*1.15,r*0.2,0,7);ctx.fill();po(lw*0.8);   // 바스켓
+  if(!sw){ctx.fillStyle="#9a978a";ctx.beginPath();ctx.arc(0,-r*1.18,r*0.13,0,7);ctx.fill();po(lw*0.6);}   // 돌
   ctx.restore();
+  /* 프레임 지지대 */
   ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw;
-  ctx.beginPath();ctx.moveTo(0,-r*0.95);ctx.lineTo(0,-r*0.5);ctx.stroke();
-  /* 본체 */
-  const c1=team?"#3b6fd4":"#d4453b";
-  ctx.fillStyle=c1;ctx.beginPath();ctx.ellipse(0,0,r*0.78,r*0.6,0,0,7);ctx.fill();po(lw);
-  ctx.fillStyle="#cfe8ff";ctx.beginPath();ctx.arc(r*0.25,-r*0.1,r*0.28,0,7);ctx.fill();po(lw*0.8);
-  ctx.fillStyle="#8a6a3a";roundRectPath(-r*0.6,r*0.5,r*1.2,r*0.14,r*0.06);ctx.fill();po(lw*0.8);
-  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.arc(-r*0.55,0,r*0.16,0,7);ctx.fill();po(lw*0.8);
+  ctx.beginPath();ctx.moveTo(-r*0.5,r*0.1);ctx.lineTo(-r*0.25,-r*0.35);ctx.lineTo(0,r*0.1);ctx.stroke();
+  ctx.fillStyle=CREAM;roundRectPath(-r*0.68,r*0.18,r*0.35,r*0.22,r*0.07);ctx.fill();po(lw*0.6);   // 명판
 }
 function sprDragon(r,team,sw,u){
   /* 드래곤: 박쥐형 날개 + 뿔 + 마법 브레스 (최상위 공중 마법) */
@@ -1199,29 +1234,9 @@ function sprDragon(r,team,sw,u){
     ctx.beginPath();ctx.arc(r*0.7,-r*0.28,r*0.24+Math.random()*2,0,7);ctx.fill();
     ctx.fillStyle="rgba(230,180,255,.9)";ctx.beginPath();ctx.arc(r*0.5,-r*0.3,r*0.13,0,7);ctx.fill();}
 }
-function sprGryphon(r,team,sw,u){
-  const lw=Math.max(1,r*0.12),at=u?u.animT:0;
-  const TC=team?TEAM_COL.player:TEAM_COL.enemy;
-  const flap=Math.sin(at*1.6)*0.35;
-  /* 날개 */
-  ctx.fillStyle="#e8e2d2";
-  ctx.save();ctx.rotate(-0.3-flap);
-  ctx.beginPath();ctx.ellipse(-r*0.7,-r*0.4,r*0.75,r*0.3,0.4,0,7);ctx.fill();po(lw);ctx.restore();
-  ctx.save();ctx.rotate(0.3+flap);
-  ctx.beginPath();ctx.ellipse(r*0.7,-r*0.4,r*0.75,r*0.3,-0.4,0,7);ctx.fill();po(lw);ctx.restore();
-  /* 몸통(사자) + 진영색 안장 마갑 */
-  ctx.fillStyle="#c9a35e";roundRectPath(-r*0.55,-r*0.1,r*1.1,r*0.85,r*0.3);ctx.fill();po(lw);
-  ctx.fillStyle=TC.main;roundRectPath(-r*0.5,r*0.16,r*1.0,r*0.34,r*0.1);ctx.fill();po(lw*0.8);
-  /* 머리(독수리) + 진영색 볏 */
-  ctx.fillStyle="#f2f0e8";ctx.beginPath();ctx.arc(0,-r*0.45,r*0.62,0,7);ctx.fill();po(lw);
-  ctx.fillStyle=TC.dark;
-  ctx.beginPath();ctx.moveTo(-r*0.3,-r*0.85);ctx.lineTo(r*0.05,-r*1.2);ctx.lineTo(r*0.2,-r*0.8);ctx.closePath();ctx.fill();po(lw*0.8);
-  ctx.fillStyle="#f0b23e";
-  ctx.beginPath();ctx.moveTo(-r*0.12,-r*0.32);ctx.lineTo(r*0.24,-r*0.22);ctx.lineTo(-r*0.12,-r*0.12);ctx.closePath();ctx.fill();po(lw*0.8);
-  chibiEyes(r,-r*0.52,r*0.24);
-}
-const SPRU={footman:sprKnight,archer:sprArcher,rifleman:sprMusket,knight:sprHog,flyingMachine:sprGyro,
-  mage:(r,t,s,u)=>sprMage(r,t,s,u),gryphon:sprGryphon,dragon:sprDragon};   // 마법사 로브 = 진영색
+const SPRU={footman:sprKnight,archer:sprArcher,rifleman:sprMusket,knight:sprHog,
+  ram:sprRam,siegeTank:sprSiegeTank,
+  mage:(r,t,s,u)=>sprMage(r,t,s,u),dragon:sprDragon};   // 마법사 로브 = 진영색
 const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
   mountainKing:sprValk, paladin:sprKnight,
   bloodMage:(r,t,s,u)=>sprMage(r,t,s,u,"#c03030","#8a1f1f"),
@@ -1530,17 +1545,25 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.beginPath();ctx.arc(dhx-bw*0.055,dhy-bw*0.03,1.8,0,7);ctx.fill();
       ctx.beginPath();ctx.arc(dhx+bw*0.055,dhy-bw*0.03,1.8,0,7);ctx.fill();
       break;}
-    case "aviary":{
-      /* 형태: 아치 기둥 + 펼친 날개 (유일한 좌우 날개 실루엣) */
-      ctx.fillStyle=T.main;roundRectPath(bx+bw*0.28,by+bh*0.1,bw*0.44,bh*0.9,5);ctx.fill();po(lw);
-      ctx.fillStyle=CREAM;   // 펼친 날개
-      ctx.beginPath();ctx.ellipse(bx+bw*0.14,by+bh*0.3,bw*0.3,bh*0.16,-0.35,0,7);ctx.fill();po(lw);
-      ctx.beginPath();ctx.ellipse(bx+bw*0.86,by+bh*0.3,bw*0.3,bh*0.16,0.35,0,7);ctx.fill();po(lw);
-      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.34,by+bh*0.55,bw*0.32,bh*0.16,3);ctx.fill();po(lw*0.7);
-      ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(px+pw/2,by-ph*0.02,bw*0.15,0,7);ctx.fill();po(lw*0.8);   // 그리폰 두상
-      ctx.fillStyle=GOLD;
-      ctx.beginPath();ctx.moveTo(px+pw/2+bw*0.04,by-ph*0.03);ctx.lineTo(px+pw/2+bw*0.2,by+ph*0.01);ctx.lineTo(px+pw/2+bw*0.04,by+ph*0.05);ctx.closePath();ctx.fill();po(lw*0.6);
-      ctx.fillStyle=OUTLINE;ctx.beginPath();ctx.arc(px+pw/2-bw*0.02,by-ph*0.04,pw*0.018,0,7);ctx.fill();
+    case "siegeWorkshop":{
+      /* 형태: 공성 공방 — 강화 차고 + 대형 투석 암 + 돌무더기 (워크숍의 상위형) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.3,bw,bh*0.7,5);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.55,by+bh*0.3,bw*0.45,bh*0.7,5);ctx.fill();
+      ctx.fillStyle=DARKGRAY;   // 차고 문 (넓음)
+      ctx.beginPath();ctx.arc(px+pw*0.38,by+bh*0.72,bw*0.17,Math.PI,0);ctx.fill();
+      ctx.fillRect(px+pw*0.38-bw*0.17,by+bh*0.72,bw*0.34,bh*0.28);po(lw*0.8);
+      /* 대형 투석 암 (지붕 위) */
+      ctx.save();ctx.translate(bx+bw*0.66,by+bh*0.32);ctx.rotate(-0.75);
+      ctx.fillStyle="#8a5a28";roundRectPath(-bw*0.035,-ph*0.42,bw*0.07,ph*0.46,3);ctx.fill();po(lw);
+      ctx.fillStyle="#5a5048";ctx.beginPath();ctx.arc(0,-ph*0.42,bw*0.09,0,7);ctx.fill();po(lw*0.8);
+      ctx.fillStyle="#9a978a";ctx.beginPath();ctx.arc(0,-ph*0.43,bw*0.055,0,7);ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.9;   // 암 지지대
+      ctx.beginPath();ctx.moveTo(bx+bw*0.55,by+bh*0.32);ctx.lineTo(bx+bw*0.66,by+bh*0.05);ctx.lineTo(bx+bw*0.78,by+bh*0.32);ctx.stroke();
+      /* 돌무더기 */
+      ctx.fillStyle="#9a978a";
+      [[-0.06,0],[0.04,-0.05],[0.13,0]].forEach(([fx,fy])=>{
+        ctx.beginPath();ctx.arc(bx+bw*(0.15+fx),by+bh*(0.24+fy),bw*0.055,0,7);ctx.fill();po(lw*0.5);});
       break;}
   }
   /* 업그레이드 핍 */
