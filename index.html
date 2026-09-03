@@ -469,9 +469,16 @@ function unitUpdate(u,dt){
   u.moving=false;
   if(u.deploy>0){u.deploy-=dt;if(u.deploy<=0)burst(u.x,u.y+u.r*0.6,"205,195,165",6,80);return;}
   u.animT+=dt*7;
-  /* 팔라딘 회복 */
-  if(u.heal){S.units.forEach(a=>{if(a.side===u.side&&a!==u&&a.hp>0&&Math.hypot(a.x-u.x,a.y-u.y)<=BAL.AURA_R*TILE)
-    a.hp=Math.min(a.maxHp,a.hp+u.heal*dt);});}
+  /* 팔라딘 회복 (실제 회복된 유닛에 초록 + 연출) */
+  if(u.heal){S.units.forEach(a=>{if(a.side===u.side&&a!==u&&a.hp>0&&Math.hypot(a.x-u.x,a.y-u.y)<=BAL.AURA_R*TILE){
+    const before=a.hp;
+    a.hp=Math.min(a.maxHp,a.hp+u.heal*dt);
+    if(a.hp>before){
+      a.healFxT=(a.healFxT||0)-dt;
+      if(a.healFxT<=0){a.healFxT=0.8;
+        S.effects.push({tp:"ftext",x:a.x+(Math.random()-.5)*8,y:a.y-a.r-6,text:"+",t:0.6,t0:0.6,col:"140,255,160"});}
+    }
+  }});}
   /* 블러드 메이지 광역 */
   if(u.aoe){u.aoe.t-=dt;
     if(u.aoe.t<=0){
@@ -484,10 +491,14 @@ function unitUpdate(u,dt){
         S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=u.aoe.rad*TILE)dealDamage(u,e,u.aoe.dmg);});
       } else u.aoe.t=0.4;
     }
-    /* 블러드 메이지는 기본 공격 없음 → 이동만 */
+    /* 블러드 메이지는 기본 공격 없음 → 이동만.
+       (버그 수정 2026-09-04: 목표가 건물이면 cx/cy를 써야 함 — x/y 참조로 NaN이 되어 제자리에 서던 문제) */
     const tgt=nearestTarget(u);
-    if(tgt){const d=Math.hypot(u.x-tgt.x,u.y-tgt.y);
-      if(d>u.aoe.castRng*TILE*0.8){moveToward(u,tgt.x,tgt.y,u.spd*dt);u.moving=true;}}
+    if(tgt){
+      const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
+      const d=Math.hypot(u.x-tx,u.y-ty);
+      if(Math.abs(tx-u.x)>2)u.fx=tx>u.x?1:-1;
+      if(d>u.aoe.castRng*TILE*0.8){moveToward(u,tx,ty,u.spd*dt);u.moving=true;}}
     return;
   }
   const tgt=nearestTarget(u);
@@ -1904,8 +1915,15 @@ function draw(){
     }
     if(u.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(0.75,u.flash*5).toFixed(2)+")";
       ctx.beginPath();ctx.arc(u.x,u.y+dropY+hover,u.r*1.05,0,7);ctx.fill();}
-    if(u.bAtk>1){ctx.strokeStyle="rgba(255,210,80,.7)";ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.arc(u.x,u.y+hover,u.r+3,0,7);ctx.stroke();}
+    if(u.bAtk>1){   // 오라 버프 표시: 맥동 이중 링 + 회전 호 + 상승 반짝이
+      const pl=1+Math.sin(S.elapsed*6)*0.12;
+      ctx.strokeStyle="rgba(255,210,80,.9)";ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(u.x,u.y+hover,(u.r+3)*pl,0,7);ctx.stroke();
+      ctx.strokeStyle="rgba(255,240,160,.55)";ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.arc(u.x,u.y+hover,(u.r+6.5)*pl,S.elapsed*2.5,S.elapsed*2.5+4);ctx.stroke();
+      if(Math.random()<0.05)addP({x:u.x+(Math.random()-.5)*u.r*1.6,y:u.y+hover+u.r*0.3,
+        vx:0,vy:-24,g:-8,t:0,life:0.6,size:1.8,col:"255,220,110"});
+    }
     if(u.level>1){   // 유닛 레벨 표시 (Lv2+)
       ctx.fillStyle="#ffd24d";ctx.font="bold 10px sans-serif";ctx.textAlign="left";
       ctx.strokeStyle="rgba(30,25,15,.9)";ctx.lineWidth=2.5;
