@@ -34,7 +34,9 @@ window.BALANCE = {
                      /* 본진 공격: 티어별 공격력·동시 공격 대상 수 (인덱스 1~3 = 티어) */
                      hAtk: { hs: 0.8, rng: 7, dmg: [0, 109, 160, 240], targets: [0, 2, 5, 10] } },
     elixirBase:    { hp: 1800, cost: 4 },
-    barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
+    barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },   // Lv3 → 쉴드 배럭
+    shieldBarracks:{ hp: 2800,          prod: { unit: "shieldman",     period: 9  } },   // 배럭 Lv3 변형
+    assaultBarracks:{hp: 2700, cost: 7, prod: { unit: "cavalry",       period: 10 } },   // 킵 필요, Lv3 → 기사단 회당
     archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },   // Lv3 → 슈터 가든 변형
     shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
     knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
@@ -50,9 +52,11 @@ window.BALANCE = {
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
   UNITS: {
     footman:       { hp: 883,  dmg: 101, hs: 1.2, rng: 0.8, spd: 1.0 },   // 공·방 절반 (2026-08-30)
+    shieldman:     { hp: 1600, dmg: 90,  hs: 1.4, rng: 0.8, spd: 0.9, rangedResist: 0.6 },   // 원거리 물리 60% 경감
+    cavalry:       { hp: 1200, dmg: 220, hs: 1.3, rng: 0.9, spd: 1.9, pierceVsMelee: 0.5, rangedWeak: 0.5 },   // 창 관통/원거리 취약
     archer:        { hp: 310,  dmg: 55,  hs: 1.3, rng: 3.2, spd: 1.0 },   // 기본 원거리 (아처리) — 공·방·사거리 하향
     rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
-    knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.5 },
+    knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.6, pierceVsMelee: 0.5, rangedWeak: 0.5 },   // 철갑 기병 — 창 관통/원거리 취약
     ram:           { hp: 2600, dmg: 450, hs: 1.8, rng: 0.9, spd: 0.8 },   // 공성추 — 건물만 공격 (근접)
     siegeTank:     { hp: 1500, dmg: 700, hs: 3.0, rng: 4.5, spd: 0.7 },   // 공성 전차 — 건물만 공격 (장거리)
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화

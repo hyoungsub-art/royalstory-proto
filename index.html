@@ -157,7 +157,10 @@ const BAL={
                  hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]}},   // 티어 연동 다중 공격 (사거리 5→7)
   elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
-                 transforms:[{key:"knightHall",minLevel:3}]},        // 배럭 Lv3 → 기사단 회당
+                 transforms:[{key:"shieldBarracks",minLevel:3}]},    // 배럭 Lv3 → 쉴드 배럭 (2026-08-31 개편)
+  shieldBarracks:{nm:"쉴드 배럭",  w:2,h:2, hp:2800, cost:0, tier:1, panel:false, prod:{unit:"shieldman",period:9}},
+  assaultBarracks:{nm:"어썰트 배럭",w:2,h:2, hp:2700, cost:7, tier:2, panel:true, prod:{unit:"cavalry",period:10},
+                 transforms:[{key:"knightHall",minLevel:3}]},        // 어썰트 배럭 Lv3 → 기사단 회당
   archery:      {nm:"아처리",      w:2,h:2, hp:2400, cost:6, tier:1, panel:true, prod:{unit:"archer",period:9},
                  transforms:[{key:"shooterGarden",minLevel:3}]},     // 아처리 Lv3 → 슈터 가든
   shooterGarden:{nm:"슈터 가든",   w:2,h:2, hp:2600, cost:0, tier:1, panel:false, prod:{unit:"rifleman",period:9}},
@@ -171,15 +174,17 @@ const BAL={
                  transforms:[{key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},   // 워크숍 계열
                              {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest"]}]},   // 생텀 계열
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
-  arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:6,splash:2.0}},   // 장사거리 광역 (T1 상한 6.1 이내)
+  arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:6,splash:2.0,magic:true}},   // 장사거리 광역·마법 (쉴드맨 저항 무시)
   siegeWorkshop:{nm:"시즈 워크숍", w:2,h:2, hp:3000, cost:0, tier:1, panel:false, prod:{unit:"siegeTank",period:20}},   // 워크숍 Lv3 변형 (셰어리 폐기 대체)
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
  UNITS:{
   footman:      {nm:"풋맨",        hp:883,  dmg:101, hs:1.2, rng:0.8, spd:1.0, r:10, cat:"gp", melee:true},   // 2026-08-30 공·방 절반
+  shieldman:    {nm:"쉴드맨",      hp:1600, dmg:90,  hs:1.4, rng:0.8, spd:0.9, r:11, cat:"gp", melee:true, rangedResist:0.6},   // 원거리 물리 피해 60% 경감 (쉴드 배럭)
+  cavalry:      {nm:"돌격 기병",   hp:1200, dmg:220, hs:1.3, rng:0.9, spd:1.9, r:12, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 창 관통: 근접 유닛에 +50% / 원거리에 취약 +50%
   archer:       {nm:"아처",        hp:310,  dmg:55,  hs:1.3, rng:3.2, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리 (공·방 절반, 사거리 하향)
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
-  knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.5, r:11, cat:"gp", melee:true},
+  knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.6, r:13, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 철갑 기병 — 창 관통 +50% / 원거리 취약 +50%
   ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.8, r:13, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 (워크숍)
   siegeTank:    {nm:"공성 전차",   hp:1500, dmg:700, hs:3.0, rng:4.5, spd:0.7, r:13, cat:"gp", bldgOnly:true},              // 건물만 공격·장거리 (시즈 워크숍)
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
@@ -346,7 +351,7 @@ function heroBlockReason(x,y){
 
 /* ---------- 티어 ---------- */
 /* 배럭 계열(배럭·슈터 가든·기사단 회당) 보유 여부 — 킵 승급 조건 */
-const BARRACKS_LINE=["barracks","knightHall","archery","shooterGarden"];
+const BARRACKS_LINE=["barracks","shieldBarracks","assaultBarracks","knightHall","archery","shooterGarden"];
 function hasBarracksLine(side){return BARRACKS_LINE.some(k=>aliveB(side,k));}
 const SANCTUM_LINE=["sanctum","dragonNest"];   // 캐슬 조건: 생텀 또는 그 변형 (드래곤 네스트)
 function hasSanctumLine(side){return SANCTUM_LINE.some(k=>aliveB(side,k));}
@@ -388,6 +393,7 @@ function spawnUnit(key,side,x,y,hero,level){
   const d=hero?BAL.HEROES[key]:BAL.UNITS[key];
   const u={key,side,hero:!!hero,nm:d.nm,x,y,hp:d.hp,maxHp:d.hp,dmg:d.dmg,hs:d.hs,rng:d.rng,spd:d.spd*TILE,r:d.r,
            cat:d.cat||null, air:!!d.air, antiair:!!d.antiair, melee:!!d.melee, splash:d.splash||0, bldgOnly:!!d.bldgOnly,
+           rangedResist:d.rangedResist||0, prefRanged:!!d.prefRanged, pierceVsMelee:d.pierceVsMelee||0, rangedWeak:d.rangedWeak||0,
            aura:d.aura||null, heal:d.heal||0, aoe:d.aoe?{...d.aoe,t:0}:null,
            cd:0, deploy:0.6, animT:Math.random()*6.28, swing:0, flash:0, fx:side==="player"?1:-1, moving:false,
            bAtk:1,bDef:1, slowT:0};
@@ -406,6 +412,13 @@ function nearestTarget(u){
   let best=null,bd=1e9;
   /* 공성 유닛(bldgOnly)은 유닛을 완전히 무시하고 건물만 노린다 */
   if(!u.bldgOnly){
+    /* 기병 계열(prefRanged): 시야 내 원거리 유닛을 최우선으로 노린다 */
+    if(u.prefRanged){
+      S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0||e.melee)return;
+        if(!canHit(u,e))return;
+        const d=Math.hypot(u.x-e.x,u.y-e.y); if(d<bd&&d<=6*TILE){bd=d;best=e;}});
+      if(best)return best;
+    }
     S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0)return;
       if(!canHit(u,e))return;
       const d=Math.hypot(u.x-e.x,u.y-e.y); if(d<bd&&d<=6*TILE){bd=d;best=e;}});
@@ -420,6 +433,12 @@ function dealDamage(att,tgt,amount){
   /* 레벨 보정은 스폰 시 스탯에 반영됨 — 여기서는 오라 배율만 적용 */
   let dmg=amount*att.bAtk;
   if(tgt.maxHp!==undefined&&tgt.bDef)dmg/=tgt.bDef;
+  /* 쉴드맨: 원거리 물리 공격 경감 (마법 계열은 그대로 받음) */
+  if(tgt.rangedResist&&!att.melee&&(att.cat==="gp"||att.cat==="ap"))dmg*=(1-tgt.rangedResist);
+  /* 기병 계열 창 관통: 근접 유닛 상대 추가 피해 */
+  if(att.pierceVsMelee&&tgt.melee)dmg*=(1+att.pierceVsMelee);
+  /* 기병 계열 약점: 원거리 공격에 추가 피해 */
+  if(tgt.rangedWeak&&att.melee===false&&att.r!==undefined)dmg*=(1+tgt.rangedWeak);
   tgt.hp-=dmg; tgt.flash=0.15;
 }
 function unitUpdate(u,dt){
@@ -531,7 +550,8 @@ function buildingUpdate(b,dt){
         .slice(0,a.targets[t]);
       if(inR.length){
         inR.forEach(e=>{
-          e.hp-=hdm/e.bDef;e.flash=0.12;
+          const rr=e.rangedResist?(1-e.rangedResist):1;   // 본진 투사체 = 물리
+          e.hp-=hdm*rr/e.bDef;e.flash=0.12;
           S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:e.x,y2:e.y,t:0.12,t0:0.12});
         });
         b.cd=a.hs;
@@ -548,8 +568,10 @@ function buildingUpdate(b,dt){
         const dd=Math.hypot(b.cx-e.x,b.cy-e.y);if(dd<bd&&dd<=d.atk.rng*TILE){bd=dd;best=e;}});
       if(best){
         const tdm=d.atk.dmg;
-        if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=tdm/e.bDef;e.flash=0.12;}});}
-        else{best.hp-=tdm/best.bDef;best.flash=0.12;}
+        /* 타워 투사체는 물리 (아케인 타워는 magic — 쉴드맨 저항 무시) */
+        const resistOf=e=>(!d.atk.magic&&e.rangedResist)?(1-e.rangedResist):1;
+        if(d.atk.splash){S.units.forEach(e=>{if(e.side===foe&&e.hp>0&&Math.hypot(e.x-best.x,e.y-best.y)<=d.atk.splash*TILE){e.hp-=tdm*resistOf(e)/e.bDef;e.flash=0.12;}});}
+        else{best.hp-=tdm*resistOf(best)/best.bDef;best.flash=0.12;}
         b.cd=d.atk.hs;
         S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:best.x,y2:best.y,t:0.12,t0:0.12});
       } else b.cd=0.2;
@@ -604,7 +626,7 @@ function aiUpdate(dt){
   S.aiT=0;
   const side="enemy", tier=effTier(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
-  const prodCnt=cnt("barracks")+cnt("shooterGarden")+cnt("knightHall");
+  const prodCnt=cnt("barracks")+cnt("shieldBarracks")+cnt("assaultBarracks")+cnt("shooterGarden")+cnt("knightHall");
   const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
   const maxTier=st.maxTier, maxLv=Math.min(st.maxLevel,tier);
   const tryB=(key,pref)=>{
@@ -645,6 +667,8 @@ function aiUpdate(dt){
   }
   /* 4) 원거리 생산 라인 확보 (아처리) */
   if(cnt("archery")<1&&cnt("shooterGarden")<1&&prodCnt>=1&&tryB("archery",prodPref))return;
+  /* 4-1) 기병 라인 (킵 이후) */
+  if(tier>=2&&st.transform&&cnt("assaultBarracks")<1&&cnt("knightHall")<1&&prodCnt>=2&&tryB("assaultBarracks",prodPref))return;
   /* 5) 방어선 확보 (공격형은 생산을 우선하므로 최소 1기만) */
   if(towerCnt<Math.min(st.aggro?1:2,st.towerMax)&&tryB("tower","fwd"))return;
   /* 5-1) 공격형: 초반 생산 라인 3채까지는 테크보다 먼저 (그 이상은 테크·레벨 이후) */
@@ -659,9 +683,13 @@ function aiUpdate(dt){
   }
   /* 7) 상위 변형 — Lv3 달성 건물만 대상 (레벨 투자가 선행되어야 함) */
   if(st.transform&&elixirOf(side)>=BAL.ECON.transformCost){
-    if(cnt("knightHall")<1){
+    if(cnt("shieldBarracks")<1){
       const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level>=3);
-      if(b){transformBuilding(b,"knightHall");return;}
+      if(b){transformBuilding(b,"shieldBarracks");return;}
+    }
+    if(cnt("knightHall")<1){
+      const ab=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="assaultBarracks"&&x.level>=3);
+      if(ab){transformBuilding(ab,"knightHall");return;}
     }
     if(cnt("shooterGarden")<1){
       const a=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="archery"&&x.level>=3);
@@ -713,7 +741,7 @@ function swapMode(){
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
   hideStrip(); renderPanel();
 }
-const PANEL_BUILDS=["elixirBase","barracks","archery","workshop","sanctum","tower"];   // 상위 생산 건물은 변형으로 획득
+const PANEL_BUILDS=["elixirBase","barracks","archery","assaultBarracks","workshop","sanctum","tower"];   // 상위 생산 건물은 변형으로 획득
 function buildLockReason(key){
   const d=BAL.BUILDINGS[key], t=effTier("player");
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
@@ -1148,6 +1176,105 @@ function sprMage(r,team,sw,u,robe,hat){
   ctx.beginPath();ctx.moveTo(-r*0.5,-r*0.82);ctx.lineTo(r*0.5,-r*0.82);ctx.lineTo(r*0.05,-r*1.7);ctx.closePath();ctx.fill();po(lw);
   chibiEyes(r,-r*0.3);
 }
+function sprShieldman(r,team,sw,u){
+  /* 쉴드맨: 철갑 + 몸을 가리는 대형 타워 방패 (원거리 물리 경감) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.13);
+  chibiBase(r,"#8a929c","#f6cfa2");   // 철갑 몸체
+  /* 메이스 (오른손) */
+  ctx.save();ctx.translate(r*0.6,r*0.4);
+  ctx.rotate(-0.4+(sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*1.2:0));
+  ctx.fillStyle="#7a5a30";roundRectPath(-r*0.06,-r*0.75,r*0.12,r*0.8,r*0.05);ctx.fill();po(lw*0.8);
+  ctx.fillStyle="#5a5048";ctx.beginPath();ctx.arc(0,-r*0.82,r*0.17,0,7);ctx.fill();po(lw*0.8);
+  ctx.restore();
+  /* 풀헬름 + 바이저 슬릿 + 크레스트 */
+  ctx.fillStyle="#b9c2cc";ctx.beginPath();ctx.arc(0,-r*0.4,r*0.78,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=TC.dark;roundRectPath(-r*0.48,-r*0.5,r*0.96,r*0.18,r*0.08);ctx.fill();po(lw*0.6);
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.09,-r*1.28,r*0.18,r*0.4,r*0.06);ctx.fill();po(lw*0.7);
+  /* 대형 타워 방패 (전면) */
+  ctx.fillStyle="#9aa2ab";roundRectPath(-r*1.3,-r*0.9,r*1.1,r*1.95,r*0.28);ctx.fill();po(lw*1.2);
+  ctx.fillStyle=TC.main;roundRectPath(-r*1.16,-r*0.76,r*0.82,r*1.66,r*0.2);ctx.fill();po(lw*0.8);
+  ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(-r*0.75,r*0.07,r*0.2,0,7);ctx.fill();po(lw*0.7);
+  ctx.fillStyle="#e8e6da";   // 리벳
+  [[-1.18,-0.72],[-0.36,-0.72],[-1.18,0.85],[-0.36,0.85]].forEach(([fx,fy])=>{
+    ctx.beginPath();ctx.arc(r*fx,r*fy,r*0.05,0,7);ctx.fill();});
+}
+function sprCavalry(r,team,sw,u){
+  /* 돌격 기병: 말 + 기수 + 돌격 랜스 (근접 관통 / 원거리 취약) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
+  const at=u?u.animT:0, run=u&&u.moving?1:0, g=Math.sin(at*2)*run;
+  const thrust=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.5:0;
+  /* 말 다리 4 */
+  ctx.strokeStyle="#6b4423";ctx.lineWidth=lw*2.2;ctx.lineCap="round";
+  [[-0.5,g],[-0.28,-g],[0.32,-g],[0.55,g]].forEach(([fx,sway])=>{
+    ctx.beginPath();ctx.moveTo(r*fx,r*0.35);ctx.lineTo(r*(fx+sway*0.12),r*0.95);ctx.stroke();});
+  ctx.lineCap="butt";
+  /* 말 몸통 + 팀 천 마갑 */
+  ctx.fillStyle="#8a5a30";roundRectPath(-r*0.78,-r*0.2,r*1.5,r*0.66,r*0.28);ctx.fill();po(lw);
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.66,r*0.02,r*1.26,r*0.36,r*0.12);ctx.fill();po(lw*0.7);
+  /* 꼬리 */
+  ctx.fillStyle="#5f3d1e";
+  ctx.beginPath();ctx.moveTo(-r*0.75,-r*0.1);ctx.quadraticCurveTo(-r*1.15,r*0.1,-r*0.95,r*0.55);
+  ctx.lineTo(-r*0.75,r*0.25);ctx.closePath();ctx.fill();po(lw*0.7);
+  /* 목 + 머리 */
+  ctx.fillStyle="#8a5a30";
+  ctx.beginPath();ctx.moveTo(r*0.45,-r*0.1);ctx.lineTo(r*0.85,-r*0.75);ctx.lineTo(r*1.12,-r*0.62);
+  ctx.lineTo(r*0.72,r*0.1);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#8a5a30";ctx.beginPath();ctx.ellipse(r*1.05,-r*0.72,r*0.3,r*0.2,-0.35,0,7);ctx.fill();po(lw);
+  ctx.fillStyle="#6b4423";   // 갈기·귀
+  ctx.beginPath();ctx.moveTo(r*0.8,-r*0.9);ctx.lineTo(r*0.95,-r*1.08);ctx.lineTo(r*1.0,-r*0.82);ctx.closePath();ctx.fill();po(lw*0.6);
+  ctx.fillStyle=OUTLINE;ctx.beginPath();ctx.arc(r*1.08,-r*0.76,r*0.045,0,7);ctx.fill();
+  /* 기수 */
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.28,-r*0.85,r*0.5,r*0.7,r*0.16);ctx.fill();po(lw);
+  ctx.fillStyle="#f6cfa2";ctx.beginPath();ctx.arc(-r*0.03,-r*1.05,r*0.3,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=TC.dark;ctx.beginPath();ctx.arc(-r*0.03,-r*1.12,r*0.3,Math.PI,0);ctx.closePath();ctx.fill();po(lw*0.7);
+  /* 돌격 랜스 (전방 하향) */
+  ctx.save();ctx.translate(r*0.15,-r*0.6);ctx.rotate(0.18);
+  ctx.fillStyle="#8a5a28";roundRectPath(-r*0.35,-r*0.06,r*1.5+thrust,r*0.12,r*0.05);ctx.fill();po(lw*0.8);
+  ctx.fillStyle="#cfd6de";
+  ctx.beginPath();ctx.moveTo(r*1.15+thrust,-r*0.14);ctx.lineTo(r*1.5+thrust,0);ctx.lineTo(r*1.15+thrust,r*0.14);ctx.closePath();ctx.fill();po(lw*0.7);
+  ctx.restore();
+}
+function sprArmoredKnight(r,team,sw,u){
+  /* 나이트: 철갑 기병 — 판금 말 + 풀 플레이트 기수 + 중랜스 */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
+  const at=u?u.animT:0, run=u&&u.moving?1:0, g=Math.sin(at*2)*run;
+  const thrust=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.5:0;
+  ctx.strokeStyle="#5a6069";ctx.lineWidth=lw*2.3;ctx.lineCap="round";   // 판금 다리
+  [[-0.5,g],[-0.28,-g],[0.32,-g],[0.55,g]].forEach(([fx,sway])=>{
+    ctx.beginPath();ctx.moveTo(r*fx,r*0.35);ctx.lineTo(r*(fx+sway*0.12),r*0.95);ctx.stroke();});
+  ctx.lineCap="butt";
+  /* 판금 마갑 몸통 */
+  ctx.fillStyle="#b9c2cc";roundRectPath(-r*0.8,-r*0.24,r*1.55,r*0.7,r*0.28);ctx.fill();po(lw);
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.68,r*0.04,r*1.3,r*0.36,r*0.12);ctx.fill();po(lw*0.7);
+  ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.5;   // 판금 이음새
+  [[-0.35],[0.05],[0.45]].forEach(([fx])=>{ctx.beginPath();ctx.moveTo(r*fx,-r*0.22);ctx.lineTo(r*fx,r*0.05);ctx.stroke();});
+  /* 목·머리 판금 (챈프론) */
+  ctx.fillStyle="#b9c2cc";
+  ctx.beginPath();ctx.moveTo(r*0.45,-r*0.12);ctx.lineTo(r*0.85,-r*0.8);ctx.lineTo(r*1.14,-r*0.66);
+  ctx.lineTo(r*0.72,r*0.08);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#9aa2ab";ctx.beginPath();ctx.ellipse(r*1.06,-r*0.75,r*0.3,r*0.2,-0.35,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=TC.main;   // 말 이마 깃털
+  ctx.beginPath();ctx.moveTo(r*0.86,-r*0.95);ctx.lineTo(r*0.96,-r*1.28);ctx.lineTo(r*1.06,-r*0.9);ctx.closePath();ctx.fill();po(lw*0.6);
+  ctx.fillStyle=TC.dark;ctx.beginPath();ctx.arc(r*1.1,-r*0.79,r*0.05,0,7);ctx.fill();   // 눈구멍
+  /* 풀 플레이트 기수 + 투구 깃털 */
+  ctx.fillStyle="#b9c2cc";roundRectPath(-r*0.3,-r*0.9,r*0.54,r*0.74,r*0.16);ctx.fill();po(lw);
+  ctx.fillStyle=TC.main;roundRectPath(-r*0.3,-r*0.62,r*0.54,r*0.2,r*0.08);ctx.fill();   // 서코트 띠
+  ctx.fillStyle="#b9c2cc";ctx.beginPath();ctx.arc(-r*0.03,-r*1.1,r*0.3,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=TC.dark;roundRectPath(-r*0.3,-r*1.16,r*0.54,r*0.13,r*0.05);ctx.fill();   // 바이저
+  ctx.fillStyle=TC.main;
+  ctx.beginPath();ctx.moveTo(-r*0.05,-r*1.38);ctx.quadraticCurveTo(-r*0.45,-r*1.6,-r*0.55,-r*1.25);
+  ctx.lineTo(-r*0.2,-r*1.3);ctx.closePath();ctx.fill();po(lw*0.6);   // 투구 깃털
+  /* 중랜스 + 소형 방패 */
+  ctx.save();ctx.translate(r*0.15,-r*0.62);ctx.rotate(0.18);
+  ctx.fillStyle="#7a5a30";roundRectPath(-r*0.4,-r*0.08,r*1.6+thrust,r*0.16,r*0.06);ctx.fill();po(lw*0.9);
+  ctx.fillStyle="#cfd6de";
+  ctx.beginPath();ctx.moveTo(r*1.2+thrust,-r*0.17);ctx.lineTo(r*1.6+thrust,0);ctx.lineTo(r*1.2+thrust,r*0.17);ctx.closePath();ctx.fill();po(lw*0.7);
+  ctx.fillStyle=GOLD;ctx.beginPath();ctx.arc(-r*0.1,0,r*0.14,0,7);ctx.fill();po(lw*0.5);   // 랜스 가드
+  ctx.restore();
+  ctx.fillStyle=TC.main;   // 소형 방패 (왼편)
+  ctx.beginPath();ctx.moveTo(-r*0.52,-r*0.75);ctx.lineTo(-r*0.2,-r*0.75);ctx.lineTo(-r*0.24,-r*0.35);
+  ctx.lineTo(-r*0.36,-r*0.22);ctx.lineTo(-r*0.48,-r*0.35);ctx.closePath();ctx.fill();po(lw*0.8);
+}
 function sprArcher(r,team,sw,u){
   /* 아처: 큰 활 + 화살 (라이플맨의 총과 구분) */
   const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.13);
@@ -1248,7 +1375,8 @@ function sprDragon(r,team,sw,u){
     ctx.beginPath();ctx.arc(r*0.7,-r*0.28,r*0.24+Math.random()*2,0,7);ctx.fill();
     ctx.fillStyle="rgba(230,180,255,.9)";ctx.beginPath();ctx.arc(r*0.5,-r*0.3,r*0.13,0,7);ctx.fill();}
 }
-const SPRU={footman:sprKnight,archer:sprArcher,rifleman:sprMusket,knight:sprHog,
+const SPRU={footman:sprKnight,shieldman:sprShieldman,cavalry:sprCavalry,archer:sprArcher,
+  rifleman:sprMusket,knight:sprArmoredKnight,
   ram:sprRam,siegeTank:sprSiegeTank,
   mage:(r,t,s,u)=>sprMage(r,t,s,u),dragon:sprDragon};   // 마법사 로브 = 진영색
 const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
@@ -1344,6 +1472,40 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(tcx,tcy,tr,0,7);ctx.fill();po(lw);
       ctx.fillStyle=T.main;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.6,0,7);ctx.fill();
       ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(tcx,tcy,tr*0.24,0,7);ctx.fill();
+      break;}
+    case "shieldBarracks":{
+      /* 형태: 막사 + 전면 대형 방패 3개 벽 (방어 병영) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.3,bw,bh*0.7,4);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;roundRectPath(bx,by+bh*0.3,bw,bh*0.16,3);ctx.fill();po(lw*0.7);
+      [[-0.3,0.95],[0,1.1],[0.3,0.95]].forEach(([fx,sc])=>{
+        const sx2=px+pw/2+bw*fx, sy2=by+bh*0.32, sw2=bw*0.15*sc, sh2=bh*0.5*sc;
+        ctx.fillStyle="#9aa2ab";
+        ctx.beginPath();ctx.moveTo(sx2-sw2,sy2-sh2*0.5);ctx.lineTo(sx2+sw2,sy2-sh2*0.5);
+        ctx.lineTo(sx2+sw2*0.85,sy2+sh2*0.3);ctx.lineTo(sx2,sy2+sh2*0.6);
+        ctx.lineTo(sx2-sw2*0.85,sy2+sh2*0.3);ctx.closePath();ctx.fill();po(lw*0.9);
+        ctx.fillStyle=T.dark;ctx.fillRect(sx2-sw2*0.16,sy2-sh2*0.42,sw2*0.32,sh2*0.85);});
+      break;}
+    case "assaultBarracks":{
+      /* 형태: 마구간 막사 + 교차 랜스 + 말굽 문장 (기병 병영) */
+      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.32,bw,bh*0.68,4);ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;   // 박공 지붕
+      ctx.beginPath();ctx.moveTo(bx-pw*0.02,by+bh*0.36);ctx.lineTo(bx+bw+pw*0.02,by+bh*0.36);
+      ctx.lineTo(px+pw/2,by+bh*0.02);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle=DARKGRAY;   // 넓은 마구간 입구
+      roundRectPath(px+pw/2-bw*0.18,by+bh*0.58,bw*0.36,bh*0.42,4);ctx.fill();po(lw*0.8);
+      /* 교차 랜스 */
+      ctx.strokeStyle="#8a5a28";ctx.lineWidth=lw*1.6;
+      ctx.beginPath();ctx.moveTo(bx+bw*0.12,by+bh*0.3);ctx.lineTo(bx+bw*0.42,by-ph*0.28);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(bx+bw*0.42,by+bh*0.3);ctx.lineTo(bx+bw*0.12,by-ph*0.28);ctx.stroke();
+      ctx.fillStyle="#cfd6de";
+      [[0.42,-0.28],[0.12,-0.28]].forEach(([fx,fy])=>{
+        ctx.beginPath();ctx.moveTo(bx+bw*fx-4,by+ph*fy+6);ctx.lineTo(bx+bw*fx,by+ph*fy-6);
+        ctx.lineTo(bx+bw*fx+4,by+ph*fy+6);ctx.closePath();ctx.fill();po(lw*0.6);});
+      /* 말굽 문장 (U자) */
+      ctx.strokeStyle=CREAM;ctx.lineWidth=lw*1.8;
+      ctx.beginPath();ctx.arc(bx+bw*0.76,by+bh*0.14,bw*0.1,Math.PI*0.95,Math.PI*2.05);ctx.stroke();
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.5;
+      ctx.beginPath();ctx.arc(bx+bw*0.76,by+bh*0.14,bw*0.1,Math.PI*0.95,Math.PI*2.05);ctx.stroke();
       break;}
     case "barracks":{
       /* 형태: 사각 텐트 (수직 벽 + 마룻대 지붕 + 입구 플랩 + 버팀줄) */
@@ -1836,7 +1998,8 @@ const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"�
   kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)",
   easy:"쉬움",normal:"보통",hard:"어려움",aiDelay:"AI 지연(초)",aiInterval:"AI 주기(초)",
   maxTier:"최대 티어",maxLevel:"최대 유닛 레벨",gasBases:"가스 기지 목표",prodMax:"생산 건물 목표",
-  towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"상위 변형 사용(0/1)",defensive:"방어 반응(0/1)",towerTf:"타워 변형 목표"};
+  towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"상위 변형 사용(0/1)",defensive:"방어 반응(0/1)",towerTf:"타워 변형 목표",
+  rangedResist:"원거리 물리 경감(비율)",pierceVsMelee:"근접 관통 추가피해(+)",rangedWeak:"원거리 피해 취약(+)"};
 const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
   "air","antiair","melee","unit","test","label","key"]);
 function edWalk(obj,basePath,prefix){
