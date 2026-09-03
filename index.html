@@ -45,11 +45,10 @@
   #elixir-num{font-weight:bold;color:#fff;min-width:52px;height:34px;text-align:center;font-size:13px;line-height:34px;padding:0 6px;
     background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;
     border-radius:17px;text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
-  /* 엘릭서 스타 칩 (탭 = 녹이기) */
-  #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;cursor:pointer;
-    background:radial-gradient(circle at 35% 28%,#ffe9a8,#ffc94d 55%,#c98a1a);border:2px solid #fff;color:#5a3d08;
-    text-shadow:0 1px 1px rgba(255,255,255,.5);box-shadow:0 2px 4px rgba(0,0,0,.4);}
-  #star-chip:disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed;}
+  /* 엘릭서 스타 칩 (표시 전용 — 엘릭서와 동일한 보라 계열) */
+  #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;
+    background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;color:#fff;
+    text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
   #mode-row{display:flex;gap:6px;align-items:stretch;}
   #swap-btn{flex:none;width:58px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
@@ -111,7 +110,7 @@
     <div id="elixir-row">
       <div id="elixir-num">0/10</div>
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
-      <button id="star-chip" onclick="meltStar()" title="탭하면 스타 1개를 현재 상한만큼 엘릭서로 녹입니다">⭐0</button>
+      <div id="star-chip" title="엘릭서 스타 — 영웅 소환 재화. 비용 부족 시 자동으로 녹아 사용됩니다" style="display:flex;align-items:center;justify-content:center;">★0</div>
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
@@ -375,16 +374,21 @@ const TIER_NM=["","타운 홀","킵","캐슬"];
 function capFor(side){return BAL.ECON.cap[effTier(side)];}
 function elixirCap(){return capFor("player");}
 function elixirOf(side){return side==="player"?S.elixir:S.eElixir;}
-function spend(side,amt){if(side==="player")S.elixir-=amt;else S.eElixir-=amt;}
 function starsOf(side){return side==="player"?S.stars:S.eStars;}
-/* 스타 녹이기: 저장 시점과 무관하게 "현재 상한"만큼 엘릭서로 환원 (상한 초과분은 소실) */
-function meltStar(side){
-  side=side||"player";
-  if(starsOf(side)<=0)return false;
-  if(side==="player"){S.stars--;S.elixir=Math.min(elixirCap(),S.elixir+elixirCap());
-    toast("⭐ 스타 1개 → 엘릭서 "+elixirCap());renderPanel();}
-  else{S.eStars--;S.eElixir=Math.min(capFor("enemy"),S.eElixir+capFor("enemy"));}
-  return true;
+/* 유효 엘릭서 = 보유 엘릭서 + 스타×현재 상한. 모든 비용 판정은 이 값 기준 (2026-09-04) */
+function effElixir(side){return elixirOf(side)+starsOf(side)*capFor(side);}
+/* 지출: 보유 엘릭서가 모자라면 스타를 자동으로 녹여 충당 (수동 녹이기 폐지) */
+function spend(side,amt){
+  const cap=capFor(side);
+  if(side==="player"){
+    let melted=0;
+    while(S.elixir<amt&&S.stars>0){S.stars--;S.elixir+=cap;melted++;}
+    S.elixir-=amt;
+    if(melted>0){toast("★ 스타 "+melted+"개 자동 사용");renderPanel();}
+  }else{
+    while(S.eElixir<amt&&S.eStars>0){S.eStars--;S.eElixir+=cap;}
+    S.eElixir-=amt;
+  }
 }
 /* 티어 승급 (양측 공용) */
 function doTierUp(side){
@@ -392,7 +396,7 @@ function doTierUp(side){
   if(cur>=3)return false;
   const nt=cur+1, cost=BAL.ECON.tierCost[nt];
   const ok=nt===2?hasBarracksLine(side):hasSanctumLine(side);
-  if(!ok||elixirOf(side)<cost)return false;
+  if(!ok||effElixir(side)<cost)return false;
   spend(side,cost);
   if(side==="player"){S.tier=nt;toast(TIER_NM[nt]+" 승급! 최대 엘릭서 "+BAL.ECON.cap[nt]);}
   else{S.eTier=nt;toast("⚠ 적이 "+TIER_NM[nt]+"(으)로 승급!");}
@@ -600,7 +604,7 @@ function buildingUpdate(b,dt){
 /* 변형 (양측 공용) */
 function transformBuilding(b,newKey){
   const cost=BAL.ECON.transformCost;
-  if(elixirOf(b.side)<cost){if(b.side==="player")toast("엘릭서 부족");return;}
+  if(effElixir(b.side)<cost){if(b.side==="player")toast("엘릭서 부족");return;}
   spend(b.side,cost);
   const nd=BAL.BUILDINGS[newKey];
   const ratio=b.hp/b.maxHp;
@@ -644,15 +648,13 @@ function aiUpdate(dt){
   if(S.aiT<st.aiInterval)return;
   S.aiT=0;
   const side="enemy", tier=effTier(side);
-  /* 스타 활용: 엘릭서가 부족하면 스타를 녹여 지출 여력 확보 (플레이어와 동일 규칙) */
-  if(S.eStars>0&&S.eElixir<=capFor(side)*0.4)meltStar(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
   const prodCnt=cnt("barracks")+cnt("shieldBarracks")+cnt("assaultBarracks")+cnt("shooterGarden")+cnt("knightHall");
   const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
   const maxTier=st.maxTier, maxLv=Math.min(st.maxLevel,tier);
   const tryB=(key,pref)=>{
     const d=BAL.BUILDINGS[key];
-    if(elixirOf(side)<d.cost)return false;
+    if(effElixir(side)<d.cost)return false;
     if(d.tier>tier)return false;
     if(!hasPrereq(side,d.prereq))return false;
     const spot=findSpot(key,side,pref);
@@ -703,7 +705,7 @@ function aiUpdate(dt){
     }
   }
   /* 7) 상위 변형 — Lv3 달성 건물만 대상 (레벨 투자가 선행되어야 함) */
-  if(st.transform&&elixirOf(side)>=BAL.ECON.transformCost){
+  if(st.transform&&effElixir(side)>=BAL.ECON.transformCost){
     if(cnt("shieldBarracks")<1){
       const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level>=3);
       if(b){transformBuilding(b,"shieldBarracks");return;}
@@ -718,7 +720,7 @@ function aiUpdate(dt){
     }
   }
   /* 상위 변형: Lv3 달성 건물만 대상 (워크숍→시즈 워크숍, 생텀→드래곤 네스트) */
-  if(st.aviary&&elixirOf(side)>=BAL.ECON.transformCost){
+  if(st.aviary&&effElixir(side)>=BAL.ECON.transformCost){
     if(cnt("siegeWorkshop")<1){
       const wk=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="workshop"&&x.level>=3);
       if(wk){transformBuilding(wk,"siegeWorkshop");return;}
@@ -735,14 +737,14 @@ function aiUpdate(dt){
     /* 모든 상위 변형이 Lv3 조건이므로 레벨 투자가 곧 변형 준비 — 제외 없음 */
     const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv);
     if(up){const c=upCostFor(up.level+1);
-      if(elixirOf(side)>=c+2){spend(side,c);up.level++;
+      if(effElixir(side)>=c+2){spend(side,c);up.level++;
         S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
         burst(up.cx,up.cy,"140,220,255",8,100);return;}
       if(up)return;   // 레벨업 대상이 남았으면 저축 (유닛 질 우선)
     }
   }
   /* 9-1) 타워 질 강화 (마감 단계): 기본 타워 → 가드/아케인 변형 (towerTf 목표까지) */
-  if(st.transform&&(st.towerTf||0)>0&&elixirOf(side)>=BAL.ECON.transformCost){
+  if(st.transform&&(st.towerTf||0)>0&&effElixir(side)>=BAL.ECON.transformCost){
     const tfCnt=cnt("guardTower")+cnt("arcaneTower");
     if(tfCnt<st.towerTf){
       const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
@@ -779,7 +781,7 @@ function renderPanel(){
     PANEL_BUILDS.forEach(key=>{
       const d=BAL.BUILDINGS[key], lock=buildLockReason(key);
       const div=document.createElement("div");
-      div.className="p-item"+(lock?" locked":(S.elixir<d.cost?" dim":""));
+      div.className="p-item"+(lock?" locked":(effElixir("player")<d.cost?" dim":""));
       div.innerHTML=`<div class="p-cost">${d.cost}</div><img draggable="false" src="${ICONS[key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(lock?`<div class="p-lock">🔒\n${lock}</div>`:"");
       if(!lock)attachDrag(div,{type:"build",key});
@@ -791,7 +793,7 @@ function renderPanel(){
       const cost=Math.max(1,BAL.HERO_COST);
       const div=document.createElement("div");
       div.className="p-item"+(slot.state!=="ready"?" locked":(S.stars<cost?" dim":""));
-      div.innerHTML=`<div class="p-cost" style="background:radial-gradient(circle at 35% 28%,#ffe9a8,#ffc94d 55%,#c98a1a);color:#5a3d08;text-shadow:none;">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
+      div.innerHTML=`<div class="p-cost">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(slot.state==="field"?`<div class="p-cd" style="font-size:10px;">출전 중</div>`:
           slot.state==="cd"?`<div class="p-cd" data-cd="${i}">${Math.ceil(slot.cd)}</div>`:"");
       if(slot.state==="ready")attachDrag(div,{type:"hero",slot:i});
@@ -835,10 +837,10 @@ function tryBuildAt(key,x,y){
   const d=BAL.BUILDINGS[key];
   const tx=Math.round(x/TILE-d.w/2), ty=Math.round(y/TILE-d.h/2);
   const lock=buildLockReason(key); if(lock){toast(lock);return;}
-  if(S.elixir<d.cost){toast("엘릭서 부족");return;}
+  if(effElixir("player")<d.cost){toast("엘릭서 부족");return;}
   const reason=buildBlockReason(key,tx,ty,"player");
   if(reason){toast(reason);return;}
-  S.elixir-=d.cost;
+  spend("player",d.cost);
   const b=addBuilding(key,"player",tx,ty);
   burst(b.cx,b.cy,"205,195,165",12,120);
   renderPanel();
@@ -847,7 +849,7 @@ function tryHeroAt(slotIdx,x,y){
   const slot=S.heroSlots[slotIdx];
   if(slot.state!=="ready")return;
   const cost=Math.max(1,BAL.HERO_COST);   // 영웅 비용 = 엘릭서 스타 (최소 1)
-  if(S.stars<cost){toast("엘릭서 스타 부족 (⭐"+cost+" 필요)");return;}
+  if(S.stars<cost){toast("엘릭서 스타 부족 (★"+cost+" 필요)");return;}
   const reason=heroBlockReason(x,y);
   if(reason){toast(reason);return;}
   S.stars-=cost;
@@ -885,7 +887,7 @@ function showStrip(b){
       const met=nt===2?hasBarracksLine("player"):hasSanctumLine("player");
       const needNm=nt===2?"배럭 계열":"아케인 생텀 계열";
       const hard=!met;
-      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
           +`${TIER_NM[nt]} 승급 (${cost})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
     if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
@@ -899,7 +901,7 @@ function showStrip(b){
     const hard=cond.length>0;
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
     const warn=(!hard&&b.level>1)?`<br><span style="font-size:10px;color:#ffb0b0">⚠ Lv${b.level} → Lv1 초기화</span>`:"";
-    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
         +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</button>`;
   });
   /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) */
@@ -907,7 +909,7 @@ function showStrip(b){
     const cost=upCostFor(b.level+1);
     if(b.level<3){
       const hard=b.level>=t;
-      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&S.elixir<cost?"disabled":""}>`
+      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
           +`레벨업 → 유닛 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
@@ -929,15 +931,15 @@ function showStrip(b){
 function refreshBubble(){
   if(!S.selBld)return;
   document.querySelectorAll("#bubble button[data-cost]").forEach(btn=>{
-    btn.disabled=S.elixir<+btn.dataset.cost;
+    btn.disabled=effElixir("player")<+btn.dataset.cost;
   });
 }
 function tierUp(){doTierUp("player");}
 function upgradeSel(){
   const b=S.selBld; if(!b)return;
   const cost=upCostFor(b.level+1);
-  if(b.level>=Math.min(3,effTier("player"))||S.elixir<cost)return;
-  S.elixir-=cost; b.level++;
+  if(b.level>=Math.min(3,effTier("player"))||effElixir("player")<cost)return;
+  spend("player",cost); b.level++;
   burst(b.cx,b.cy,"140,220,255",10,120);
   S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"150,220,255"});
   renderPanel(); hideStrip();   // 실행 후 말풍선 닫기
@@ -947,15 +949,15 @@ function canTierUpP(){
   if(S.tier>=3)return false;
   const nt=S.tier+1;
   const met=nt===2?hasBarracksLine("player"):hasSanctumLine("player");
-  return met&&S.elixir>=BAL.ECON.tierCost[nt];
+  return met&&effElixir("player")>=BAL.ECON.tierCost[nt];
 }
 function canUpgradeB(b){
   const d=BAL.BUILDINGS[b.key];
-  return !!d.prod&&b.level<Math.min(3,effTier("player"))&&S.elixir>=upCostFor(b.level+1);
+  return !!d.prod&&b.level<Math.min(3,effTier("player"))&&effElixir("player")>=upCostFor(b.level+1);
 }
 function canTransformB(b){
   const d=BAL.BUILDINGS[b.key];
-  if(!d.transforms||S.elixir<BAL.ECON.transformCost)return false;
+  if(!d.transforms||effElixir("player")<BAL.ECON.transformCost)return false;
   const t=effTier("player");
   return d.transforms.some(tr=>(!tr.minLevel||b.level>=tr.minLevel)&&(!tr.tier||t>=tr.tier)&&hasPrereq("player",tr.prereq));
 }
@@ -989,7 +991,7 @@ function loop(ts){
     const pb=S.elixir, pCap=elixirCap();
     S.elixir=Math.min(pCap,pb+dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen);
     if(pb<pCap&&S.elixir>=pCap){S.stars++;S.elixir=0;
-      toast("⭐ 엘릭서 스타 +1 (보유 "+S.stars+")");renderPanel();}
+      toast("★ 엘릭서 스타 +1 (보유 "+S.stars+")");renderPanel();}
     const eGas=S.buildings.filter(b=>b.side==="enemy"&&b.key==="elixirBase"&&b.hp>0).length;
     const eb=S.eElixir, eCap=capFor("enemy");
     S.eElixir=Math.min(eCap,eb+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
@@ -1055,13 +1057,13 @@ function updateHUD(){
   /* 패널 dim 갱신 */
   document.querySelectorAll("#panel .p-item").forEach((el,i)=>{
     if(el.classList.contains("locked"))return;
-    if(S.mode==="build")el.classList.toggle("dim",S.elixir<BAL.BUILDINGS[PANEL_BUILDS[i]].cost);
+    if(S.mode==="build")el.classList.toggle("dim",effElixir("player")<BAL.BUILDINGS[PANEL_BUILDS[i]].cost);
     else el.classList.toggle("dim",S.stars<Math.max(1,BAL.HERO_COST));
   });
-  /* 엘릭서 스타 칩 */
+  /* 엘릭서 스타 칩 (표시 전용 — 자동 사용) */
   const sc=document.getElementById("star-chip");
-  sc.textContent="⭐"+S.stars;
-  sc.disabled=S.stars<=0;
+  sc.textContent="★"+S.stars;
+  sc.style.opacity=S.stars>0?"1":"0.45";
 }
 
 /* ============================================================ 렌더링 (치비 스타일 — v1 계승) ============================================================ */
