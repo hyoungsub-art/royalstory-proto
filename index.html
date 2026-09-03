@@ -28,9 +28,12 @@
   #bubble.below{transform:translate(-50%,0);}
   #bubble.below::after{top:-17px;bottom:auto;border-top-color:transparent;border-bottom-color:#5a6ea6;}
   #bubble .b-title{font-size:11.5px;font-weight:bold;color:var(--gold);text-align:center;margin-bottom:4px;white-space:nowrap;}
-  #bubble button{display:block;width:100%;margin:3px 0;background:linear-gradient(180deg,#3b4a75,#2c3a5e);
-    color:#fff;border:1px solid #4a5a8a;border-radius:7px;padding:7px 8px;font-size:12px;cursor:pointer;white-space:nowrap;}
+  #bubble button{display:block;width:100%;margin:4px 0;background:linear-gradient(180deg,#3b4a75,#2c3a5e);
+    color:#fff;border:1px solid #4a5a8a;border-radius:8px;padding:11px 10px;font-size:13.5px;font-weight:bold;cursor:pointer;white-space:nowrap;}
   #bubble button:disabled{opacity:.45;cursor:not-allowed;}
+  /* 철거: 오터치 방지용 소형 버튼 */
+  #bubble button.b-mini{display:inline-block;width:auto;padding:3px 9px;font-size:10.5px;font-weight:normal;
+    margin:0 0 5px;background:linear-gradient(180deg,#6e3038,#54242b);border-color:#8a4450;opacity:.9;}
   #bubble .b-note{font-size:10px;text-align:center;margin-top:2px;}
   /* 하단 패널 */
   #bottom{background:linear-gradient(180deg,#2c3a5e,#22304f);border:2px solid #16203a;border-radius:12px;margin-top:4px;
@@ -796,9 +799,9 @@ function showStrip(b){
   const el=document.getElementById("bubble");
   const d=BAL.BUILDINGS[b.key], t=effTier("player");
   let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">유닛 Lv${Math.min(b.level,t)}</span>`:""}</div>`;
-  /* 철거 버튼 — 최상단 (본진은 철거 불가) */
+  /* 철거 버튼 — 최상단·소형 (본진은 철거 불가) */
   if(b.key!=="hall"){
-    html+=`<button onclick="demolishSel()" style="background:linear-gradient(180deg,#7a3540,#5e2830);border-color:#a04a56;">🔨 철거</button>`;
+    html+=`<button class="b-mini" onclick="demolishSel()">🔨 철거</button>`;
   }
   if(b.key==="hall"){
     if(S.tier<3){
@@ -862,6 +865,23 @@ function upgradeSel(){
   burst(b.cx,b.cy,"140,220,255",10,120);
   S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"150,220,255"});
   renderPanel(); hideStrip();   // 실행 후 말풍선 닫기
+}
+/* 행동 가능 판정 — 건물 뱃지 표시용 (플레이어 측) */
+function canTierUpP(){
+  if(S.tier>=3)return false;
+  const nt=S.tier+1;
+  const met=nt===2?hasBarracksLine("player"):aliveB("player","sanctum");
+  return met&&S.elixir>=BAL.ECON.tierCost[nt];
+}
+function canUpgradeB(b){
+  const d=BAL.BUILDINGS[b.key];
+  return !!d.prod&&b.level<Math.min(3,effTier("player"))&&S.elixir>=upCostFor(b.level+1);
+}
+function canTransformB(b){
+  const d=BAL.BUILDINGS[b.key];
+  if(!d.transforms||S.elixir<BAL.ECON.transformCost)return false;
+  const t=effTier("player");
+  return d.transforms.some(tr=>(!tr.minLevel||b.level>=tr.minLevel)&&(!tr.tier||t>=tr.tier)&&hasPrereq("player",tr.prereq));
 }
 /* 철거: 즉시 파괴 처리 (환불 없음). 본진은 불가 */
 function demolishSel(){
@@ -1547,6 +1567,24 @@ function draw(){
     if(b.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(0.7,b.flash*5).toFixed(2)+")";
       roundRectPath(px+2,py+2,pw-4,ph-4,6);ctx.fill();}
     if(b.hp<b.maxHp)drawHpBar(b.cx,py-8,b.hp,b.maxHp,Math.min(50,pw-8),b.side);
+    /* 행동 가능 뱃지 (맥동): ↑ = 레벨업/승급 가능, ➔ = 변형 가능 */
+    if(b.side==="player"&&!S.over){
+      const up=b.key==="hall"?canTierUpP():canUpgradeB(b);
+      const tf=canTransformB(b);
+      if(up||tf){
+        const pulse=1+Math.sin(S.elapsed*5)*0.15;
+        let bxp=px+pw-8;
+        const badge=(glyph,col)=>{
+          ctx.save();ctx.translate(bxp,py+8);ctx.scale(pulse,pulse);
+          ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,8,0,7);ctx.fill();
+          ctx.strokeStyle=OUTLINE;ctx.lineWidth=1.6;ctx.stroke();
+          ctx.fillStyle="#fff";ctx.font="bold 11px sans-serif";ctx.textAlign="center";
+          ctx.fillText(glyph,0,4);
+          ctx.restore();bxp-=19;};
+        if(tf)badge("➔","#e09c2e");
+        if(up)badge("↑","#3fae5a");
+      }
+    }
   });
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
