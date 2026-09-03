@@ -149,7 +149,7 @@ const BAL={
  /* upCost: 목표 레벨별 업그레이드 비용 (2026-08-30 대폭 상향 — 레벨업 vs 변형 선택을 무겁게) */
  /* 비용은 해당 티어의 엘릭서 상한 이하여야 함 (킵 승급은 T1 상한 10, 캐슬 승급은 T2 상한 15 이내) */
  ECON:{regen:2.8, start:6, cap:[0,10,15,20], gasBonus:0.5, tierCost:[0,0,9,14], upCost:[0,0,10,18], transformCost:10},   // 2026-08-30 변형·승급 비용 상향
- EXCLUDE_R:4, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-08-30 본진 +1칸, 타워 = 본진 동일 (판정은 건물 중심 기준)
+ EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  UNIT_CAP:60, HERO_COST:6, HERO_CD:12,
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
@@ -185,8 +185,8 @@ const BAL={
   archer:       {nm:"아처",        hp:310,  dmg:55,  hs:1.3, rng:3.2, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리 (공·방 절반, 사거리 하향)
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.6, r:13, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 철갑 기병 — 창 관통 +50% / 원거리 취약 +50%
-  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.8, r:13, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 (워크숍)
-  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:700, hs:3.0, rng:4.5, spd:0.7, r:13, cat:"gp", bldgOnly:true},              // 건물만 공격·장거리 (시즈 워크숍)
+  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.4, r:13, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 (워크숍) — 초저속
+  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:700, hs:3.0, rng:4.5, spd:0.3, r:13, cat:"gp", bldgOnly:true},              // 건물만 공격·장거리 (시즈 워크숍) — 초저속
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
   dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:14, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 (드래곤 네스트)
  },
@@ -320,7 +320,8 @@ function inFriendlyZonePt(px,py,side){
 }
 function inFriendlyZone(tx,ty,side){return inFriendlyZonePt(tx+0.5,ty+0.5,side);}
 function inEnemyExclusion(tx,ty,side){
-  return S.buildings.some(b=>b.side!==side&&b.hp>0&&tileDist(tx+0.5,ty+0.5,b.cx/TILE,b.cy/TILE)<=BAL.EXCLUDE_R);
+  /* 2026-08-31 개정: 배제는 적 "본진" 주변에만 적용 — 다른 적 건물 옆에는 건설 가능 (전선 맞대기 허용) */
+  return S.buildings.some(b=>b.side!==side&&b.hp>0&&b.key==="hall"&&tileDist(tx+0.5,ty+0.5,b.cx/TILE,b.cy/TILE)<=BAL.EXCLUDE_R);
 }
 /* 건설 판정: 사유 문자열 반환(null=가능) */
 function buildBlockReason(key,tx,ty,side){
@@ -333,7 +334,7 @@ function buildBlockReason(key,tx,ty,side){
     if(occ[ty+dy][tx+dx])return"다른 건물과 겹침";
     if(d.gas&&!t.gas)return"엘릭서 가스 타일 필요";
     if(!d.gas&&t.gas)return"가스 타일에는 엘릭서 기지만";
-    if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 건물 근접(배제 반경)";
+    if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 본진 영역";
   }
   /* 영역 판정: 건물 중심 기준 (반경 절반 개정에 따른 완화 — 2026-08-30) */
   if(!inFriendlyZonePt(tx+d.w/2,ty+d.h/2,side))return"아군 영역 밖";

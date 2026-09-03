@@ -17,7 +17,7 @@ window.BALANCE = {
           transformCost: 10 },           // 변형 10 (상향)
 
   /* 규칙 수치 */
-  EXCLUDE_R: 4,     // 적 건물 건설 배제 반경 (타일)
+  EXCLUDE_R: 5.25,  // 적 "본진" 주변 건설 배제 반경 (2026-08-31: 본진에만 적용, 타 건물 옆 건설 허용)
   HALL_ZONE: 5.25,  // 본진 주변 아군 영역 반경 (+1칸 개정, 판정은 건물 중심 기준)
   TOWER_ZONE: 5.25, // 타워 전선 확장 반경 = 본진과 동일
   AURA_R: 4,        // 영웅 오라 반경
@@ -57,8 +57,8 @@ window.BALANCE = {
     archer:        { hp: 310,  dmg: 55,  hs: 1.3, rng: 3.2, spd: 1.0 },   // 기본 원거리 (아처리) — 공·방·사거리 하향
     rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.6, pierceVsMelee: 0.5, rangedWeak: 0.5 },   // 철갑 기병 — 창 관통/원거리 취약
-    ram:           { hp: 2600, dmg: 450, hs: 1.8, rng: 0.9, spd: 0.8 },   // 공성추 — 건물만 공격 (근접)
-    siegeTank:     { hp: 1500, dmg: 700, hs: 3.0, rng: 4.5, spd: 0.7 },   // 공성 전차 — 건물만 공격 (장거리)
+    ram:           { hp: 2600, dmg: 450, hs: 1.8, rng: 0.9, spd: 0.4 },   // 공성추 — 건물만 공격 (근접·초저속)
+    siegeTank:     { hp: 1500, dmg: 700, hs: 3.0, rng: 4.5, spd: 0.3 },   // 공성 전차 — 건물만 공격 (장거리·초저속)
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
     dragon:        { hp: 2400, dmg: 320, hs: 1.6, rng: 3.0, spd: 1.2, splash: 1.2 },   // 최상위 공중 마법 (광역 브레스)
   },
