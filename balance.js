@@ -60,12 +60,13 @@ window.BALANCE = {
   },
 
   /* 난이도 = AI 전략 수준만 조정. 스탯·자원 규칙은 플레이어와 동등 (0/1은 사용 여부) */
-  /* aggro=1: 생산 건물까지 전방 배치해 압박 (스폰 지점 전진) */
+  /* aggro=1: 생산 건물까지 전방 배치 / towerTf: 타워 변형(가드·아케인) 목표
+     매우 어려움 = 어려움 전략의 강화판 — 양(건물 수)과 질(레벨·변형)을 끝까지 최대화 */
   DIFF: {
-    easy:    { aiDelay: 12, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 1, towerMax: 2, transform: 0, aviary: 0, defensive: 0, aggro: 0 },
-    normal:  { aiDelay: 6,  aiInterval: 2.2, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 2, towerMax: 4, transform: 0, aviary: 0, defensive: 1, aggro: 0 },
-    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 6, towerMax: 8, transform: 1, aviary: 1, defensive: 1, aggro: 0 },   // 건물 목표 상향
-    extreme: { aiDelay: 1,  aiInterval: 0.6, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 4, towerMax: 5, transform: 1, aviary: 1, defensive: 1, aggro: 1 },
+    easy:    { aiDelay: 12, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 1, towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0 },
+    normal:  { aiDelay: 6,  aiInterval: 2.2, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 2, towerMax: 4,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 0 },
+    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 6, towerMax: 8,  transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 2 },
+    extreme: { aiDelay: 1,  aiInterval: 0.6, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 9, towerMax: 12, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99 },
   },
 
   /* 영웅 (5인 고정 덱, 코스트 공통 = HERO_COST) */
