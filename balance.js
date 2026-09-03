@@ -62,7 +62,7 @@ window.BALANCE = {
   DIFF: {
     easy:    { aiDelay: 12, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 1, towerMax: 2, transform: 0, aviary: 0, defensive: 0, aggro: 0 },
     normal:  { aiDelay: 6,  aiInterval: 2.2, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 2, towerMax: 4, transform: 0, aviary: 0, defensive: 1, aggro: 0 },
-    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 4, towerMax: 5, transform: 1, aviary: 1, defensive: 1, aggro: 0 },
+    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 6, towerMax: 8, transform: 1, aviary: 1, defensive: 1, aggro: 0 },   // 건물 목표 상향
     extreme: { aiDelay: 1,  aiInterval: 0.6, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 4, towerMax: 5, transform: 1, aviary: 1, defensive: 1, aggro: 1 },
   },
 

@@ -201,7 +201,7 @@ const BAL={
   /* aggro=1이면 생산 건물까지 전방에 지어 압박 (스폰 지점이 플레이어 쪽으로 전진) */
   easy:   {aiDelay:12, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:1, towerMax:2, transform:0, aviary:0, defensive:0, aggro:0},
   normal: {aiDelay:6,  aiInterval:2.2, maxTier:3, maxLevel:2, gasBases:2, prodMax:2, towerMax:4, transform:0, aviary:0, defensive:1, aggro:0},
-  hard:   {aiDelay:3,  aiInterval:1.2, maxTier:3, maxLevel:3, gasBases:3, prodMax:4, towerMax:5, transform:1, aviary:1, defensive:1, aggro:0},
+  hard:   {aiDelay:3,  aiInterval:1.2, maxTier:3, maxLevel:3, gasBases:3, prodMax:6, towerMax:8, transform:1, aviary:1, defensive:1, aggro:0},   // 2026-08-31 건물 목표 상향
   extreme:{aiDelay:1,  aiInterval:0.6, maxTier:3, maxLevel:3, gasBases:3, prodMax:4, towerMax:5, transform:1, aviary:1, defensive:1, aggro:1},
  },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
@@ -796,6 +796,10 @@ function showStrip(b){
   const el=document.getElementById("bubble");
   const d=BAL.BUILDINGS[b.key], t=effTier("player");
   let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">유닛 Lv${Math.min(b.level,t)}</span>`:""}</div>`;
+  /* 철거 버튼 — 최상단 (본진은 철거 불가) */
+  if(b.key!=="hall"){
+    html+=`<button onclick="demolishSel()" style="background:linear-gradient(180deg,#7a3540,#5e2830);border-color:#a04a56;">🔨 철거</button>`;
+  }
   if(b.key==="hall"){
     if(S.tier<3){
       const nt=S.tier+1, cost=BAL.ECON.tierCost[nt];
@@ -808,10 +812,10 @@ function showStrip(b){
     if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
   (d.transforms||[]).forEach((tr,i)=>{
+    if(tr.minLevel&&b.level<tr.minLevel)return;   // 레벨 조건 변형은 조건 충족 시에만 버튼 표시
     const nd=BAL.BUILDINGS[tr.key], cost=BAL.ECON.transformCost;
     const cond=[];
     if(tr.tier&&t<tr.tier)cond.push(TIER_NM[tr.tier]);
-    if(tr.minLevel&&b.level<tr.minLevel)cond.push("Lv"+tr.minLevel);   // 레벨 조건
     if(!hasPrereq("player",tr.prereq))cond.push(prereqName(tr.prereq));
     const hard=cond.length>0;
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
@@ -828,7 +832,6 @@ function showStrip(b){
           +`레벨업 → 유닛 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
-  html+=`<button onclick="hideStrip()">✕ 닫기</button>`;
   el.innerHTML=html;
   /* 위치: 건물 상단 중앙, 화면 위쪽 건물이면 아래로 뒤집기 */
   const wrap=document.getElementById("cv-wrap");
@@ -859,6 +862,14 @@ function upgradeSel(){
   burst(b.cx,b.cy,"140,220,255",10,120);
   S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"150,220,255"});
   renderPanel(); hideStrip();   // 실행 후 말풍선 닫기
+}
+/* 철거: 즉시 파괴 처리 (환불 없음). 본진은 불가 */
+function demolishSel(){
+  const b=S.selBld;
+  if(!b||b.key==="hall")return;
+  b.hp=0;   // 파괴 파이프라인(잔해·점유 해제·영역 갱신)을 그대로 사용
+  toast(BAL.BUILDINGS[b.key].nm+" 철거");
+  hideStrip();
 }
 function transformSel(i){
   const b=S.selBld; if(!b)return;
