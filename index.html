@@ -92,14 +92,49 @@
   .ed-row input{width:66px;background:#171b28;color:#fff;border:1px solid #39415c;border-radius:5px;padding:3px 5px;font-size:12px;text-align:right;}
   #ed-export{width:100%;height:100px;background:#171b28;color:#9fe8d8;border:1px solid #39415c;border-radius:5px;font-size:10px;
     display:none;margin-bottom:6px;padding:4px;}
+  /* ---------- 로비·모드 화면 (2026-09-04) ---------- */
+  .scr{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,#232a44 0%,#151928 70%);
+    display:none;flex-direction:column;align-items:center;justify-content:center;z-index:20;gap:10px;padding:20px;}
+  .scr.on{display:flex;}
+  .scr h1{font-size:34px;color:var(--gold);letter-spacing:2px;text-shadow:0 3px 0 rgba(0,0,0,.4);}
+  .scr .sub{font-size:12px;color:var(--sub);margin-bottom:14px;}
+  .mode-btn{width:min(360px,86vw);background:var(--panel);border:1.5px solid var(--panel2);border-radius:14px;
+    padding:14px 18px;color:var(--text);text-align:left;cursor:pointer;font-size:15px;transition:transform .08s,border-color .08s;}
+  .mode-btn:hover{transform:translateY(-2px);border-color:var(--accent);}
+  .mode-btn b{color:var(--gold);font-size:16px;}
+  .mode-btn .d{display:block;font-size:11.5px;color:var(--sub);margin-top:4px;line-height:1.5;}
+  .mode-btn.locked{opacity:.45;cursor:default;}
+  .mode-btn.locked:hover{transform:none;border-color:var(--panel2);}
+  .scr .back{background:none;border:1px solid var(--panel2);color:var(--sub);border-radius:8px;padding:8px 20px;cursor:pointer;margin-top:10px;}
+  .k-card{width:min(360px,86vw);background:var(--panel);border:1.5px solid var(--panel2);border-radius:14px;padding:14px 18px;
+    color:var(--text);text-align:left;cursor:pointer;font-size:14px;}
+  .k-card:hover{border-color:var(--accent);}
+  .k-card .prog{font-size:11px;color:var(--green);margin-top:4px;}
+  .k-card.locked{opacity:.45;cursor:default;}
+  .stage-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;width:min(360px,86vw);}
+  .stage-btn{background:var(--panel);border:1.5px solid var(--panel2);border-radius:10px;padding:10px 14px;
+    color:var(--text);text-align:left;cursor:pointer;font-size:13.5px;}
+  .stage-btn:hover{border-color:var(--accent);}
+  .stage-btn .d{display:block;font-size:11px;color:var(--sub);margin-top:3px;}
+  .stage-btn.clear{border-color:var(--green);}
+  .stage-btn.clear::after{content:" ✔";color:var(--green);}
+  .stage-btn.locked{opacity:.4;cursor:default;}
+  #pvp-spin{width:44px;height:44px;border:4px solid var(--panel2);border-top-color:var(--elixir);border-radius:50%;
+    animation:spin 0.9s linear infinite;margin:12px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #tut-bar{position:absolute;left:50%;top:8px;transform:translateX(-50%);max-width:92%;z-index:5;
+    background:rgba(20,24,40,.92);border:1.5px solid var(--gold);border-radius:10px;padding:8px 14px;
+    font-size:12.5px;color:var(--text);display:none;line-height:1.55;box-shadow:0 3px 12px rgba(0,0,0,.4);}
+  #ov-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
 </style>
 </head>
 <body>
 <div id="app">
   <div id="hud">
     <div style="display:flex;gap:4px;">
+      <button onclick="toLobby()" title="로비로">🏠</button>
       <button onclick="restart()">↺</button>
-      <button onclick="cycleDiff()" id="diff-btn" title="난이도 (변경 시 재시작)">보통</button>
+      <button onclick="cycleDiff()" id="diff-btn" title="난이도 (연습 모드, 변경 시 재시작)">보통</button>
     </div>
     <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
     <div style="display:flex;gap:4px;">
@@ -109,7 +144,7 @@
       <button onclick="toggleSpeed()" id="spd-btn">▶ ×1</button>
     </div>
   </div>
-  <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas><div id="bubble"></div></div>
+  <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas><div id="bubble"></div><div id="tut-bar"></div></div>
   <div id="bottom">
     <div id="elixir-row">
       <div id="elixir-num">0/10</div>
@@ -125,8 +160,34 @@
 <div id="overlay"><div class="box">
   <h2 id="ov-title"></h2>
   <div class="detail" id="ov-detail"></div>
-  <button onclick="restart()">다시 시작</button>
+  <div id="ov-btns"><button onclick="restart()">다시 시작</button></div>
 </div></div>
+
+<!-- ---------- 로비·모드 선택 화면 (2026-09-04) ---------- -->
+<div id="lobby" class="scr">
+  <h1>로얄스토리</h1><div class="sub">(가제) 프로토타입 — 모드를 선택하세요</div>
+  <button class="mode-btn" onclick="startTutorial()"><b>🎓 튜토리얼</b><span class="d" id="lb-tut">기본 조작과 개념을 플레이로 배웁니다</span></button>
+  <button class="mode-btn" onclick="showKingdoms()"><b>🗺 스토리 모드</b><span class="d" id="lb-story">왕국을 골라 거점을 1단계부터 공략합니다</span></button>
+  <button class="mode-btn" onclick="showPvp()"><b>⚔ 대전 모드</b><span class="d">다른 플레이어와 1:1 매칭 (프로토타입: 스파링)</span></button>
+  <button class="mode-btn" onclick="startPractice()"><b>🛠 연습 모드</b><span class="d">자유 대전 — 난이도·밸런스 에디터로 실험</span></button>
+</div>
+<div id="kingdoms" class="scr">
+  <h1 style="font-size:24px;">왕국 선택</h1><div class="sub">이전 왕국을 정복해야 다음 왕국이 열립니다</div>
+  <div id="k-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+  <button class="back" onclick="showScr('lobby')">← 로비로</button>
+</div>
+<div id="stages" class="scr">
+  <h1 style="font-size:22px;" id="st-title"></h1><div class="sub" id="st-desc"></div>
+  <div class="stage-list" id="st-list"></div>
+  <button class="back" onclick="showKingdoms()">← 왕국 선택</button>
+</div>
+<div id="pvp-scr" class="scr">
+  <h1 style="font-size:24px;">⚔ 대전 매칭</h1>
+  <div id="pvp-spin"></div>
+  <div class="sub" id="pvp-status">상대를 찾는 중...</div>
+  <div class="sub" style="max-width:320px;text-align:center;">※ 프로토타입: 온라인 매칭 서버 미구현 —<br>잠시 대기 후 스파링 상대(AI)와 연결됩니다</div>
+  <button class="back" onclick="cancelPvp()">매칭 취소</button>
+</div>
 <div id="toast"></div>
 <div id="editor">
   <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
@@ -253,11 +314,13 @@ const AURA_TESTS={
 const store=(()=>{try{localStorage.setItem("_t","1");localStorage.removeItem("_t");return localStorage;}
   catch(e){const m={};return{getItem:k=>(k in m?m[k]:null),setItem:(k,v)=>{m[k]=String(v);}};}})();
 let S=null, gameSpeed=1, rafId=null, lastTs=0, dragState=null, cvTouchAim=false;
+let GAME_CFG=null;   // 현재 게임 구성 {mode, diff, map, allowB, allowH, story, tip} — 로비에서 설정
 /* 난이도 (적 전용 배율) */
 let diffKey="normal";
 function diff(){return BAL.DIFF[diffKey]||BAL.DIFF.normal;}
 const DIFF_NM={easy:"쉬움",normal:"보통",hard:"어려움",extreme:"매우 어려움"};
 function cycleDiff(){
+  if(GAME_CFG&&GAME_CFG.mode!=="practice"){toast("난이도 변경은 연습 모드에서만 가능합니다");return;}
   const order=["easy","normal","hard","extreme"];
   diffKey=order[(order.indexOf(diffKey)+1)%order.length];
   store.setItem("rs2_diff",diffKey);
@@ -277,10 +340,11 @@ function makeTiles(){
   for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false,road:false};}
   BAL.GAS_ZONES.forEach(([gx,gy])=>{for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)
     if(tiles[gy+dy]&&tiles[gy+dy][gx+dx])tiles[gy+dy][gx+dx].gas=true;});
-  /* 중앙 길: 건설 불가, 유닛 이동·배치 가능 */
-  const rd=BAL.ROAD;
-  for(let y=rd.y0;y<=rd.y1;y++)for(let x=rd.x0;x<=rd.x1;x++)
-    if(tiles[y]&&tiles[y][x]){tiles[y][x].road=true;tiles[y][x].build=false;}
+  /* 길: 건설 불가, 유닛 이동·배치 가능 — 맵에 따라 여러 갈래 지원 (2026-09-04) */
+  (BAL.ROADS||[BAL.ROAD]).forEach(rd=>{
+    for(let y=rd.y0;y<=rd.y1;y++)for(let x=rd.x0;x<=rd.x1;x++)
+      if(tiles[y]&&tiles[y][x]){tiles[y][x].road=true;tiles[y][x].build=false;}
+  });
   return tiles;
 }
 
@@ -396,7 +460,7 @@ function newGame(){
   renderPanel(); updateHUD(); hideStrip();
   document.getElementById("overlay").style.display="none";
 }
-function restart(){ newGame(); }
+function restart(){ if(GAME_CFG)startGame(GAME_CFG); else newGame(); }
 function addBuilding(key,side,tx,ty){
   const d=BAL.BUILDINGS[key];
   const bhp=d.hp;   // 건물 HP는 양측 동일
@@ -802,6 +866,7 @@ function aiUpdate(dt){
   const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
   const maxTier=st.maxTier, maxLv=Math.min(st.maxLevel,tier);
   const tryB=(key,pref)=>{
+    if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;   // 스테이지 해금 규칙은 양측 동일
     const d=BAL.BUILDINGS[key];
     if(effElixir(side)<d.cost)return false;
     if(d.tier>tier)return false;
@@ -992,6 +1057,7 @@ function swapMode(){
 }
 const PANEL_BUILDS=["elixirBase","barracks","archery","assaultBarracks","workshop","sanctum","tower"];   // 상위 생산 건물은 변형으로 획득
 function buildLockReason(key){
+  if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return "이 단계 미해금";
   const d=BAL.BUILDINGS[key], t=effTier("player");
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
   if(!hasPrereq("player",d.prereq))return prereqName(d.prereq)+" 필요";
@@ -1017,12 +1083,14 @@ function renderPanel(){
     S.heroSlots.forEach((slot,i)=>{
       const d=BAL.HEROES[slot.key];
       const cost=Math.max(1,BAL.HERO_COST);
+      const hLock=GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key);   // 스테이지 영웅 해금
       const div=document.createElement("div");
-      div.className="p-item"+(slot.state!=="ready"?" locked":(S.stars<cost?" dim":""));
+      div.className="p-item"+((hLock||slot.state!=="ready")?" locked":(S.stars<cost?" dim":""));
       div.innerHTML=`<div class="p-cost">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
-        +(slot.state==="field"?`<div class="p-cd" style="font-size:10px;">출전 중</div>`:
+        +(hLock?`<div class="p-lock">🔒\n미해금</div>`:
+          slot.state==="field"?`<div class="p-cd" style="font-size:10px;">출전 중</div>`:
           slot.state==="cd"?`<div class="p-cd" data-cd="${i}">${Math.ceil(slot.cd)}</div>`:"");
-      if(slot.state==="ready")attachDrag(div,{type:"hero",slot:i});
+      if(!hLock&&slot.state==="ready")attachDrag(div,{type:"hero",slot:i});
       p.appendChild(div);
     });
   }
@@ -1074,6 +1142,7 @@ function tryBuildAt(key,x,y){
 }
 function tryHeroAt(slotIdx,x,y){
   const slot=S.heroSlots[slotIdx];
+  if(GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key)){toast("이 단계에서는 사용할 수 없는 영웅입니다");SND.play("error");return;}
   if(slot.state!=="ready")return;
   const cost=Math.max(1,BAL.HERO_COST);   // 영웅 비용 = 엘릭서 스타 (최소 1)
   if(S.stars<cost){toast("엘릭서 스타 부족 (★"+cost+" 필요)");SND.play("error");return;}
@@ -1231,6 +1300,7 @@ function loop(ts){
     S.eElixir=Math.min(eCap,eb+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
     if(eb<eCap&&S.eElixir>=eCap){S.eStars++;S.eElixir=0;}
     aiUpdate(dt);
+    if(TUT.active)TUT.update();   // 튜토리얼 목표 달성 체크
     recomputeAuras();
     S.units.forEach(u=>unitUpdate(u,dt));
     S.buildings.forEach(b=>buildingUpdate(b,dt));
@@ -1265,11 +1335,32 @@ function endGame(win){
   S.over=true;
   SND.play(win?"win":"lose");
   if(win)confetti();else shake(12);
+  /* 모드별 결과 화면 (2026-09-04): 스토리 = 진행 저장 + 다음 단계, 튜토리얼 = 완료 처리 */
+  const cfg=GAME_CFG||{mode:"practice"};
+  let detail=win?"적 본진 파괴 — 점령 완료":"본진이 파괴되었습니다";
+  let btns="";
+  if(cfg.mode==="story"&&win){
+    const ki=cfg.story.ki, i=cfg.story.i, K=KINGDOMS[ki];
+    if(i>=progOf(ki)){if(ki===0)PROG.k1=i+1;else if(ki===1)PROG.k2=i+1;saveProg();}
+    detail=K.nm+" · "+K.stages[i].nm+" 공략 완료!";
+    if(i+1<K.stages.length)btns+=`<button onclick="startStory(${ki},${i+1})">다음 단계 ▶</button>`;
+    else detail+="<br>🏰 왕국 정복! "+(ki===0?"협곡 왕국이 열렸습니다":"모든 왕국을 정복했습니다");
+    btns+=`<button onclick="closeOv();showStages(${ki})" style="background:var(--panel2);">스테이지 목록</button>`;
+  } else if(cfg.mode==="tutorial"&&win){
+    PROG.tut=1;saveProg();TUT.stop();
+    detail="튜토리얼 완료! 이제 스토리 모드에 도전하세요";
+    btns+=`<button onclick="closeOv();showKingdoms()">스토리 모드 ▶</button>`;
+  } else {
+    btns+=`<button onclick="restart()">다시 시작</button>`;
+  }
+  btns+=`<button onclick="toLobby()" style="background:var(--panel2);">로비</button>`;
   document.getElementById("ov-title").textContent=win?"승리!":"패배";
   document.getElementById("ov-title").style.color=win?"var(--gold)":"var(--red)";
-  document.getElementById("ov-detail").innerHTML=win?"적 본진 파괴 — 점령 완료":"본진이 파괴되었습니다";
+  document.getElementById("ov-detail").innerHTML=detail;
+  document.getElementById("ov-btns").innerHTML=btns;
   document.getElementById("overlay").style.display="flex";
 }
+function closeOv(){document.getElementById("overlay").style.display="none";}
 function toggleSpeed(){gameSpeed=gameSpeed===0?1:gameSpeed===1?2:gameSpeed===2?4:1;syncPauseUI();}
 let pausedPrev=1;
 function togglePause(){
@@ -2114,15 +2205,16 @@ function buildBG(){
   c.strokeStyle="rgba(30,60,20,.12)";c.lineWidth=1;
   for(let x=0;x<=COLS;x++){c.beginPath();c.moveTo(x*TILE,0);c.lineTo(x*TILE,H);c.stroke();}
   for(let y=0;y<=ROWS;y++){c.beginPath();c.moveTo(0,y*TILE);c.lineTo(W,y*TILE);c.stroke();}
-  /* 중앙 길 (본진↔본진, 건설 불가 통로) */
-  const rd=BAL.ROAD;
-  const rx=rd.x0*TILE, rw=(rd.x1-rd.x0+1)*TILE, ry2=rd.y0*TILE, rh2=(rd.y1-rd.y0+1)*TILE;
-  c.fillStyle="#cdb27a"; c.fillRect(rx,ry2,rw,rh2);
-  c.fillStyle="rgba(150,115,70,.45)";
-  for(let i=0;i<60;i++){ c.beginPath(); c.ellipse(rx+rnd()*rw, ry2+rnd()*rh2, 2.5, 1.7, 0, 0, 7); c.fill(); }
-  c.strokeStyle="rgba(120,90,50,.7)"; c.lineWidth=2;
-  c.beginPath(); c.moveTo(rx+1,ry2); c.lineTo(rx+1,ry2+rh2); c.stroke();
-  c.beginPath(); c.moveTo(rx+rw-1,ry2); c.lineTo(rx+rw-1,ry2+rh2); c.stroke();
+  /* 길 (본진↔본진, 건설 불가 통로) — 맵에 따라 여러 갈래 */
+  (BAL.ROADS||[BAL.ROAD]).forEach(rd=>{
+    const rx=rd.x0*TILE, rw=(rd.x1-rd.x0+1)*TILE, ry2=rd.y0*TILE, rh2=(rd.y1-rd.y0+1)*TILE;
+    c.fillStyle="#cdb27a"; c.fillRect(rx,ry2,rw,rh2);
+    c.fillStyle="rgba(150,115,70,.45)";
+    for(let i=0;i<60;i++){ c.beginPath(); c.ellipse(rx+rnd()*rw, ry2+rnd()*rh2, 2.5, 1.7, 0, 0, 7); c.fill(); }
+    c.strokeStyle="rgba(120,90,50,.7)"; c.lineWidth=2;
+    c.beginPath(); c.moveTo(rx+1,ry2); c.lineTo(rx+1,ry2+rh2); c.stroke();
+    c.beginPath(); c.moveTo(rx+rw-1,ry2); c.lineTo(rx+rw-1,ry2+rh2); c.stroke();
+  });
   /* 가스 타일 */
   BAL.GAS_ZONES.forEach(([gx,gy])=>{
     c.fillStyle="rgba(160,90,220,.28)";
@@ -2429,11 +2521,180 @@ function edReset(){
   toast("밸런스 기본값으로 초기화");
 }
 
+/* ============================================================
+   로비 · 모드 시스템 (2026-09-04)
+   튜토리얼 / 스토리(왕국→스테이지 선형 진행) / 대전(매칭) / 연습
+============================================================ */
+/* --- 맵 변형: 스토리 왕국별 지형 --- */
+const MAPS={
+  plain: {roads:[{x0:8,x1:10,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]]},
+  canyon:{roads:[{x0:3,x1:5,y0:4,y1:19},{x0:13,x1:15,y0:4,y1:19}],   // 두 갈래 협곡
+          gas:[[8,6],[8,15],[0,11],[17,11],[0,5],[17,17]]},
+};
+function applyMap(id){
+  const m=MAPS[id]||MAPS.plain;
+  BAL.ROADS=m.roads; BAL.ROAD=m.roads[0]; BAL.GAS_ZONES=m.gas;
+  bgCache=null;   // 배경 캐시 재생성
+}
+/* --- 진행도 저장 --- */
+let PROG={tut:0,k1:0,k2:0};
+try{PROG={...PROG,...JSON.parse(store.getItem("rs2_prog")||"{}")};}catch(e){}
+function saveProg(){store.setItem("rs2_prog",JSON.stringify(PROG));}
+function progOf(ki){return ki===0?(PROG.k1||0):ki===1?(PROG.k2||0):0;}
+function kingdomCleared(ki){return progOf(ki)>=KINGDOMS[ki].stages.length;}
+/* --- 왕국·스테이지 정의 ---
+   초원(1왕국): 단계별 건물 해금 — 사용법·상성 학습 (해금 규칙은 적 AI에도 동일 적용)
+   협곡(2왕국): 새 지형(두 갈래 길) + 단계별 영웅 해금 학습 / 3왕국: 추후 오픈 */
+const K1_UNLOCK=[
+  ["barracks"],
+  ["barracks","elixirBase"],
+  ["barracks","elixirBase","archery"],
+  ["barracks","elixirBase","archery","tower"],
+  ["barracks","elixirBase","archery","tower","workshop"],
+  ["barracks","elixirBase","archery","tower","workshop","assaultBarracks"],
+  ["barracks","elixirBase","archery","tower","workshop","assaultBarracks","sanctum"],
+  null,   // 8단계: 전체 해금
+];
+const KINGDOMS=[
+  {id:"k1",nm:"🌿 초원 왕국",desc:"단계마다 건물이 하나씩 해금 — 유닛 활용과 상성을 배웁니다",map:"plain",heroes:false,stages:[
+    {nm:"1단계 · 첫 전선",d:"배럭 — 드래그 건설과 자동 웨이브",diff:"easy"},
+    {nm:"2단계 · 경제",d:"엘릭서 기지 해금 — ◆ 가스 지역 점유",diff:"easy"},
+    {nm:"3단계 · 원거리",d:"아처리 해금 — 근접 vs 원거리 상성",diff:"easy"},
+    {nm:"4단계 · 거점",d:"타워 해금 — 전선 확장, 가드/아케인 변형",diff:"easy"},
+    {nm:"5단계 · 공성",d:"워크숍 해금 — 공성추는 건물만 공격",diff:"normal"},
+    {nm:"6단계 · 기병",d:"어썰트 배럭 해금 — 창 관통, 원거리에 취약",diff:"normal"},
+    {nm:"7단계 · 마법",d:"생텀 해금 — 마법은 쉴드맨 저항을 관통",diff:"normal"},
+    {nm:"8단계 · 총력전",d:"모든 건물 해금 — 왕국 수복전",diff:"normal"},
+  ]},
+  {id:"k2",nm:"⛰ 협곡 왕국",desc:"두 갈래 협곡 지형 — 단계마다 영웅을 하나씩 익힙니다",map:"canyon",heroes:true,stages:[
+    {nm:"1단계 · 대마법사",d:"아크메이지 — 원거리 딜러 영웅",diff:"normal"},
+    {nm:"2단계 · 마운틴 킹",d:"마운틴 킹 추가 — 근접 탱커",diff:"normal"},
+    {nm:"3단계 · 팔라딘",d:"팔라딘 추가 — 주변 아군 회복 오라",diff:"normal"},
+    {nm:"4단계 · 블러드 메이지",d:"블러드 메이지 추가 — 광역 마법",diff:"hard"},
+    {nm:"5단계 · 스카이 메이지",d:"영웅 5인 총출동 — 협곡 결전",diff:"hard"},
+  ]},
+  {id:"k3",nm:"❄ ??? 왕국",desc:"추후 오픈 예정",locked:true,map:"plain",stages:[]},
+];
+/* --- 화면 전환 --- */
+function showScr(id){
+  document.querySelectorAll(".scr").forEach(s=>s.classList.remove("on"));
+  if(id)document.getElementById(id).classList.add("on");
+}
+function syncLobby(){
+  document.getElementById("lb-tut").textContent="기본 조작과 개념을 플레이로 배웁니다"+(PROG.tut?" · ✔ 완료":"");
+  document.getElementById("lb-story").textContent=`왕국을 골라 거점을 1단계부터 공략합니다 (초원 ${progOf(0)}/8 · 협곡 ${progOf(1)}/5)`;
+}
+function toLobby(){
+  closeOv(); TUT.stop(); gameSpeed=0;
+  if(pvpTimer){clearInterval(pvpTimer);pvpTimer=null;}
+  hideStrip();
+  showScr("lobby"); syncLobby();
+}
+function showKingdoms(){
+  showScr("kingdoms");
+  const el=document.getElementById("k-list"); el.innerHTML="";
+  KINGDOMS.forEach((K,ki)=>{
+    const unlocked=!K.locked&&(ki===0||kingdomCleared(ki-1));
+    const b=document.createElement("button");
+    b.className="k-card"+(unlocked?"":" locked");
+    const pr=K.locked?"🔒 추후 오픈 예정":unlocked?`진행 ${progOf(ki)}/${K.stages.length}`:"🔒 이전 왕국을 정복하면 열립니다";
+    b.innerHTML=`<b>${K.nm}</b><span style="display:block;font-size:11px;color:var(--sub);margin-top:3px;">${K.desc}</span><div class="prog">${pr}</div>`;
+    if(unlocked)b.onclick=()=>showStages(ki);
+    el.appendChild(b);
+  });
+}
+function showStages(ki){
+  showScr("stages");
+  const K=KINGDOMS[ki];
+  document.getElementById("st-title").textContent=K.nm;
+  document.getElementById("st-desc").textContent=K.desc;
+  const el=document.getElementById("st-list"); el.innerHTML="";
+  K.stages.forEach((st,i)=>{
+    const cleared=i<progOf(ki), open=i<=progOf(ki);
+    const b=document.createElement("button");
+    b.className="stage-btn"+(cleared?" clear":open?"":" locked");
+    b.innerHTML=`<b>${st.nm}</b> <span style="color:var(--sub);font-size:11px;">[${DIFF_NM[st.diff]}]</span><span class="d">${st.d}</span>`;
+    if(open)b.onclick=()=>startStory(ki,i);
+    el.appendChild(b);
+  });
+}
+/* --- 게임 시작 (모드 공통 진입점) --- */
+const MODE_NM={tutorial:"튜토리얼",story:"스토리",pvp:"대전",practice:"연습"};
+function startGame(cfg){
+  GAME_CFG=cfg;
+  applyMap(cfg.map||"plain");
+  if(cfg.mode==="practice")diffKey=store.getItem("rs2_diff")||"normal";
+  else if(cfg.diff)diffKey=cfg.diff;
+  newGame();
+  showScr(null); closeOv();
+  gameSpeed=1; syncPauseUI();
+  TUT.stop(); if(cfg.mode==="tutorial")TUT.start();
+  const db=document.getElementById("diff-btn");
+  if(cfg.mode==="practice"){db.disabled=false;syncDiffUI();}
+  else{db.disabled=true;db.textContent=MODE_NM[cfg.mode]+"·"+(DIFF_NM[diffKey]||diffKey);}
+  if(cfg.tip)toast(cfg.tip);
+}
+function startPractice(){startGame({mode:"practice",map:"plain",tip:"연습 모드 — 난이도·⚙ 에디터 자유 조정"});}
+function startTutorial(){startGame({mode:"tutorial",diff:"easy",map:"plain",tip:"튜토리얼 — 상단 안내를 따라가세요"});}
+function startStory(ki,i){
+  closeOv();
+  const K=KINGDOMS[ki], st=K.stages[i];
+  const allow=K.id==="k1"?K1_UNLOCK[i]:null;
+  const allowH=K.heroes?new Set(Object.keys(BAL.HEROES).slice(0,i+1)):new Set();
+  startGame({mode:"story",diff:st.diff,map:K.map,story:{ki,i},
+    allowB:allow?new Set(allow):null,allowH,tip:st.nm+" — "+st.d});
+}
+/* --- 대전 매칭 (프로토타입: 온라인 서버 미구현 — 대기 후 스파링 AI 연결) --- */
+let pvpTimer=null;
+function showPvp(){
+  showScr("pvp-scr");
+  const el=document.getElementById("pvp-status");
+  el.textContent="상대를 찾는 중...";
+  const t0=Date.now(), wait=6000+Math.random()*5000;
+  if(pvpTimer)clearInterval(pvpTimer);
+  pvpTimer=setInterval(()=>{
+    if(Date.now()-t0>=wait){
+      clearInterval(pvpTimer);pvpTimer=null;
+      el.textContent="상대 발견! 스파링 상대와 연결합니다";
+      SND.play("star");
+      setTimeout(()=>startGame({mode:"pvp",diff:"hard",map:"plain",tip:"⚔ 대전 (스파링 상대) — 본진을 파괴하세요"}),900);
+    } else el.textContent="상대를 찾는 중... "+Math.floor((Date.now()-t0)/1000)+"초";
+  },500);
+}
+function cancelPvp(){if(pvpTimer){clearInterval(pvpTimer);pvpTimer=null;}showScr("lobby");}
+/* --- 튜토리얼: 목표 스크립트 --- */
+const TUT=(()=>{
+  let active=false, idx=0, bonusGiven=false;
+  const bar=()=>document.getElementById("tut-bar");
+  const cntP=k=>S.buildings.filter(b=>b.side==="player"&&b.hp>0&&b.key===k).length;
+  /* 순서 = 실제 게임 흐름: 배럭 → 타워로 영역 확장 → (영역에 들어온) 가스 점유 → 성장 → 영웅 → 공략 */
+  const steps=[
+    {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
+    {t:"② <b>타워</b>를 좌우 <b>◆ 가스 지역</b> 방향에 건설하세요 — 타워 주변이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
+    {t:"③ 영역에 들어온 <b>◆ 가스 지역</b>에 <b>엘릭서 기지</b>를 건설하세요 — 엘릭서 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
+    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급</b> — 상위 건물·엘릭서 상한·유닛 레벨 상한이 열립니다",ok:()=>S.tier>=2},
+    {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
+    {t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 비용은 ★ (엘릭서가 가득 차면 적립)",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
+    {t:"⑦ 마지막! 병력을 이끌고 <b>적 본진</b>을 파괴하세요",ok:()=>false},
+  ];
+  function start(){active=true;idx=0;bonusGiven=false;render();}
+  function stop(){active=false;const b=bar();if(b)b.style.display="none";}
+  function render(){const b=bar();if(!b)return;b.style.display=active?"block":"none";if(active)b.innerHTML=steps[idx].t;}
+  function update(){
+    if(!active||!S||S.over)return;
+    if(idx===5&&S.stars<1&&!bonusGiven){bonusGiven=true;S.stars=1;toast("(튜토리얼) 엘릭서 스타 ★1 지급");renderPanel();}
+    if(steps[idx].ok()){idx=Math.min(idx+1,steps.length-1);SND.play("star");render();}
+  }
+  return {start,stop,update,get active(){return active;}};
+})();
+
 /* ---------- 시작 ---------- */
 diffKey=store.getItem("rs2_diff")||"normal";
 buildIcons();
 newGame();
+gameSpeed=0;   // 로비에서 시작 — 모드 선택 시 startGame()이 진행시킴
 syncDiffUI();
+showScr("lobby"); syncLobby();
 rafId=requestAnimationFrame(loop);
 </script>
 </body>
