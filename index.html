@@ -22,15 +22,18 @@
   /* 건물 말풍선 팝업 (클릭 토글) */
   #bubble{position:absolute;display:none;z-index:8;transform:translate(-50%,-100%);
     background:rgba(28,34,54,.96);border:2px solid #5a6ea6;border-radius:10px;padding:7px;
-    box-shadow:0 4px 12px rgba(0,0,0,.55);min-width:128px;max-width:200px;}
+    box-shadow:0 4px 12px rgba(0,0,0,.55);min-width:150px;max-width:250px;}
   #bubble::after{content:"";position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);
     border:9px solid transparent;border-top-color:#5a6ea6;}
   #bubble.below{transform:translate(-50%,0);}
   #bubble.below::after{top:-17px;bottom:auto;border-top-color:transparent;border-bottom-color:#5a6ea6;}
   #bubble .b-title{font-size:11.5px;font-weight:bold;color:var(--gold);text-align:center;margin-bottom:4px;white-space:nowrap;}
-  #bubble button{display:block;width:100%;margin:4px 0;background:linear-gradient(180deg,#3b4a75,#2c3a5e);
-    color:#fff;border:1px solid #4a5a8a;border-radius:8px;padding:11px 10px;font-size:13.5px;font-weight:bold;cursor:pointer;white-space:nowrap;}
-  #bubble button:disabled{opacity:.45;cursor:not-allowed;}
+  #bubble button{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin:4px 0;
+    background:linear-gradient(180deg,#3b4a75,#2c3a5e);color:#fff;border:1px solid #4a5a8a;border-radius:8px;
+    padding:9px 8px;font-size:13px;font-weight:bold;cursor:pointer;white-space:normal;line-height:1.35;text-align:center;box-sizing:border-box;}
+  #bubble button img{width:34px;height:34px;flex:none;}
+  /* 비활성: 버튼 전체를 흐리게 하지 않고 텍스트·배경만 가라앉힘 — 건물 이미지는 선명 유지 */
+  #bubble button:disabled{background:#262d42;border-color:#38405c;color:#97a0b8;cursor:not-allowed;}
   /* 철거: 오터치 방지용 소형 버튼 */
   #bubble button.b-mini{display:inline-block;width:auto;padding:3px 9px;font-size:10.5px;font-weight:normal;
     margin:0 0 5px;background:linear-gradient(180deg,#6e3038,#54242b);border-color:#8a4450;opacity:.9;}
@@ -915,8 +918,8 @@ function showStrip(b){
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
     const warn=(!hard&&b.level>1)?`<br><span style="font-size:10px;color:#ffb0b0">⚠ Lv${b.level} → Lv1 초기화</span>`:"";
     html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
-        +`<img src="${ICONS[tr.key]||""}" style="width:30px;height:30px;vertical-align:-10px;margin-right:5px;" draggable="false">`
-        +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</button>`;
+        +`<img src="${ICONS[tr.key]||""}" draggable="false">`
+        +`<span>➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</span></button>`;
   });
   /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) */
   if(d.prod){
