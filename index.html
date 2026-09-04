@@ -2623,12 +2623,40 @@ const MAPS={
           theme:{ground:"#c9a066",checker:"rgba(90,50,10,.07)",speckA:"rgba(255,240,210,.07)",speckB:"rgba(95,55,20,.10)",
                  grid:"rgba(95,60,25,.13)",road:"#8f6b44",roadDot:"rgba(60,38,16,.35)",roadEdge:"rgba(70,42,18,.8)",cliff:true}},
 };
-function applyMap(id){
+function applyMap(id,layout){
   const m=MAPS[id]||MAPS.plain;
   curMap=MAPS[id]?id:"plain";
-  BAL.ROADS=m.roads; BAL.ROAD=m.roads[0]; BAL.GAS_ZONES=m.gas;
+  const lay=layout||m;   // 스테이지 레이아웃 오버라이드 — 테마는 왕국(id), 길·가스는 스테이지
+  BAL.ROADS=lay.roads; BAL.ROAD=lay.roads[0]; BAL.GAS_ZONES=lay.gas;
   bgCache=null;   // 배경 캐시 재생성 (테마 반영)
 }
+/* --- 스테이지별 레벨 디자인 (2026-09-05): 왕국 비주얼 테마는 유지, 길·가스 배치를 단계마다 변형.
+   대칭 의무 없음 — 다양성 우선 (PvE 스테이지, 2026-09-05 방침). 길 사각형을 여러 개 조합해
+   가로 물길·지그재그·광장·미로 등 자유 구성. 규칙: 본진(x8-10, y1-3/20-22)과 겹치지 않기 --- */
+const K1_LAYOUTS=[
+  {nm:"중앙 대로",  roads:[{x0:8,x1:10,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]]},
+  {nm:"갈라진 여울",roads:[{x0:0,x1:6,y0:10,y1:12},{x0:12,x1:18,y0:10,y1:12}],   // 가로 물길, 중앙만 트임
+                    gas:[[2,5],[15,6],[8,15],[0,17],[17,16]]},
+  {nm:"넓은 대로",  roads:[{x0:7,x1:11,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]]},
+  {nm:"지그재그 길",roads:[{x0:3,x1:5,y0:4,y1:11},{x0:3,x1:13,y0:9,y1:11},{x0:11,x1:13,y0:9,y1:19}],   // S자 통로
+                    gas:[[15,5],[0,8],[16,14],[6,17],[0,14]]},
+  {nm:"중앙 광장",  roads:[{x0:5,x1:13,y0:8,y1:15}],   // 거대한 개활지 — 건설 불가, 대규모 회전
+                    gas:[[0,4],[16,4],[0,18],[16,18],[8,5],[8,17]]},
+  {nm:"두 물길",    roads:[{x0:0,x1:11,y0:7,y1:8},{x0:7,x1:18,y0:14,y1:15}],   // 어긋난 가로 이중 물길
+                    gas:[[14,4],[2,10],[15,10],[3,18],[16,17]]},
+  {nm:"세 갈래",    roads:[{x0:1,x1:3,y0:4,y1:19},{x0:8,x1:10,y0:4,y1:19},{x0:15,x1:17,y0:4,y1:19}], gas:[[5,5],[5,17],[12,5],[12,17],[5,11],[12,11]]},
+  {nm:"결전장",     roads:[{x0:4,x1:6,y0:4,y1:19},{x0:12,x1:14,y0:4,y1:19}], gas:[[9,5],[9,17],[0,11],[17,11],[0,5],[0,17]]},
+];
+const K2_LAYOUTS=[
+  {nm:"쌍둥이 협곡",roads:[{x0:3,x1:5,y0:4,y1:19},{x0:13,x1:15,y0:4,y1:19}], gas:[[8,6],[8,16],[0,5],[0,17],[17,5],[17,17]]},
+  {nm:"세 줄 협곡",roads:[{x0:1,x1:2,y0:4,y1:19},{x0:8,x1:10,y0:4,y1:19},{x0:16,x1:17,y0:4,y1:19}], gas:[[4,6],[4,16],[12,6],[12,16],[4,11],[12,11]]},
+  {nm:"대협곡",    roads:[{x0:6,x1:12,y0:4,y1:19}], gas:[[0,5],[0,17],[17,5],[17,17],[0,11],[17,11]]},
+  {nm:"굽은 협곡", roads:[{x0:2,x1:4,y0:4,y1:13},{x0:2,x1:15,y0:11,y1:13},{x0:13,x1:15,y0:11,y1:19}],   // ㄱ자 대협곡
+                    gas:[[8,5],[17,7],[0,16],[8,17],[16,16]]},
+  {nm:"미로 협곡", roads:[{x0:6,x1:7,y0:4,y1:15},{x0:11,x1:12,y0:8,y1:19},{x0:0,x1:3,y0:9,y1:10},{x0:15,x1:18,y0:13,y1:14}],   // 어긋난 균열 지대
+                    gas:[[0,5],[16,5],[13,4],[4,17],[0,20],[17,17]]},
+];
+function stageLayout(ki,i){return (ki===0?K1_LAYOUTS:ki===1?K2_LAYOUTS:[])[i]||null;}
 /* --- 진행도 저장 --- */
 let PROG={tut:0,k1:0,k2:0};
 try{PROG={...PROG,...JSON.parse(store.getItem("rs2_prog")||"{}")};}catch(e){}
@@ -2707,7 +2735,8 @@ function showStages(ki){
     const cleared=i<progOf(ki), open=i<=progOf(ki);
     const b=document.createElement("button");
     b.className="stage-btn"+(cleared?" clear":open?"":" locked");
-    b.innerHTML=`<b>${st.nm}</b> <span style="color:var(--sub);font-size:11px;">[${DIFF_NM[st.diff]}]</span><span class="d">${st.d}</span>`;
+    const lay=stageLayout(ki,i);
+    b.innerHTML=`<b>${st.nm}</b> <span style="color:var(--sub);font-size:11px;">[${DIFF_NM[st.diff]}]${lay?" 🗺 "+lay.nm:""}</span><span class="d">${st.d}</span>`;
     if(open)b.onclick=()=>startStory(ki,i);
     el.appendChild(b);
   });
@@ -2716,7 +2745,7 @@ function showStages(ki){
 const MODE_NM={tutorial:"튜토리얼",story:"스토리",pvp:"대전",practice:"연습"};
 function startGame(cfg){
   GAME_CFG=cfg;
-  applyMap(cfg.map||"plain");
+  applyMap(cfg.map||"plain",cfg.layout||null);
   if(cfg.mode==="practice")diffKey=store.getItem("rs2_diff")||"normal";
   else if(cfg.diff)diffKey=cfg.diff;
   newGame();
@@ -2735,8 +2764,9 @@ function startStory(ki,i){
   const K=KINGDOMS[ki], st=K.stages[i];
   const allow=K.id==="k1"?K1_UNLOCK[i]:null;
   const allowH=K.heroes?new Set(Object.keys(BAL.HEROES).slice(0,i+1)):new Set();
-  startGame({mode:"story",diff:st.diff,map:K.map,story:{ki,i},
-    allowB:allow?new Set(allow):null,allowH,tip:st.nm+" — "+st.d});
+  const lay=stageLayout(ki,i);
+  startGame({mode:"story",diff:st.diff,map:K.map,story:{ki,i},layout:lay,
+    allowB:allow?new Set(allow):null,allowH,tip:st.nm+(lay?" · "+lay.nm:"")+" — "+st.d});
 }
 /* --- 대전 매칭 (프로토타입: 온라인 서버 미구현 — 대기 후 스파링 AI 연결) --- */
 let pvpTimer=null;
