@@ -422,6 +422,17 @@ function lvMult(level){return 1+BAL.UPG_PWR*((level||1)-1);}
 function upCostFor(targetLv){const c=BAL.ECON.upCost;return Array.isArray(c)?(c[targetLv]||c[c.length-1]):c;}
 
 /* ---------- 유닛/영웅 ---------- */
+/* ---------- 8방향 대응 구조 (2026-09-04) ----------
+   dir8: 0=E 1=SE 2=S 3=SW 4=W 5=NW 6=N 7=NE (화면 기준, y+ = 남쪽)
+   - 이동 중엔 이동 벡터, 교전 중엔 목표 방향으로 매 틱 갱신. 정지 시 마지막 방향 유지.
+   - 렌더는 u.dir8만 참조 → 8방향 시트 아트가 준비되면 registerUnitSheet() 등록만으로 교체됨. */
+const DIR8_VEC=[[1,0],[0.707,0.707],[0,1],[-0.707,0.707],[-1,0],[-0.707,-0.707],[0,-1],[0.707,-0.707]];
+function setFacing(u,dx,dy){
+  if(Math.abs(dx)<0.5&&Math.abs(dy)<0.5)return;
+  u.face=Math.atan2(dy,dx);
+  u.dir8=((Math.round(u.face/(Math.PI/4))%8)+8)%8;
+  if(Math.abs(dx)>2)u.fx=dx>0?1:-1;   // (구) 좌우 플립 필드 호환 유지
+}
 function spawnUnit(key,side,x,y,hero,level){
   const d=hero?BAL.HEROES[key]:BAL.UNITS[key];
   const u={key,side,hero:!!hero,nm:d.nm,x,y,hp:d.hp,maxHp:d.hp,dmg:d.dmg,hs:d.hs,rng:d.rng,spd:d.spd*TILE,r:d.r,
@@ -431,6 +442,9 @@ function spawnUnit(key,side,x,y,hero,level){
            cd:0, deploy:0.6, animT:Math.random()*6.28, swing:0, flash:0, fx:side==="player"?1:-1, moving:false,
            bAtk:1,bDef:1, slowT:0};
   u.spd=d.spd*TILE;   // 타일/초 → px/초
+  /* 초기 방향: 상대 본진 쪽 (플레이어 = 북, 적 = 남) */
+  u.face=side==="player"?-Math.PI/2:Math.PI/2;
+  u.dir8=side==="player"?6:2;
   /* 유닛 레벨: 생산 건물 레벨을 그대로 계승 — 스탯에 즉시 반영 (영웅은 레벨 1) */
   u.level=hero?1:(level||1);
   if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;}
@@ -507,7 +521,7 @@ function unitUpdate(u,dt){
     if(tgt){
       const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
       const d=Math.hypot(u.x-tx,u.y-ty);
-      if(Math.abs(tx-u.x)>2)u.fx=tx>u.x?1:-1;
+      setFacing(u,tx-u.x,ty-u.y);
       if(d>u.aoe.castRng*TILE*0.8){moveToward(u,tx,ty,u.spd*dt);u.moving=true;}}
     return;
   }
@@ -517,7 +531,7 @@ function unitUpdate(u,dt){
   const reach=u.rng*TILE+u.r+tr;
   const ty=tgt.y!==undefined?tgt.y:tgt.cy, tx=tgt.x!==undefined?tgt.x:tgt.cx;
   const dd=Math.hypot(u.x-tx,u.y-ty);
-  if(Math.abs(tx-u.x)>2)u.fx=tx>u.x?1:-1;
+  setFacing(u,tx-u.x,ty-u.y);   // 이동·교전 공통: 목표 방향으로 8방향 갱신
   if(dd<=reach){
     u.cd-=dt;
     if(u.cd<=0){
@@ -1557,6 +1571,35 @@ const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
   bloodMage:(r,t,s,u)=>sprMage(r,t,s,u,"#c03030","#8a1f1f"),
   skyMage:(r,t,s,u)=>sprMage(r,t,s,u,"#3a9ad9","#2a6fa8")};
 
+/* --- 8방향 스프라이트 시트 등록부 (2026-09-04) ---
+   실제 8방향 아트가 준비되면 여기 등록만 하면 해당 유닛/영웅이 시트 렌더로 자동 전환된다.
+   시트 규격: 세로 8행 = dir8 순서(E,SE,S,SW,W,NW,N,NE), 가로 frames열 = 걷기 루프 (0열 = 대기).
+   예: registerUnitSheet("footman",{src:"art/footman_8dir.png",fw:64,fh:64,frames:4,fps:8}); */
+const UNIT_SHEETS={};
+function registerUnitSheet(key,def){
+  const img=new Image(); img.src=def.src;
+  UNIT_SHEETS[key]={fw:64,fh:64,frames:4,fps:8,...def,img};
+}
+/* 방향 인지 유닛 드로우 — 호출 시 ctx 원점은 유닛 중심.
+   시트가 등록돼 있으면 dir8 행 + 걷기 프레임을 그리고,
+   없으면 절차(칩비) 스프라이트에 8방향 근사(서반구 미러 + 남/북 기울기)를 적용한다. */
+function drawUnitSprite(u,team){
+  const d=(u.dir8===undefined)?(u.side==="player"?6:2):u.dir8;
+  const sh=UNIT_SHEETS[u.key];
+  if(sh&&sh.img.complete&&sh.img.naturalWidth>0){
+    const fr=u.moving?Math.floor((u.animT||0)/7*sh.fps)%sh.frames:0;
+    const sc=(u.r*2.6)/sh.fw;
+    ctx.save();ctx.scale(sc,sc);
+    ctx.drawImage(sh.img,fr*sh.fw,d*sh.fh,sh.fw,sh.fh,-sh.fw/2,-sh.fh*0.72,sh.fw,sh.fh);
+    ctx.restore();
+    return;
+  }
+  ctx.rotate(DIR8_VEC[d][1]*0.09);          // 남향 = 앞으로, 북향 = 뒤로 살짝 기울여 진행감
+  ctx.scale((d>=3&&d<=5)?-1:1,1);           // 서반구(SW·W·NW)는 좌우 미러
+  const fn=u.hero?SPRH[u.key]:SPRU[u.key];
+  if(fn)fn(u.r,team,u.swing||0,u);
+}
+
 /* --- 건물 스프라이트 --- 색 = 진영, 형태 = 기능 (2026-08-30 아트 규칙) --- */
 const TEAM_COL={player:{main:"#3f74d8",dark:"#26437f",light:"#84aaf0"},
                 enemy: {main:"#d8493d",dark:"#8f2a23",light:"#f0928a"}};
@@ -2054,9 +2097,7 @@ function draw(){
     ctx.globalAlpha=u.deploy>0?0.85:1;
     ctx.translate(u.x,u.y+bob+hover+dropY);
     if(u.moving&&!u.air)ctx.rotate(Math.sin(u.animT)*0.05);
-    ctx.scale(u.fx||1,1);
-    const fn=u.hero?SPRH[u.key]:SPRU[u.key];
-    if(fn)fn(u.r,team,u.swing||0,u);
+    drawUnitSprite(u,team);   // 8방향 인지 렌더 (시트 등록 시 자동 전환)
     ctx.restore();
     ctx.globalAlpha=1;
     if(u.hero){ /* 영웅 표식 + 오라 범위 */
