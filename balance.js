@@ -21,6 +21,7 @@ window.BALANCE = {
   EXCLUDE_R: 5.25,  // 적 "본진" 주변 건설 배제 반경 (2026-08-31: 본진에만 적용, 타 건물 옆 건설 허용)
   HALL_ZONE: 5.25,  // 본진 주변 아군 영역 반경 (+1칸 개정, 판정은 건물 중심 기준)
   TOWER_ZONE: 5.25, // 타워 전선 확장 반경 = 본진과 동일
+  TOWER_VS_BLDG: 0.25, // 타워의 건물 공격 피해 배율 (타워전 억제)
   AURA_R: 4,        // 영웅 오라 반경
   AURA_PWR: 0.25,   // 오라 공·방 +25% (중첩 허용 — 이슈 #11 가정)
   UPG_PWR: 0.12,    // 유닛 레벨 1단계당 스탯 +12% (생산 건물 레벨 = 유닛 레벨)
@@ -43,7 +44,7 @@ window.BALANCE = {
     knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
     workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 13 } },   // 공성추 생산, Lv3 → 시즈 워크숍
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
-    tower:         { hp: 3200, cost: 5, atk: { dmg: 218, hs: 0.8, rng: 5 } },
+    tower:         { hp: 3200, cost: 5 },   // 비무장 거점 전용 (2026-09-04) — 공격은 가드/아케인 변형만
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 5 } },
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.0, rng: 6, splash: 2.0 } },   // 장사거리 광역 카운터
     siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 20 } },   // 워크숍 Lv3 변형
@@ -60,7 +61,7 @@ window.BALANCE = {
     rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
     knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.6, pierceVsMelee: 0.5, rangedWeak: 0.5 },   // 철갑 기병 — 창 관통/원거리 취약
     ram:           { hp: 2600, dmg: 450, hs: 1.8, rng: 0.9, spd: 0.4 },   // 공성추 — 건물만 공격 (근접·초저속)
-    siegeTank:     { hp: 1500, dmg: 700, hs: 3.0, rng: 4.5, spd: 0.3 },   // 공성 전차 — 건물만 공격 (장거리·초저속)
+    siegeTank:     { hp: 1500, dmg: 620, hs: 3.0, rng: 4.0, spd: 0.3 },   // 공성 전차 — 공격 타워(5~6)에 아웃레인지
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
     dragon:        { hp: 2400, dmg: 320, hs: 1.6, rng: 3.0, spd: 1.2, splash: 1.2 },   // 최상위 공중 마법 (광역 브레스)
     golem:         { hp: 3000, dmg: 300, hs: 1.8, rng: 0.9, spd: 0.55 },   // 최상위 지상 물리 탱커 (골렘 요람) — 저속
@@ -70,9 +71,9 @@ window.BALANCE = {
   /* aggro=1: 생산 건물까지 전방 배치 / towerTf: 타워 변형(가드·아케인) 목표
      매우 어려움 = 어려움 전략의 강화판 — 양(건물 수)과 질(레벨·변형)을 끝까지 최대화 */
   DIFF: {
-    easy:    { aiDelay: 12, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 1, towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0 },
-    normal:  { aiDelay: 6,  aiInterval: 2.2, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 2, towerMax: 4,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 0 },
-    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 6, towerMax: 8,  transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 2 },
+    easy:    { aiDelay: 10, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2, towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0 },
+    normal:  { aiDelay: 5,  aiInterval: 2.0, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 3, towerMax: 5,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 2 },
+    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 6, towerMax: 8,  transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 4 },
     extreme: { aiDelay: 1,  aiInterval: 0.6, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 9, towerMax: 12, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99 },
   },
 
