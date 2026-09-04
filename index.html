@@ -2600,23 +2600,24 @@ function kingdomCleared(ki){return progOf(ki)>=KINGDOMS[ki].stages.length;}
 /* --- 왕국·스테이지 정의 ---
    초원(1왕국): 단계별 건물 해금 — 사용법·상성 학습 (해금 규칙은 적 AI에도 동일 적용)
    협곡(2왕국): 새 지형(두 갈래 길) + 단계별 영웅 해금 학습 / 3왕국: 추후 오픈 */
+/* 해금 순서 주의: 가스 지역은 본진 영역 밖 — 엘릭서 기지보다 타워(영역 확장)가 먼저여야 한다 (2026-09-04 수정) */
 const K1_UNLOCK=[
   ["barracks"],
-  ["barracks","elixirBase"],
-  ["barracks","elixirBase","archery"],
-  ["barracks","elixirBase","archery","tower"],
-  ["barracks","elixirBase","archery","tower","workshop"],
-  ["barracks","elixirBase","archery","tower","workshop","assaultBarracks"],
-  ["barracks","elixirBase","archery","tower","workshop","assaultBarracks","sanctum"],
+  ["barracks","tower"],
+  ["barracks","tower","elixirBase"],
+  ["barracks","tower","elixirBase","archery"],
+  ["barracks","tower","elixirBase","archery","workshop"],
+  ["barracks","tower","elixirBase","archery","workshop","assaultBarracks"],
+  ["barracks","tower","elixirBase","archery","workshop","assaultBarracks","sanctum"],
   null,   // 8단계: 전체 해금
 ];
 const KINGDOMS=[
   {id:"k1",nm:"🌿 초원 왕국",desc:"단계마다 건물이 하나씩 해금 — 유닛 활용과 상성을 배웁니다",map:"plain",heroes:false,stages:[
     {nm:"1단계 · 첫 전선",d:"배럭 — 드래그 건설과 자동 웨이브",diff:"easy"},
-    {nm:"2단계 · 경제",d:"엘릭서 기지 해금 — ◆ 가스 지역 점유",diff:"easy"},
-    {nm:"3단계 · 원거리",d:"아처리 해금 — 근접 vs 원거리 상성",diff:"easy"},
-    {nm:"4단계 · 거점",d:"타워 해금 — 전선 확장, 가드/아케인 변형",diff:"easy"},
-    {nm:"5단계 · 공성",d:"워크숍 해금 — 공성추는 건물만 공격",diff:"normal"},
+    {nm:"2단계 · 거점",d:"타워 해금 — 전선(아군 영역) 확장",diff:"easy"},
+    {nm:"3단계 · 경제",d:"엘릭서 기지 해금 — 확장한 영역의 ◆ 가스 점유",diff:"easy"},
+    {nm:"4단계 · 원거리",d:"아처리 해금 — 근접 vs 원거리 상성",diff:"easy"},
+    {nm:"5단계 · 공성",d:"워크숍 해금 — 공성추, 가드 타워 변형 개방",diff:"normal"},
     {nm:"6단계 · 기병",d:"어썰트 배럭 해금 — 창 관통, 원거리에 취약",diff:"normal"},
     {nm:"7단계 · 마법",d:"생텀 해금 — 마법은 쉴드맨 저항을 관통",diff:"normal"},
     {nm:"8단계 · 총력전",d:"모든 건물 해금 — 왕국 수복전",diff:"normal"},
