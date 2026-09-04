@@ -892,7 +892,8 @@ function showStrip(b){
   S.selBld=b;
   const el=document.getElementById("bubble");
   const d=BAL.BUILDINGS[b.key], t=effTier("player");
-  let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">유닛 Lv${Math.min(b.level,t)}</span>`:""}</div>`;
+  const unitNm=d.prod?(BAL.UNITS[d.prod.unit]||{}).nm||"유닛":"";
+  let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">${unitNm} Lv${Math.min(b.level,t)}</span>`:""}</div>`;
   /* 철거 버튼 — 최상단·소형 (본진은 철거 불가) */
   if(b.key!=="hall"){
     html+=`<button class="b-mini" onclick="demolishSel()">🔨 철거</button>`;
@@ -927,7 +928,7 @@ function showStrip(b){
     if(b.level<3){
       const hard=b.level>=t;
       html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
-          +`레벨업 → 유닛 Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
+          +`레벨업 → ${unitNm} Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
   el.innerHTML=html;
