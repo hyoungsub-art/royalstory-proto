@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>로얄스토리 프로토타입 v2</title>
+<title>킹덤 크래프트 프로토타입</title>
 <style>
   :root{
     --bg:#1a1f2e; --panel:#252b3d; --panel2:#2e3650; --text:#e8ebf4; --sub:#9aa3bd;
@@ -93,10 +93,45 @@
   #ed-export{width:100%;height:100px;background:#171b28;color:#9fe8d8;border:1px solid #39415c;border-radius:5px;font-size:10px;
     display:none;margin-bottom:6px;padding:4px;}
   /* ---------- 로비·모드 화면 (2026-09-04) ---------- */
-  .scr{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,#232a44 0%,#151928 70%);
+  .scr{position:fixed;inset:0;overflow:hidden;
+    background:
+      radial-gradient(ellipse 60% 42% at 50% 18%, rgba(101,150,255,.15), transparent 70%),
+      radial-gradient(circle 26px at 82% 13%, rgba(255,243,205,.95), rgba(255,243,205,.2) 62%, transparent 72%),
+      linear-gradient(180deg,#1d2447 0%,#181d33 55%,#111527 100%);
     display:none;flex-direction:column;align-items:center;justify-content:center;z-index:20;gap:10px;padding:20px;}
   .scr.on{display:flex;}
-  .scr h1{font-size:34px;color:var(--gold);letter-spacing:2px;text-shadow:0 3px 0 rgba(0,0,0,.4);}
+  .scr>*{position:relative;z-index:1;}
+  /* 별 (은은한 반짝임) */
+  .scr::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 22%, #fff, transparent),
+      radial-gradient(1px 1px at 28% 11%, rgba(255,255,255,.85), transparent),
+      radial-gradient(1.5px 1.5px at 44% 27%, rgba(255,255,255,.6), transparent),
+      radial-gradient(1px 1px at 63% 9%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 73% 31%, rgba(255,255,255,.7), transparent),
+      radial-gradient(1px 1px at 91% 27%, rgba(255,255,255,.8), transparent),
+      radial-gradient(1px 1px at 7% 43%, rgba(255,255,255,.5), transparent),
+      radial-gradient(1.5px 1.5px at 55% 5%, rgba(255,255,255,.75), transparent),
+      radial-gradient(1px 1px at 36% 40%, rgba(255,255,255,.45), transparent);
+    animation:twinkle 3.6s ease-in-out infinite alternate;}
+  @keyframes twinkle{from{opacity:.45;}to{opacity:1;}}
+  /* 성곽 실루엣 (하단): 좌우 망루 + 성벽 총안 + 성벽, 망루 창의 불빛 */
+  .scr::after{content:"";position:absolute;left:0;right:0;bottom:0;height:132px;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(3px 4px at 11.2% calc(100% - 58px), #ffd97a, transparent 75%),
+      radial-gradient(3px 4px at 88.8% calc(100% - 58px), #ffd97a, transparent 75%),
+      linear-gradient(#0c1020,#0c1020) 10% 100%/56px 122px,
+      linear-gradient(#0c1020,#0c1020) 90% 100%/56px 122px,
+      repeating-linear-gradient(90deg,#0c1020 0 22px,transparent 22px 38px) left calc(100% - 72px)/100% 15px,
+      linear-gradient(180deg,#0c1020,#10152b) left bottom/100% 72px;
+    background-repeat:no-repeat;}
+  .scr h1{font-size:34px;letter-spacing:2px;
+    background:linear-gradient(180deg,#ffe9a3,#ffc94d 55%,#d99a1f);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 3px 0 rgba(0,0,0,.35));}
+  #lobby .crown{font-size:40px;line-height:1;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5));
+    animation:bob 3s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
   .scr .sub{font-size:12px;color:var(--sub);margin-bottom:14px;}
   .mode-btn{width:min(360px,86vw);background:var(--panel);border:1.5px solid var(--panel2);border-radius:14px;
     padding:14px 18px;color:var(--text);text-align:left;cursor:pointer;font-size:15px;transition:transform .08s,border-color .08s;}
@@ -165,7 +200,8 @@
 
 <!-- ---------- 로비·모드 선택 화면 (2026-09-04) ---------- -->
 <div id="lobby" class="scr">
-  <h1>로얄스토리</h1><div class="sub">(가제) 프로토타입 — 모드를 선택하세요</div>
+  <div class="crown">👑</div>
+  <h1>킹덤 크래프트</h1><div class="sub">프로토타입 — 모드를 선택하세요</div>
   <button class="mode-btn" onclick="startTutorial()"><b>🎓 튜토리얼</b><span class="d" id="lb-tut">기본 조작과 개념을 플레이로 배웁니다</span></button>
   <button class="mode-btn" onclick="showKingdoms()"><b>🗺 스토리 모드</b><span class="d" id="lb-story">왕국을 골라 거점을 1단계부터 공략합니다</span></button>
   <button class="mode-btn" onclick="showPvp()"><b>⚔ 대전 모드</b><span class="d">다른 플레이어와 1:1 매칭 (프로토타입: 스파링)</span></button>
@@ -206,7 +242,7 @@
 <script>
 "use strict";
 /* ============================================================
-   로얄스토리 프로토타입 v2 — 타일 맵 · 건설 · 자동 웨이브 · 영웅
+   킹덤 크래프트 (구 로얄스토리) 프로토타입 v2 — 타일 맵 · 건설 · 자동 웨이브 · 영웅
    기획 근거: 맵건설영웅시스템_v0.1, 종족빌드트리_휴먼_v0.1
    좌표계: 타일 14×24, 1타일=34px. 위=적, 아래=플레이어
 ============================================================ */
@@ -227,7 +263,8 @@ const BAL={
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
-                 hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]}},   // 티어 연동 다중 공격 (사거리 5→7)
+                 hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]},   // 티어 연동 다중 공격 (사거리 5→7)
+                 hDef:[0,1,0.8,0.65]},   // 티어별 방어: 받는 피해 배율 (킵 -20%, 캐슬 -35%) (2026-09-04, 가정)
   elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
                  transforms:[{key:"shieldBarracks",minLevel:3}]},    // 배럭 Lv3 → 쉴드 배럭 (2026-08-31 개편)
@@ -546,6 +583,11 @@ function effTier(side){
 }
 const TIER_NM=["","타운 홀","킵","캐슬"];
 function capFor(side){return BAL.ECON.cap[effTier(side)];}
+/* 본진 티어 방어: 받는 피해 배율 (티어가 오를수록 단단해짐, 2026-09-04) */
+function bldgDefMult(b){
+  if(b.key==="hall"){const hd=BAL.BUILDINGS.hall.hDef;if(hd)return hd[effTier(b.side)]||1;}
+  return 1;
+}
 /* 본진 유효 사거리 = max(본진 설정값, 모든 타워 공격 사거리) — 본진이 타워에 아웃레인지되지 않게 보장 (2026-09-04) */
 function hallAtkRng(){
   let r=BAL.BUILDINGS.hall.hAtk.rng;
@@ -651,6 +693,8 @@ function dealDamage(att,tgt,amount){
   let dmg=amount*att.bAtk;
   /* 영웅의 대건물 피해 감쇄 (2026-09-04): 영웅은 유닛전 특화 — 건물 철거는 병력·공성의 몫 */
   if(att.hero&&tgt.cx!==undefined)dmg*=(BAL.HERO_VS_BLDG!==undefined?BAL.HERO_VS_BLDG:0.15);
+  /* 본진 티어 방어 (받는 피해 배율) */
+  if(tgt.cx!==undefined)dmg*=bldgDefMult(tgt);
   if(tgt.maxHp!==undefined&&tgt.bDef)dmg/=tgt.bDef;
   /* 쉴드맨: 원거리 물리 공격 경감 (마법 계열은 그대로 받음) */
   if(tgt.rangedResist&&!att.melee&&(att.cat==="gp"||att.cat==="ap"))dmg*=(1-tgt.rangedResist);
@@ -816,7 +860,7 @@ function buildingUpdate(b,dt){
           const dd=Math.hypot(b.cx-e.cx,b.cy-e.cy)-Math.max(e.w,e.h)*TILE/2;
           if(dd<bbd&&dd<=d.atk.rng*TILE){bbd=dd;bb=e;}});
         if(bb){
-          bb.hp-=d.atk.dmg*(BAL.TOWER_VS_BLDG||1); bb.flash=0.12; b.cd=d.atk.hs;   // 대건물 피해 감쇄
+          bb.hp-=d.atk.dmg*(BAL.TOWER_VS_BLDG||1)*bldgDefMult(bb); bb.flash=0.12; b.cd=d.atk.hs;   // 대건물 감쇄 + 본진 티어 방어
           S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:bb.cx,y2:bb.cy,t:0.12,t0:0.12});
           SND.play(d.atk.magic?"magic":"shoot");
         } else b.cd=0.2;
@@ -2451,7 +2495,7 @@ function edRow(path,label,step){
 /* 스키마 자동 탐색: 엔티티에 숫자 필드가 추가되면 에디터에 자동 노출됨 */
 const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"이속",splash:"광역 반경",period:"생산 주기(초)",
   cost:"비용",heal:"초당 회복",rad:"광역 반경",castRng:"시전 사거리",targets:"동시 대상",tier:"요구 티어",
-  kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)",
+  kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",hDef:"본진 방어(받는 피해 배율)",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)",
   easy:"쉬움",normal:"보통",hard:"어려움",aiDelay:"AI 지연(초)",aiInterval:"AI 주기(초)",
   maxTier:"최대 티어",maxLevel:"최대 유닛 레벨",gasBases:"가스 기지 목표",prodMax:"생산 건물 목표",
   towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"상위 변형 사용(0/1)",defensive:"방어 반응(0/1)",towerTf:"타워 변형 목표",

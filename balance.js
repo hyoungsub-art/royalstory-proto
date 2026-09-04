@@ -34,8 +34,10 @@ window.BALANCE = {
      2026-08-30 조정: 전 건물 HP ×2, 타워류 공격력 ×2 */
   BUILDINGS: {
     hall:          { hp: 19200,
-                     /* 본진 공격: 티어별 공격력·동시 공격 대상 수 (인덱스 1~3 = 티어) */
-                     hAtk: { hs: 0.8, rng: 7, dmg: [0, 109, 160, 240], targets: [0, 2, 5, 10] } },
+                     /* 본진 공격: 티어별 공격력·동시 공격 대상 수 (인덱스 1~3 = 티어). 사거리는 모든 타워 이상 자동 보장 */
+                     hAtk: { hs: 0.8, rng: 7, dmg: [0, 109, 160, 240], targets: [0, 2, 5, 10] },
+                     /* 본진 방어: 티어별 받는 피해 배율 — 킵 -20% / 캐슬 -35% (가정) */
+                     hDef: [0, 1, 0.8, 0.65] },
     elixirBase:    { hp: 1800, cost: 4 },
     barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },   // Lv3 → 쉴드 배럭
     shieldBarracks:{ hp: 2800,          prod: { unit: "shieldman",     period: 9  } },   // 배럭 Lv3 변형
