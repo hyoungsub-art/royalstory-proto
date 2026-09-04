@@ -174,11 +174,12 @@ const BAL={
   workshop:     {nm:"워크숍",      w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"ram",period:13},
                  transforms:[{key:"siegeWorkshop",minLevel:3}]},         // 워크숍 Lv3 → 시즈 워크숍 (2026-08-31 공성 라인 개편)
   sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:6, tier:2, panel:true, prod:{unit:"mage",period:10},
-                 transforms:[{key:"dragonNest",minLevel:3}]},            // 생텀 Lv3 → 드래곤 네스트
+                 transforms:[{key:"dragonNest",minLevel:3},{key:"golemCradle",minLevel:3}]},   // 생텀 Lv3 → 드래곤 네스트 / 골렘 요람 택일
   dragonNest:   {nm:"드래곤 네스트",w:2,h:2, hp:3200, cost:0, tier:1, panel:false, prod:{unit:"dragon",period:16}},
+  golemCradle:  {nm:"골렘 요람",   w:2,h:2, hp:3400, cost:0, tier:1, panel:false, prod:{unit:"golem",period:16}},   // 생텀 Lv3 변형 (2026-09-04)
   tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true, atk:{dmg:218,hs:0.8,rng:5},
                  transforms:[{key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},   // 워크숍 계열
-                             {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest"]}]},   // 생텀 계열
+                             {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest","golemCradle"]}]},   // 생텀 계열
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:5}},
   arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.0,rng:6,splash:2.0,magic:true}},   // 장사거리 광역·마법 (쉴드맨 저항 무시)
   siegeWorkshop:{nm:"시즈 워크숍", w:2,h:2, hp:3000, cost:0, tier:1, panel:false, prod:{unit:"siegeTank",period:20}},   // 워크숍 Lv3 변형 (셰어리 폐기 대체)
@@ -195,6 +196,7 @@ const BAL={
   siegeTank:    {nm:"공성 전차",   hp:1500, dmg:700, hs:3.0, rng:4.5, spd:0.3, r:13, cat:"gp", bldgOnly:true},              // 건물만 공격·장거리 (시즈 워크숍) — 초저속
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
   dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:18, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 (드래곤 네스트) — 대형 (r 14→18)
+  golem:        {nm:"골렘",        hp:3000, dmg:300, hs:1.8, rng:0.9, spd:0.8, r:17, cat:"gp", melee:true},   // 최상위 지상 물리 탱커 (골렘 요람)
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
  /* 영웅: 소환 비용 = 엘릭서 스타. 스탯은 최상위 유닛(드래곤 2400/320)보다 상위 (2026-09-04 상향) */
@@ -361,7 +363,7 @@ function heroBlockReason(x,y){
 /* 배럭 계열(배럭·슈터 가든·기사단 회당) 보유 여부 — 킵 승급 조건 */
 const BARRACKS_LINE=["barracks","shieldBarracks","assaultBarracks","knightHall","archery","shooterGarden"];
 function hasBarracksLine(side){return BARRACKS_LINE.some(k=>aliveB(side,k));}
-const SANCTUM_LINE=["sanctum","dragonNest"];   // 캐슬 조건: 생텀 또는 그 변형 (드래곤 네스트)
+const SANCTUM_LINE=["sanctum","dragonNest","golemCradle"];   // 캐슬 조건: 생텀 또는 그 변형
 function hasSanctumLine(side){return SANCTUM_LINE.some(k=>aliveB(side,k));}
 function effTier(side){
   const purchased=side==="player"?S.tier:S.eTier;
@@ -913,6 +915,7 @@ function showStrip(b){
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
     const warn=(!hard&&b.level>1)?`<br><span style="font-size:10px;color:#ffb0b0">⚠ Lv${b.level} → Lv1 초기화</span>`:"";
     html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
+        +`<img src="${ICONS[tr.key]||""}" style="width:30px;height:30px;vertical-align:-10px;margin-right:5px;" draggable="false">`
         +`➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</button>`;
   });
   /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) */
@@ -925,18 +928,21 @@ function showStrip(b){
     } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
   el.innerHTML=html;
-  /* 위치: 건물 상단 중앙, 화면 위쪽 건물이면 아래로 뒤집기 */
+  /* 위치: 건물 상단 중앙. 실측 크기로 화면 밖 방지 클램프 (2026-09-04) */
   const wrap=document.getElementById("cv-wrap");
   const cvR=cv.getBoundingClientRect(), wrapR=wrap.getBoundingClientRect();
   const scale=cvR.width/cv.width;
-  const x=(cvR.left-wrapR.left)+b.cx*scale;
-  const below=b.ty*TILE*scale<150;
+  el.style.display="block";                       // 먼저 표시해 크기 측정
+  const bw2=el.offsetWidth, bh2=el.offsetHeight;
+  const cx2=(cvR.left-wrapR.left)+b.cx*scale;
+  const topAnchor=(cvR.top-wrapR.top)+b.ty*TILE*scale-14;
+  const botAnchor=(cvR.top-wrapR.top)+(b.ty+b.h)*TILE*scale+14;
+  let below=topAnchor-bh2<4;                      // 위로 띄우면 잘림 → 아래로
+  if(below&&botAnchor+bh2>wrapR.height-4)below=false;   // 아래도 잘리면 위 우선
   el.classList.toggle("below",below);
-  el.style.left=x+"px";
-  el.style.top=below
-    ? ((cvR.top-wrapR.top)+(b.ty+b.h)*TILE*scale+14)+"px"
-    : ((cvR.top-wrapR.top)+b.ty*TILE*scale-14)+"px";
-  el.style.display="block";
+  el.style.top=(below?botAnchor:topAnchor)+"px";
+  const half=bw2/2, cvL=(cvR.left-wrapR.left);
+  el.style.left=Math.max(cvL+half+2,Math.min(cvL+cvR.width-half-2,cx2))+"px";
 }
 /* 엘릭서 변동에 따른 버튼 활성화 실시간 갱신 */
 function refreshBubble(){
@@ -1395,6 +1401,28 @@ function sprSiegeTank(r,team,sw,u){
   ctx.beginPath();ctx.moveTo(-r*0.5,r*0.1);ctx.lineTo(-r*0.25,-r*0.35);ctx.lineTo(0,r*0.1);ctx.stroke();
   ctx.fillStyle=CREAM;roundRectPath(-r*0.68,r*0.18,r*0.35,r*0.22,r*0.07);ctx.fill();po(lw*0.6);   // 명판
 }
+function sprGolem(r,team,sw,u){
+  /* 골렘: 바위 몸체 + 진영색 코어 크리스탈 + 거대한 주먹 (최상위 지상 탱커) */
+  const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
+  const punch=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.4:0;
+  ctx.fillStyle="#8d8a7c";ctx.beginPath();ctx.arc(-r*0.72,r*0.32,r*0.36,0,7);ctx.fill();po(lw);   // 뒷주먹
+  ctx.fillStyle="#a5a294";   // 바위 몸체
+  ctx.beginPath();
+  ctx.moveTo(-r*0.6,r*0.7);ctx.lineTo(-r*0.72,r*0.05);ctx.lineTo(-r*0.42,-r*0.5);
+  ctx.lineTo(r*0.1,-r*0.72);ctx.lineTo(r*0.58,-r*0.4);ctx.lineTo(r*0.7,r*0.15);
+  ctx.lineTo(r*0.52,r*0.7);ctx.closePath();ctx.fill();po(lw);
+  ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.5;   // 균열
+  ctx.beginPath();ctx.moveTo(-r*0.3,-r*0.3);ctx.lineTo(-r*0.12,r*0.02);ctx.lineTo(-r*0.3,r*0.3);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(r*0.34,-r*0.15);ctx.lineTo(r*0.2,r*0.12);ctx.stroke();
+  ctx.fillStyle=TC.main;   // 진영색 코어 크리스탈
+  ctx.beginPath();ctx.moveTo(0,-r*0.28);ctx.lineTo(r*0.2,0);ctx.lineTo(0,r*0.28);ctx.lineTo(-r*0.2,0);ctx.closePath();ctx.fill();po(lw*0.8);
+  ctx.fillStyle=TC.light;ctx.beginPath();ctx.moveTo(0,-r*0.18);ctx.lineTo(r*0.1,0);ctx.lineTo(0,r*0.06);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#a5a294";roundRectPath(-r*0.3,-r*1.05,r*0.6,r*0.45,r*0.14);ctx.fill();po(lw);   // 머리
+  ctx.fillStyle=TC.main;   // 진영색 눈
+  ctx.beginPath();ctx.arc(-r*0.13,-r*0.83,r*0.07,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(r*0.13,-r*0.83,r*0.07,0,7);ctx.fill();
+  ctx.fillStyle="#8d8a7c";ctx.beginPath();ctx.arc(r*0.72+punch,r*0.3,r*0.42,0,7);ctx.fill();po(lw);   // 앞주먹 (펀치)
+}
 function sprDragon(r,team,sw,u){
   /* 드래곤: 박쥐형 날개 + 뿔 + 마법 브레스 (최상위 공중 마법) */
   const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12), at=u?u.animT:0;
@@ -1424,7 +1452,7 @@ function sprDragon(r,team,sw,u){
 const SPRU={footman:sprKnight,shieldman:sprShieldman,cavalry:sprCavalry,archer:sprArcher,
   rifleman:sprMusket,knight:sprArmoredKnight,
   ram:sprRam,siegeTank:sprSiegeTank,
-  mage:(r,t,s,u)=>sprMage(r,t,s,u),dragon:sprDragon};   // 마법사 로브 = 진영색
+  mage:(r,t,s,u)=>sprMage(r,t,s,u),dragon:sprDragon,golem:sprGolem};   // 마법사 로브 = 진영색
 const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
   mountainKing:sprValk, paladin:sprKnight,
   bloodMage:(r,t,s,u)=>sprMage(r,t,s,u,"#c03030","#8a1f1f"),
@@ -1742,6 +1770,31 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         ctx.beginPath();ctx.moveTo(px+pw/2,topY-ph*0.26);ctx.lineTo(px+pw/2+pw*0.16,topY-ph*0.21);
         ctx.lineTo(px+pw/2,topY-ph*0.16);ctx.closePath();ctx.fill();po(lw*0.7);
       }
+      break;}
+    case "golemCradle":{
+      /* 형태: 돌 요람 — 반원 받침 + 웅크린 골렘 상반신 + 진영색 코어 (네스트의 알과 구분) */
+      ctx.fillStyle=T.main;   // 반원 요람
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.78,bw*0.48,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle=T.dark;
+      ctx.beginPath();ctx.arc(px+pw/2,by+bh*0.78,bw*0.48,Math.PI*1.5,0);ctx.lineTo(px+pw/2,by+bh*0.78);ctx.closePath();ctx.fill();
+      /* 웅크린 골렘 상반신 (돌) */
+      ctx.fillStyle="#a5a294";
+      ctx.beginPath();ctx.moveTo(px+pw*0.3,by+bh*0.66);ctx.lineTo(px+pw*0.34,by+bh*0.2);
+      ctx.lineTo(px+pw*0.5,by+bh*0.02);ctx.lineTo(px+pw*0.66,by+bh*0.22);
+      ctx.lineTo(px+pw*0.7,by+bh*0.66);ctx.closePath();ctx.fill();po(lw);
+      ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.5;
+      ctx.beginPath();ctx.moveTo(px+pw*0.44,by+bh*0.24);ctx.lineTo(px+pw*0.5,by+bh*0.44);ctx.stroke();
+      /* 진영색 코어 + 눈 */
+      ctx.fillStyle=T.light;
+      ctx.beginPath();ctx.moveTo(px+pw*0.5,by+bh*0.3);ctx.lineTo(px+pw*0.57,by+bh*0.42);
+      ctx.lineTo(px+pw*0.5,by+bh*0.54);ctx.lineTo(px+pw*0.43,by+bh*0.42);ctx.closePath();ctx.fill();po(lw*0.7);
+      ctx.fillStyle=T.light;
+      ctx.beginPath();ctx.arc(px+pw*0.455,by+bh*0.14,pw*0.02,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(px+pw*0.545,by+bh*0.14,pw*0.02,0,7);ctx.fill();
+      /* 주변 잔돌 */
+      ctx.fillStyle="#9a978a";
+      [[0.14,0.6],[0.86,0.62],[0.8,0.42]].forEach(([fx,fy])=>{
+        ctx.beginPath();ctx.arc(px+pw*fx,by+bh*fy,pw*0.045,0,7);ctx.fill();po(lw*0.5);});
       break;}
     case "dragonNest":{
       /* 형태: 바위 둥지 + 용 알 + 뿔 달린 용 머리 (셰어리의 날개와 구분) */
