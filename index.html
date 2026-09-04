@@ -222,6 +222,7 @@ const BAL={
  ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierCost:[0,0,9,14], upCost:[0,0,10,18], transformCost:10},
  EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
+ HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
  UNIT_CAP:60, HERO_COST:1, HERO_CD:12,   // HERO_COST 단위 = 엘릭서 스타 (최소 1, 2026-09-04)
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
@@ -545,6 +546,12 @@ function effTier(side){
 }
 const TIER_NM=["","타운 홀","킵","캐슬"];
 function capFor(side){return BAL.ECON.cap[effTier(side)];}
+/* 본진 유효 사거리 = max(본진 설정값, 모든 타워 공격 사거리) — 본진이 타워에 아웃레인지되지 않게 보장 (2026-09-04) */
+function hallAtkRng(){
+  let r=BAL.BUILDINGS.hall.hAtk.rng;
+  for(const k in BAL.BUILDINGS){const a=BAL.BUILDINGS[k].atk;if(a&&a.rng>r)r=a.rng;}
+  return r;
+}
 function elixirCap(){return capFor("player");}
 function elixirOf(side){return side==="player"?S.elixir:S.eElixir;}
 function starsOf(side){return side==="player"?S.stars:S.eStars;}
@@ -642,6 +649,8 @@ function nearestTarget(u){
 function dealDamage(att,tgt,amount){
   /* 레벨 보정은 스폰 시 스탯에 반영됨 — 여기서는 오라 배율만 적용 */
   let dmg=amount*att.bAtk;
+  /* 영웅의 대건물 피해 감쇄 (2026-09-04): 영웅은 유닛전 특화 — 건물 철거는 병력·공성의 몫 */
+  if(att.hero&&tgt.cx!==undefined)dmg*=(BAL.HERO_VS_BLDG!==undefined?BAL.HERO_VS_BLDG:0.15);
   if(tgt.maxHp!==undefined&&tgt.bDef)dmg/=tgt.bDef;
   /* 쉴드맨: 원거리 물리 공격 경감 (마법 계열은 그대로 받음) */
   if(tgt.rangedResist&&!att.melee&&(att.cat==="gp"||att.cat==="ap"))dmg*=(1-tgt.rangedResist);
@@ -762,13 +771,14 @@ function buildingUpdate(b,dt){
       SND.play("spawn");
     }
   }
-  /* 본진 공격: 티어에 따라 동시 공격 대상 수·공격력 상승 */
+  /* 본진 공격: 티어에 따라 동시 공격 대상 수·공격력 상승.
+     사거리는 어떤 타워보다도 짧지 않게 보장 (2026-09-04) — hallAtkRng() */
   if(d.hAtk){
     b.cd-=dt;
     if(b.cd<=0){
       const t=effTier(b.side), a=d.hAtk, hdm=a.dmg[t];
       const foe=b.side==="player"?"enemy":"player";
-      const inR=S.units.filter(e=>e.side===foe&&e.hp>0&&e.deploy<=0&&Math.hypot(b.cx-e.x,b.cy-e.y)<=a.rng*TILE)
+      const inR=S.units.filter(e=>e.side===foe&&e.hp>0&&e.deploy<=0&&Math.hypot(b.cx-e.x,b.cy-e.y)<=hallAtkRng()*TILE)
         .sort((p,q)=>Math.hypot(b.cx-p.x,b.cy-p.y)-Math.hypot(b.cx-q.x,b.cy-q.y))
         .slice(0,a.targets[t]);
       if(inR.length){
@@ -2259,7 +2269,7 @@ function draw(){
     if(S.selBld===b){ctx.strokeStyle="rgba(255,210,80,.95)";ctx.lineWidth=2.5;ctx.setLineDash([6,4]);
       ctx.strokeRect(px+1,py+1,pw-2,ph-2);ctx.setLineDash([]);
       const d=BAL.BUILDINGS[b.key];
-      const atkRng=d.atk?d.atk.rng:(d.hAtk?d.hAtk.rng:0);
+      const atkRng=d.atk?d.atk.rng:(d.hAtk?hallAtkRng():0);
       if(atkRng){ctx.strokeStyle="rgba(255,120,80,.5)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(b.cx,b.cy,atkRng*TILE,0,7);ctx.stroke();}
     }
     if(b.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(0.7,b.flash*5).toFixed(2)+")";
@@ -2447,7 +2457,7 @@ const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"�
   towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"상위 변형 사용(0/1)",defensive:"방어 반응(0/1)",towerTf:"타워 변형 목표",
   extreme:"매우 어려움",aggro:"전진 배치(0/1)",atkTwMin:"최소 공격 타워",heroUse:"영웅 사용(0/1)",
   rangedResist:"원거리 물리 경감(비율)",pierceVsMelee:"근접 관통 추가피해(+)",rangedWeak:"원거리 피해 취약(+)",
-  TOWER_VS_BLDG:"타워 대건물 피해 배율"};
+  TOWER_VS_BLDG:"타워 대건물 피해 배율",HERO_VS_BLDG:"영웅 대건물 피해 배율"};
 const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
   "air","antiair","melee","unit","test","label","key"]);
 function edWalk(obj,basePath,prefix){
@@ -2475,7 +2485,8 @@ function buildEditorUI(){
      ["ECON.upCost.2","레벨2 업그레이드 비용"],["ECON.upCost.3","레벨3 업그레이드 비용"],["ECON.transformCost","변형 비용"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
-     ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"]]
+     ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
+     ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"]]
      .forEach(([p,l])=>h+=edRow(p,l));
     h+=`<div class="ed-sec">난이도 = AI 전략 수준 (현재: ${DIFF_NM[diffKey]})</div>`
       +`<div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;">스탯·자원 규칙은 양측 동일 — 전략 차이로만 난이도가 갈립니다</div>`
