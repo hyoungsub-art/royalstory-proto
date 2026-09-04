@@ -255,7 +255,8 @@ const BAL={
  /* cap: 티어별 엘릭서 상한 10/20/30 (2026-09-04). 자연 회복으로 상한 도달 시 엘릭서 스타 1개 적립(바 초기화),
     스타는 녹여서 "현재 상한만큼" 엘릭서로 환원. 영웅 소환 비용 = 스타(HERO_COST 단위).
     승급·업그레이드 비용은 해당 시점 상한 이하 유지 */
- ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierCost:[0,0,9,14], upCost:[0,0,10,18], transformCost:10},
+ /* 2026-09-04 비용 전반 상향: 스타 자동 사용으로 상한 초과 비용도 지불 가능 — 승급·변형을 더 무거운 결정으로 */
+ ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierCost:[0,0,12,20], upCost:[0,0,12,24], transformCost:14},
  EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -969,8 +970,9 @@ function aiUpdate(dt){
     }
   }
   /* 0-1) 영웅 소환 (어려움 이상) — 규칙은 플레이어와 동등: 비용 = 스타, 사망 시 쿨다운.
-     침입자가 있으면 요격 위치에, 없으면 가장 전진한 아군 건물 앞에 투입 */
-  if(st.heroUse&&S.eStars>=Math.max(1,BAL.HERO_COST)){
+     침입자가 있으면 요격 위치에, 없으면 가장 전진한 아군 건물 앞에 투입.
+     단, 킵 이전에는 금지 — 킵 비용(12)이 티어1 상한(10)을 넘어 스타가 승급 재원이기 때문 (2026-09-04) */
+  if(st.heroUse&&S.eTier>=2&&S.eStars>=Math.max(1,BAL.HERO_COST)){
     const slot=(S.eHeroSlots||[]).find(s=>s.state==="ready");
     if(slot){
       const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
