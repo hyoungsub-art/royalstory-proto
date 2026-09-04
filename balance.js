@@ -69,12 +69,13 @@ window.BALANCE = {
 
   /* 난이도 = AI 전략 수준만 조정. 스탯·자원 규칙은 플레이어와 동등 (0/1은 사용 여부) */
   /* aggro=1: 생산 건물까지 전방 배치 / towerTf: 타워 변형(가드·아케인) 목표
+     atkTwMin: 레벨업 저축보다 우선하는 최소 공격 타워 수 / heroUse: AI 영웅 소환(비용·쿨다운 동등)
      매우 어려움 = 어려움 전략의 강화판 — 양(건물 수)과 질(레벨·변형)을 끝까지 최대화 */
   DIFF: {
-    easy:    { aiDelay: 10, aiInterval: 3.0, maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2, towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0 },
-    normal:  { aiDelay: 5,  aiInterval: 2.0, maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 3, towerMax: 5,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 2 },
-    hard:    { aiDelay: 3,  aiInterval: 1.2, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 6, towerMax: 8,  transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 4 },
-    extreme: { aiDelay: 1,  aiInterval: 0.6, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 9, towerMax: 12, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99 },
+    easy:    { aiDelay: 10, aiInterval: 3.0,  maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2,  towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0,  atkTwMin: 0, heroUse: 0 },
+    normal:  { aiDelay: 5,  aiInterval: 1.6,  maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 4,  towerMax: 5,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 3,  atkTwMin: 2, heroUse: 0 },
+    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 7,  towerMax: 9,  transform: 1, aviary: 1, defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1 },
+    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 10, towerMax: 14, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1 },
   },
 
   /* 영웅 (5인 고정 덱, 비용 = 엘릭서 스타). 스탯은 최상위 유닛(드래곤 2400/320) 초과로 상향 (2026-09-04) */
