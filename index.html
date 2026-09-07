@@ -1456,10 +1456,14 @@ function loop(ts){
         const slot=slots.find(s=>s.unit===u);
         if(slot){slot.state="cd";slot.cd=BAL.HERO_CD;slot.unit=null;if(u.side==="player")renderPanel();}}}});
     S.units=S.units.filter(u=>u.hp>0);
-    S.buildings.forEach(b=>{if(b.hp<=0&&!b.boomed){b.boomed=true;buildingBoom(b);S.occ=null;S.zoneDirty=true;
+    S.buildings.forEach(b=>{if(b.hp<=0&&!b.boomed){b.boomed=true;b.rubbleT=6;buildingBoom(b);S.occ=null;S.zoneDirty=true;
       if(S.selBld===b)hideStrip();
       if(b.side==="enemy")toast(BAL.BUILDINGS[b.key].nm+" 파괴! 배제 반경 해제");
       renderPanel();}});
+    /* 잔해 소멸 (2026-09-07): 파괴 6초 후 잔해 제거 — 빈 셀로 명확히 */
+    let rubbleGone=false;
+    S.buildings.forEach(b=>{if(b.boomed){b.rubbleT=(b.rubbleT===undefined?6:b.rubbleT)-dt;if(b.rubbleT<=0)rubbleGone=true;}});
+    if(rubbleGone){S.buildings=S.buildings.filter(b=>!(b.boomed&&b.rubbleT<=0));S.occ=null;S.zoneDirty=true;}
     /* 영웅 쿨다운 */
     let cdChanged=false;
     S.heroSlots.forEach(s=>{if(s.state==="cd"){s.cd-=dt;if(s.cd<=0){s.state="ready";cdChanged=true;}}});
@@ -2390,12 +2394,32 @@ function buildBG(){
         }
       }
     } else if(f.t==="rock"){
+      /* 큼직한 각진 바위 (2026-09-07 개정): 타일을 거의 채우는 불규칙 다각형 + 면 하이라이트 + 균열 + 곁돌 */
       for(let y=f.y0;y<=f.y1;y++)for(let x=f.x0;x<=f.x1;x++){
-        const px2=x*TILE+TILE/2+(rnd()-0.5)*6, py2=y*TILE+TILE/2+(rnd()-0.5)*6, s=8+rnd()*5;
-        c.fillStyle=FC.rA;c.beginPath();c.ellipse(px2,py2,s,s*0.72,rnd()*0.6,0,7);c.fill();
-        c.fillStyle=FC.rB;c.beginPath();c.ellipse(px2-s*0.28,py2-s*0.3,s*0.45,s*0.3,0,0,7);c.fill();
-        c.strokeStyle="rgba(40,35,25,.55)";c.lineWidth=1.4;
-        c.beginPath();c.ellipse(px2,py2,s,s*0.72,0,0,7);c.stroke();
+        const cx2=x*TILE+TILE/2+(rnd()-0.5)*3, cy2=y*TILE+TILE/2+(rnd()-0.5)*3;
+        const R=TILE*0.42+rnd()*2.5;
+        /* 바닥 그림자 */
+        c.fillStyle="rgba(0,0,0,.22)";
+        c.beginPath();c.ellipse(cx2+2,cy2+R*0.5,R*0.95,R*0.38,0,0,7);c.fill();
+        /* 본체: 불규칙 다각형 */
+        const nV=6+Math.floor(rnd()*2), pts=[];
+        for(let k=0;k<nV;k++){const a=(k/nV)*6.283+rnd()*0.35;const rr=R*(0.8+rnd()*0.28);
+          pts.push([cx2+Math.cos(a)*rr, cy2+Math.sin(a)*rr*0.85]);}
+        c.fillStyle=FC.rA;
+        c.beginPath();c.moveTo(pts[0][0],pts[0][1]);pts.forEach(p=>c.lineTo(p[0],p[1]));c.closePath();c.fill();
+        c.strokeStyle="rgba(35,30,22,.85)";c.lineWidth=2;c.stroke();
+        /* 상단면 하이라이트 (좌상단으로 수축한 다각형) */
+        c.fillStyle=FC.rB;
+        c.beginPath();
+        pts.forEach((p,k)=>{const hx=cx2+(p[0]-cx2)*0.55-2.5, hy=cy2+(p[1]-cy2)*0.48-3.5;
+          k?c.lineTo(hx,hy):c.moveTo(hx,hy);});
+        c.closePath();c.fill();
+        /* 균열 */
+        c.strokeStyle="rgba(35,30,22,.5)";c.lineWidth=1.3;
+        c.beginPath();c.moveTo(cx2-R*0.32,cy2+R*0.42);c.lineTo(cx2+R*0.08,cy2+R*0.02);c.lineTo(cx2+R*0.02,cy2-R*0.42);c.stroke();
+        /* 곁돌 */
+        c.fillStyle=FC.rA;c.beginPath();c.ellipse(cx2+R*0.82,cy2+R*0.5,4.5,3.2,0.4,0,7);c.fill();
+        c.strokeStyle="rgba(35,30,22,.7)";c.lineWidth=1.2;c.stroke();
       }
     } else if(f.t==="wall"){
       c.fillStyle=FC.sA;c.fillRect(fx,fy,fw,fh);
@@ -2504,10 +2528,12 @@ function draw(){
   /* 건물 (y 정렬 — 아래쪽 건물이 위쪽 건물의 솟은 부분을 가리도록) */
   [...S.buildings].sort((a,b)=>(a.ty+a.h)-(b.ty+b.h)).forEach(b=>{
     const px=b.tx*TILE,py=b.ty*TILE,pw=b.w*TILE,ph=b.h*TILE;
-    if(b.hp<=0){ /* 잔해 */
+    if(b.hp<=0){ /* 잔해 — 6초에 걸쳐 페이드 아웃 후 제거 */
+      ctx.globalAlpha=Math.max(0,Math.min(1,(b.rubbleT===undefined?1:b.rubbleT/6)));
       ctx.fillStyle="#9a978a";
       ctx.beginPath();ctx.ellipse(b.cx,b.cy,pw*0.3,ph*0.2,0,0,7);ctx.fill();po(1.6);
       ctx.fillStyle="#b5b2a4";ctx.beginPath();ctx.arc(b.cx-8,b.cy-4,7,0,7);ctx.fill();po(1.2);
+      ctx.globalAlpha=1;
       return;}
     drawBuildingSprite(b.key,b.level,px,py,pw,ph,b.side,effTier(b.side));
     if(S.selBld===b){ctx.strokeStyle="rgba(255,210,80,.95)";ctx.lineWidth=2.5;ctx.setLineDash([6,4]);
