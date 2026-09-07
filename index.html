@@ -1305,10 +1305,11 @@ function attachDrag(div,info){
     dragState.moved=true; div.classList.add("dragging");
     const rect=cv.getBoundingClientRect();
     const off=e.pointerType==="touch"?60:e.pointerType==="pen"?40:0;
-    const rx=(e.clientX-rect.left)*(cv.width/rect.width);
-    const ry=(e.clientY-rect.top)*(cv.height/rect.height)-off;
-    dragState.rawX=rx; dragState.rawAimY=ry;
-    dragState.pt={x:Math.max(4,Math.min(W-4,rx)), y:Math.max(4,Math.min(H-4,ry))};
+    const sx=(e.clientX-rect.left)*(cv.width/rect.width);
+    const syRaw=(e.clientY-rect.top)*(cv.height/rect.height);
+    dragState.rawX=sx; dragState.rawAimY=syRaw;   // 화면 좌표 (취소 제스처 판정용)
+    const sim=unflipPt(sx, syRaw-off);            // 손가락 위로 살짝 + 게스트 반전 보정 → 시뮬 좌표
+    dragState.pt={x:Math.max(4,Math.min(W-4,sim.x)), y:Math.max(4,Math.min(H-4,sim.y))};
     S.mouse=dragState.pt; S.sel=info;
   });
   const end=e=>{
@@ -1369,7 +1370,8 @@ function execHero(side,slotIdx,x,y){
 cv.addEventListener("click",e=>{
   if(!S||S.over)return;
   const rect=cv.getBoundingClientRect();
-  const x=(e.clientX-rect.left)*(cv.width/rect.width), y=(e.clientY-rect.top)*(cv.height/rect.height);
+  const sx=(e.clientX-rect.left)*(cv.width/rect.width), sy=(e.clientY-rect.top)*(cv.height/rect.height);
+  const {x,y}=unflipPt(sx,sy);   // 게스트 화면 반전 보정 → 시뮬 좌표
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
   if(b&&b.side===MYSIDE&&b.hp>0){
@@ -1431,9 +1433,13 @@ function showStrip(b){
   const scale=cvR.width/cv.width;
   el.style.display="block";                       // 먼저 표시해 크기 측정
   const bw2=el.offsetWidth, bh2=el.offsetHeight;
-  const cx2=(cvR.left-wrapR.left)+b.cx*scale;
-  const topAnchor=(cvR.top-wrapR.top)+b.ty*TILE*scale-14;
-  const botAnchor=(cvR.top-wrapR.top)+(b.ty+b.h)*TILE*scale+14;
+  /* 게스트 화면 반전: 건물의 화면상 좌표를 뒤집어 계산 */
+  const scx=viewFlip()?(W-b.cx):b.cx;
+  const sTop=viewFlip()?(H-(b.ty+b.h)*TILE):(b.ty*TILE);        // 건물 화면상 윗변
+  const sBot=viewFlip()?(H-b.ty*TILE):((b.ty+b.h)*TILE);         // 건물 화면상 아랫변
+  const cx2=(cvR.left-wrapR.left)+scx*scale;
+  const topAnchor=(cvR.top-wrapR.top)+sTop*scale-14;
+  const botAnchor=(cvR.top-wrapR.top)+sBot*scale+14;
   let below=topAnchor-bh2<4;                      // 위로 띄우면 잘림 → 아래로
   if(below&&botAnchor+bh2>wrapR.height-4)below=false;   // 아래도 잘리면 위 우선
   el.classList.toggle("below",below);
@@ -1638,7 +1644,10 @@ function stepSim(dt){
 }
 function endGame(win){
   S.over=true;
-  if(GAME_CFG&&GAME_CFG.net&&typeof NET!=="undefined")NET.shutdown();   // 대전 종료 시 연결 정리
+  if(GAME_CFG&&GAME_CFG.net&&typeof NET!=="undefined"){
+    if(NET.desync){showDesyncResult();return;}   // 이미 감지된 디싱크 → 승패 대신 무효 처리
+    NET.reportResult(win);   // 결과 교차검증 (거짓 승리 차단), 연결은 잠시 후 종료
+  }
   SND.play(win?"win":"lose");
   if(win)confetti();else shake(12);
   /* 모드별 결과 화면 (2026-09-04): 스토리 = 진행 저장 + 다음 단계, 튜토리얼 = 완료 처리 */
@@ -1667,6 +1676,17 @@ function endGame(win){
   document.getElementById("overlay").style.display="flex";
 }
 function closeOv(){document.getElementById("overlay").style.display="none";}
+/* 동기화 오류 결과: 승패 확정 불가 → 무효 처리 (거짓 승리 방지, 2026-09-07) */
+function showDesyncResult(){
+  S.over=true;
+  document.getElementById("ov-title").textContent="동기화 오류";
+  document.getElementById("ov-title").style.color="var(--red)";
+  document.getElementById("ov-detail").innerHTML="네트워크 동기화가 어긋나 승패를 확정할 수 없습니다.<br>무효 처리되었습니다 — 다시 매칭해 주세요.";
+  document.getElementById("ov-btns").innerHTML=`<button onclick="toLobby()">로비</button>`;
+  document.getElementById("overlay").style.display="flex";
+  /* 즉시 끊지 않는다 — 상대도 교차검증할 수 있게 잠시 채널 유지 */
+  if(typeof NET!=="undefined")NET.scheduleShutdown(2000);
+}
 function toggleSpeed(){
   if(typeof NET!=="undefined"&&NET.on){toast("실시간 대전 중에는 배속 변경 불가");return;}
   gameSpeed=gameSpeed===0?1:gameSpeed===1?2:gameSpeed===2?4:1;syncPauseUI();}
@@ -2113,7 +2133,7 @@ const TEAM_COL={player:{main:"#3f74d8",dark:"#26437f",light:"#84aaf0"},
                 enemy: {main:"#d8493d",dark:"#8f2a23",light:"#f0928a"}};
 const CREAM="#f4f1e6", STONE="#c9c6b6", DARKGRAY="#463d47", GOLD="#ffcf3f";
 function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
-  const lw=2, team=side==="player";
+  const lw=2, team=(side===MYSIDE);   // 색은 내 편 기준 (내 편=파랑)
   const T=TEAM_COL[team?"player":"enemy"];
   const c1=T.main;
   /* 기단: 중립 석재 + 진영색 테두리 띠 (전 건물 공통 — 진영 식별) */
@@ -2669,9 +2689,16 @@ function buildBG(){
 }
 
 /* --- 메인 draw --- */
+/* 뷰 미러 (2026-09-07): 게스트(enemy 진영)는 화면을 180° 회전해 자기 본진을 아래로.
+   글자·HP바는 up()으로 재회전해 똑바로 그린다. 시뮬 좌표는 그대로(결정론 불변) */
+function viewFlip(){return MYSIDE==="enemy";}
+function upr(x,y,fn){ if(!viewFlip()){fn();return;} ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI);ctx.translate(-x,-y);fn();ctx.restore(); }
+/* 화면 좌표 → 시뮬 좌표 (입력 보정) */
+function unflipPt(x,y){ return viewFlip()?{x:W-x,y:H-y}:{x,y}; }
 function draw(){
   ctx.save();
   if(S.shake>0.3)ctx.translate((Math.random()-.5)*S.shake,(Math.random()-.5)*S.shake);
+  if(viewFlip()){ctx.translate(W,H);ctx.rotate(Math.PI);}   // 게스트 화면 반전
   if(!bgCache)buildBG();
   ctx.drawImage(bgCache,0,0);
   /* 드래그 중: 영역 표시 */
@@ -2703,29 +2730,29 @@ function draw(){
     }
     if(b.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(0.7,b.flash*5).toFixed(2)+")";
       roundRectPath(px+2,py+2,pw-4,ph-4,6);ctx.fill();}
-    if(b.hp<b.maxHp)drawHpBar(b.cx,py-8,b.hp,b.maxHp,Math.min(50,pw-8),b.side);
+    if(b.hp<b.maxHp)upr(b.cx,py-8,()=>drawHpBar(b.cx,py-8,b.hp,b.maxHp,Math.min(50,pw-8),b.side));
     /* 행동 가능 뱃지 (맥동): ↑ = 레벨업/승급 가능, ➔ = 변형 가능 */
     if(b.side===MYSIDE&&!S.over){
-      const up=b.key==="hall"?canTierUpP():canUpgradeB(b);
+      const canUp=b.key==="hall"?canTierUpP():canUpgradeB(b);
       const tf=canTransformB(b);
-      if(up||tf){
+      if(canUp||tf){
         const pulse=1+Math.sin(S.elapsed*5)*0.15;
         let bxp=px+pw-8;
-        const badge=(glyph,col)=>{
+        const badge=(glyph,col)=>{ upr(bxp,py+8,()=>{
           ctx.save();ctx.translate(bxp,py+8);ctx.scale(pulse,pulse);
           ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,8,0,7);ctx.fill();
           ctx.strokeStyle=OUTLINE;ctx.lineWidth=1.6;ctx.stroke();
           ctx.fillStyle="#fff";ctx.font="bold 11px sans-serif";ctx.textAlign="center";
           ctx.fillText(glyph,0,4);
-          ctx.restore();bxp-=19;};
+          ctx.restore();}); bxp-=19;};
         if(tf)badge("➔","#e09c2e");
-        if(up)badge("↑","#3fae5a");
+        if(canUp)badge("↑","#3fae5a");
       }
     }
   });
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
-    const team=u.side==="player";
+    const team=(u.side===MYSIDE);   // 색은 내 편 기준 (내 편=파랑)
     const hover=u.air?Math.sin((u.animT||0)*0.8)*2-10:0;
     const dropY=u.deploy>0?-u.deploy*90:0;
     const bob=u.air?0:(u.moving?Math.sin(u.animT)*1.6:Math.sin(u.animT*0.35)*0.6);
@@ -2740,8 +2767,8 @@ function draw(){
     ctx.restore();
     ctx.globalAlpha=1;
     if(u.hero){ /* 영웅 표식 + 오라 범위 */
-      ctx.fillStyle="#ffd24d";ctx.font="bold "+Math.round(u.r*0.9)+"px sans-serif";ctx.textAlign="center";
-      ctx.fillText("★",u.x,u.y-u.r-8+dropY+hover);
+      const sy=u.y-u.r-8+dropY+hover;
+      upr(u.x,sy,()=>{ctx.fillStyle="#ffd24d";ctx.font="bold "+Math.round(u.r*0.9)+"px sans-serif";ctx.textAlign="center";ctx.fillText("★",u.x,sy);});
       if(u.aura||u.heal){ctx.strokeStyle=u.heal?"rgba(140,255,160,.35)":"rgba(255,210,80,.3)";ctx.lineWidth=1.5;
         ctx.setLineDash([4,5]);ctx.beginPath();ctx.arc(u.x,u.y,BAL.AURA_R*TILE,0,7);ctx.stroke();ctx.setLineDash([]);}
     }
@@ -2757,12 +2784,12 @@ function draw(){
         vx:0,vy:-24,g:-8,t:0,life:0.6,size:1.8,col:"255,220,110"});
     }
     if(u.level>1){   // 유닛 레벨 표시 (Lv2+)
-      ctx.fillStyle="#ffd24d";ctx.font="bold 10px sans-serif";ctx.textAlign="left";
-      ctx.strokeStyle="rgba(30,25,15,.9)";ctx.lineWidth=2.5;
-      ctx.strokeText("L"+u.level,u.x+u.r*0.6,u.y-u.r*0.5+hover+dropY);
-      ctx.fillText("L"+u.level,u.x+u.r*0.6,u.y-u.r*0.5+hover+dropY);
+      const lx=u.x+u.r*0.6, ly=u.y-u.r*0.5+hover+dropY;
+      upr(lx,ly,()=>{ctx.fillStyle="#ffd24d";ctx.font="bold 10px sans-serif";ctx.textAlign="left";
+        ctx.strokeStyle="rgba(30,25,15,.9)";ctx.lineWidth=2.5;
+        ctx.strokeText("L"+u.level,lx,ly);ctx.fillText("L"+u.level,lx,ly);});
     }
-    if(u.hp<u.maxHp)drawHpBar(u.x,u.y-u.r-13+dropY+hover,u.hp,u.maxHp,u.hero?36:26,u.side);
+    if(u.hp<u.maxHp){const hy=u.y-u.r-13+dropY+hover;upr(u.x,hy,()=>drawHpBar(u.x,hy,u.hp,u.maxHp,u.hero?36:26,u.side));}
   });
   /* 이펙트 */
   S.effects.forEach(f=>{
@@ -2784,13 +2811,14 @@ function draw(){
       ctx.fillStyle="#fff8d8";ctx.beginPath();ctx.arc(bx,by,2.5,0,7);ctx.fill();}
     else if(f.tp==="ftext"){const p=1-Math.max(0,f.t)/f.t0;
       const fy=f.y-p*22;
-      ctx.globalAlpha=Math.min(1,(1-p)*2.5);
-      ctx.font="bold 13px sans-serif";ctx.textAlign="center";
-      ctx.strokeStyle="rgba(30,20,45,.9)";ctx.lineWidth=3;
-      ctx.strokeText(f.text,f.x,fy);
-      ctx.fillStyle="rgb("+f.col+")";
-      ctx.fillText(f.text,f.x,fy);
-      ctx.globalAlpha=1;}
+      upr(f.x,fy,()=>{
+        ctx.globalAlpha=Math.min(1,(1-p)*2.5);
+        ctx.font="bold 13px sans-serif";ctx.textAlign="center";
+        ctx.strokeStyle="rgba(30,20,45,.9)";ctx.lineWidth=3;
+        ctx.strokeText(f.text,f.x,fy);
+        ctx.fillStyle="rgb("+f.col+")";
+        ctx.fillText(f.text,f.x,fy);
+        ctx.globalAlpha=1;});}
   });
   /* 파티클 */
   S.particles.forEach(p=>{
@@ -2802,6 +2830,7 @@ function draw(){
   });
   ctx.restore();   // 셰이크 해제 — 아래 배치 미리보기는 흔들리지 않게 (조준 안정)
   ctx.save();
+  if(viewFlip()){ctx.translate(W,H);ctx.rotate(Math.PI);}   // 고스트도 화면 반전 좌표계에서
   /* 드래그 고스트 */
   if(S.sel&&S.mouse){
     if(S.sel.type==="build"){
@@ -2817,10 +2846,10 @@ function draw(){
       ctx.strokeRect(tx*TILE,ty*TILE,d.w*TILE,d.h*TILE);ctx.setLineDash([]);
       if(d.atk){ctx.strokeStyle="rgba(255,160,80,.6)";ctx.lineWidth=1.5;
         ctx.beginPath();ctx.arc((tx+d.w/2)*TILE,(ty+d.h/2)*TILE,d.atk.rng*TILE,0,7);ctx.stroke();}
-      if(bad){ctx.fillStyle="rgba(20,24,38,.85)";ctx.font="bold 11px sans-serif";
+      if(bad){upr(S.mouse.x,ty*TILE-13,()=>{ctx.fillStyle="rgba(20,24,38,.85)";ctx.font="bold 11px sans-serif";
         const tw=ctx.measureText(bad).width;
         roundRectPath(S.mouse.x-tw/2-6,ty*TILE-22,tw+12,17,4);ctx.fill();
-        ctx.fillStyle="#ffb0b0";ctx.textAlign="center";ctx.fillText(bad,S.mouse.x,ty*TILE-9);}
+        ctx.fillStyle="#ffb0b0";ctx.textAlign="center";ctx.fillText(bad,S.mouse.x,ty*TILE-9);});}
     } else {
       const key=S.heroSlots[S.sel.slot].key,d=BAL.HEROES[key];
       const bad=heroBlockReason(S.mouse.x,S.mouse.y);
@@ -2833,6 +2862,8 @@ function draw(){
       if(bad){ctx.fillStyle="rgba(255,60,60,.4)";ctx.beginPath();ctx.arc(S.mouse.x,S.mouse.y,d.r*1.15,0,7);ctx.fill();}
     }
   }
+  ctx.restore();   // 고스트 반전 해제 — 일시정지 오버레이는 화면 고정
+  ctx.save();
   /* 일시 정지 오버레이 */
   if(gameSpeed===0&&!S.over){
     ctx.fillStyle="rgba(10,14,26,.35)";ctx.fillRect(0,0,W,H);
@@ -3205,6 +3236,7 @@ const NET=(()=>{
   const ROUND=3, DELAY=2;
   let ws=null, on=false, roundCmds=[], oppRounds={}, sentRound=-1;
   let netT0=0, pumpTimer=null;   // 절대 시간 페이싱 + 백그라운드 탭용 타이머 펌프
+  let hashAt={}, desync=false, myVerdict=null, oppVerdict=null, shutTimer=null, graceTimer=null;   // 디싱크 감지 + 결과 교차검증
   function connectAndQueue(url){
     shutdown();
     let sock;
@@ -3223,14 +3255,35 @@ const NET=(()=>{
           oppRounds[d.r]=true;
           /* 상대 커맨드: 라운드 r 공식으로 실행 틱 확정 (발행측과 동일 — 디싱크 방지) */
           (d.cmds||[]).forEach(c=>{const cc={...c,tick:(d.r+DELAY)*ROUND+1};PENDING.push(cc);CMD_LOG.push(cc);});
+          /* 디싱크 감지: 상대가 실은 과거 틱 해시를 내 것과 대조 (양쪽 모두 실행 완료한 틱) */
+          if(d.h!==undefined&&!desync){
+            const ct=(d.r-DELAY)*ROUND;
+            if(ct>0&&hashAt[ct]!==undefined&&hashAt[ct]!==d.h){
+              desync=true; console.warn("desync @tick",ct,"me",hashAt[ct],"opp",d.h);
+              toast("⚠ 동기화 오류 감지됨");
+            }
+          }
         }
         pump();   // 백그라운드 탭(rAF 정지)도 상대 라운드 수신으로 전진 — 크롬 탭 스로틀 대응 (2026-09-07)
+      }
+      else if(d.type==="gameover"){
+        /* 상대 판정 보관 — 내 게임이 아직 안 끝났으면 여기서 끊지 않는다 (내 판정이 나와야 대조 가능) */
+        oppVerdict=d.win;
+        checkVerdicts();
+        if(myVerdict===null){
+          /* 나는 아직 결과가 없다 — 잠깐 기다렸다가 안 나오면 상대 판정의 반대로 확정 (승자는 파괴를 명확히 안다) */
+          if(graceTimer)clearTimeout(graceTimer);
+          graceTimer=setTimeout(()=>{ if(myVerdict===null&&on&&S&&!S.over)endGame(!oppVerdict); },1500);
+        }
       }
       else if(d.type==="peer_left")netEnd("상대가 떠났습니다",true);
     };
   }
   function startNet(d){
     on=true; roundCmds=[]; oppRounds={}; sentRound=-1;
+    hashAt={}; desync=false; myVerdict=null; oppVerdict=null;
+    if(shutTimer){clearTimeout(shutTimer);shutTimer=null;}
+    if(graceTimer){clearTimeout(graceTimer);graceTimer=null;}
     startGame({mode:"pvp",net:true,seed:d.seed,map:"plain",
       mySide:d.side==="host"?"player":"enemy",
       tip:"⚔ 실시간 대전 — 당신은 "+(d.side==="host"?"아래(파랑)":"위(빨강)")+" 진영입니다"});
@@ -3263,13 +3316,30 @@ const NET=(()=>{
   /* 틱 완료 후: 라운드 경계(simTick = (r+1)*ROUND)면 라운드 r 확정 —
      내 커맨드를 (r+DELAY) 라운드 첫 틱에 로컬 예약하고 상대에게 전송 (수신측과 동일 공식) */
   function afterTick(){
+    hashAt[simTick]=simHash();
+    for(const k in hashAt)if(k<simTick-ROUND*8)delete hashAt[k];   // 오래된 해시 정리
     if(simTick%ROUND!==0)return;
     const r=simTick/ROUND-1;
     if(r<=sentRound)return;
     sentRound=r;
     const cmds=roundCmds; roundCmds=[];
     cmds.forEach(c=>{c.tick=(r+DELAY)*ROUND+1;PENDING.push(c);CMD_LOG.push(c);});   // 로컬 실행 예약
-    if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"round",r,cmds}));
+    const ct=(r-DELAY)*ROUND;   // 양쪽 모두 실행 완료한 과거 틱의 해시 동봉 (디싱크 감지)
+    if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"round",r,cmds,h:hashAt[ct]}));
+  }
+  /* 결과 보고: 게임오버 시 내 판정을 상대에게 보내고, 교차검증 위해 잠시 후 연결 종료 */
+  function reportResult(win){
+    myVerdict=win;
+    if(graceTimer){clearTimeout(graceTimer);graceTimer=null;}
+    if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"gameover",win}));
+    checkVerdicts();
+    if(shutTimer)clearTimeout(shutTimer);
+    shutTimer=setTimeout(shutdown,2000);   // 상대 판정 수신 여유
+  }
+  /* 두 판정이 모두 있으면 대조: 같으면(둘 다 승/패) 모순 → 디싱크 무효 처리 */
+  function checkVerdicts(){
+    if(myVerdict===null||oppVerdict===null)return;
+    if(myVerdict===oppVerdict)showDesyncResult();
   }
   function netEnd(msg,iWin){
     const wasOn=on; on=false;
@@ -3280,10 +3350,15 @@ const NET=(()=>{
   function shutdown(){
     on=false;
     if(pumpTimer){clearInterval(pumpTimer);pumpTimer=null;}
+    if(shutTimer){clearTimeout(shutTimer);shutTimer=null;}
+    if(graceTimer){clearTimeout(graceTimer);graceTimer=null;}
     if(ws){try{ws.onclose=null;ws.close();}catch(e){} ws=null;}
     roundCmds=[]; oppRounds={}; sentRound=-1;
   }
-  return {connectAndQueue,issue,canStep,afterTick,pump,shutdown,get on(){return on;}};
+  /* 지연 종료: 상대가 내 마지막 메시지(판정/디싱크)를 받을 시간을 준다 */
+  function scheduleShutdown(ms){ if(shutTimer)clearTimeout(shutTimer); shutTimer=setTimeout(shutdown,ms||2000); }
+  return {connectAndQueue,issue,canStep,afterTick,pump,reportResult,scheduleShutdown,shutdown,
+    get on(){return on;}, get desync(){return desync;}};
 })();
 /* --- 튜토리얼: 목표 스크립트 --- */
 const TUT=(()=>{
