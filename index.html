@@ -3221,7 +3221,8 @@ const NET=(()=>{
       else if(d.type==="round"){
         if(oppRounds[d.r]===undefined){
           oppRounds[d.r]=true;
-          (d.cmds||[]).forEach(c=>{c.tick=(d.r+DELAY)*ROUND+1;PENDING.push(c);CMD_LOG.push(c);});
+          /* 상대 커맨드: 라운드 r 공식으로 실행 틱 확정 (발행측과 동일 — 디싱크 방지) */
+          (d.cmds||[]).forEach(c=>{const cc={...c,tick:(d.r+DELAY)*ROUND+1};PENDING.push(cc);CMD_LOG.push(cc);});
         }
         pump();   // 백그라운드 탭(rAF 정지)도 상대 라운드 수신으로 전진 — 크롬 탭 스로틀 대응 (2026-09-07)
       }
@@ -3249,26 +3250,26 @@ const NET=(()=>{
       stepSim(SIM_TICK); afterTick();
     }
   }
-  /* 커맨드 발행: (현재 라운드+DELAY) 라운드 첫 틱에 실행 예약 + 이번 라운드 패킷에 적재 */
-  function issue(cmd){
-    const r=Math.floor(simTick/ROUND);
-    cmd.tick=(r+DELAY)*ROUND+1;
-    PENDING.push(cmd); CMD_LOG.push(cmd); roundCmds.push(cmd);
-  }
-  /* 락스텝 게이트: 다음 틱이 속한 라운드 R 진행에는 상대 라운드 (R-DELAY) 필요 */
+  /* 커맨드 발행: 이번 라운드 버퍼에만 적재. 실제 실행 틱은 라운드 확정(afterTick) 시점에
+     발행·수신 공통 공식으로 계산 — 발행 시점 simTick에 의존하지 않아 라운드 경계 클릭도 안전 */
+  function issue(cmd){ roundCmds.push(cmd); }
+  /* 락스텝 게이트: 다음 틱 simTick+1 이 속한 라운드 r 진행에는 상대 라운드 (r-DELAY) 필요.
+     틱 T 는 라운드 floor((T-1)/ROUND) 에 속한다 */
   function canStep(){
-    const r=Math.floor(simTick/ROUND);   // 다음 틱 simTick+1 의 라운드 = floor(simTick/ROUND)
+    const r=Math.floor(simTick/ROUND);   // 다음 틱 = simTick+1 → 라운드 floor(simTick/ROUND)
     if(r<DELAY)return true;
     return oppRounds[r-DELAY]!==undefined;
   }
-  /* 틱 완료 후: 라운드 경계면 내 커맨드 발송 */
+  /* 틱 완료 후: 라운드 경계(simTick = (r+1)*ROUND)면 라운드 r 확정 —
+     내 커맨드를 (r+DELAY) 라운드 첫 틱에 로컬 예약하고 상대에게 전송 (수신측과 동일 공식) */
   function afterTick(){
     if(simTick%ROUND!==0)return;
     const r=simTick/ROUND-1;
     if(r<=sentRound)return;
     sentRound=r;
-    if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"round",r,cmds:roundCmds}));
-    roundCmds=[];
+    const cmds=roundCmds; roundCmds=[];
+    cmds.forEach(c=>{c.tick=(r+DELAY)*ROUND+1;PENDING.push(c);CMD_LOG.push(c);});   // 로컬 실행 예약
+    if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"round",r,cmds}));
   }
   function netEnd(msg,iWin){
     const wasOn=on; on=false;
