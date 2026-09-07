@@ -2864,6 +2864,8 @@ const MODE_NM={tutorial:"튜토리얼",story:"스토리",pvp:"대전",practice:"
 function startGame(cfg){
   GAME_CFG=cfg;
   applyMap(cfg.map||"plain",cfg.layout||null);
+  /* 엘릭서 기지가 해금되지 않은 스테이지는 가스 광산 자체를 맵에서 제거 (2026-09-07) */
+  if(cfg.allowB&&!cfg.allowB.has("elixirBase"))BAL.GAS_ZONES=[];
   if(cfg.mode==="practice")diffKey=store.getItem("rs2_diff")||"normal";
   else if(cfg.diff)diffKey=cfg.diff;
   newGame();
