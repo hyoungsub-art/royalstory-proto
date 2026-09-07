@@ -2689,16 +2689,17 @@ function buildBG(){
 }
 
 /* --- 메인 draw --- */
-/* 뷰 미러 (2026-09-07): 게스트(enemy 진영)는 화면을 180° 회전해 자기 본진을 아래로.
-   글자·HP바는 up()으로 재회전해 똑바로 그린다. 시뮬 좌표는 그대로(결정론 불변) */
+/* 뷰 미러 (2026-09-07): 게스트(enemy 진영)는 화면을 세로로만 뒤집어(scale 1,-1) 자기 본진을 아래로.
+   위치만 상하 미러 — 좌우는 유지. 스프라이트·글자는 upr()로 세로 재반전해 모양은 똑바로.
+   시뮬 좌표는 그대로(결정론 불변) */
 function viewFlip(){return MYSIDE==="enemy";}
-function upr(x,y,fn){ if(!viewFlip()){fn();return;} ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI);ctx.translate(-x,-y);fn();ctx.restore(); }
-/* 화면 좌표 → 시뮬 좌표 (입력 보정) */
-function unflipPt(x,y){ return viewFlip()?{x:W-x,y:H-y}:{x,y}; }
+function upr(x,y,fn){ if(!viewFlip()){fn();return;} ctx.save();ctx.translate(x,y);ctx.scale(1,-1);ctx.translate(-x,-y);fn();ctx.restore(); }
+/* 화면 좌표 → 시뮬 좌표 (입력 보정): 세로만 반전 */
+function unflipPt(x,y){ return viewFlip()?{x:x,y:H-y}:{x,y}; }
 function draw(){
   ctx.save();
   if(S.shake>0.3)ctx.translate((Math.random()-.5)*S.shake,(Math.random()-.5)*S.shake);
-  if(viewFlip()){ctx.translate(W,H);ctx.rotate(Math.PI);}   // 게스트 화면 반전
+  if(viewFlip()){ctx.translate(0,H);ctx.scale(1,-1);}   // 게스트 화면 상하 반전 (위치만)
   if(!bgCache)buildBG();
   ctx.drawImage(bgCache,0,0);
   /* 드래그 중: 영역 표시 */
@@ -2721,7 +2722,7 @@ function draw(){
       ctx.fillStyle="#b5b2a4";ctx.beginPath();ctx.arc(b.cx-8,b.cy-4,7,0,7);ctx.fill();po(1.2);
       ctx.globalAlpha=1;
       return;}
-    drawBuildingSprite(b.key,b.level,px,py,pw,ph,b.side,effTier(b.side));
+    upr(b.cx,b.cy,()=>drawBuildingSprite(b.key,b.level,px,py,pw,ph,b.side,effTier(b.side)));   // 위치는 미러, 모양은 정방향
     if(S.selBld===b){ctx.strokeStyle="rgba(255,210,80,.95)";ctx.lineWidth=2.5;ctx.setLineDash([6,4]);
       ctx.strokeRect(px+1,py+1,pw-2,ph-2);ctx.setLineDash([]);
       const d=BAL.BUILDINGS[b.key];
@@ -2759,13 +2760,15 @@ function draw(){
     unitShadow(u.x,u.y+u.r*0.75,u.r*0.9*(u.deploy>0?0.5:1));
     ctx.strokeStyle=team?"rgba(60,130,255,.5)":"rgba(255,80,60,.5)";ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(u.x,u.y+u.r*0.75,u.r*0.9,u.r*0.38,0,0,7);ctx.stroke();
-    ctx.save();
-    ctx.globalAlpha=u.deploy>0?0.85:1;
-    ctx.translate(u.x,u.y+bob+hover+dropY);
-    if(u.moving&&!u.air)ctx.rotate(Math.sin(u.animT)*0.05);
-    drawUnitSprite(u,team);   // 8방향 인지 렌더 (시트 등록 시 자동 전환)
-    ctx.restore();
-    ctx.globalAlpha=1;
+    upr(u.x,u.y+bob+hover+dropY,()=>{   // 위치는 미러, 모양은 정방향
+      ctx.save();
+      ctx.globalAlpha=u.deploy>0?0.85:1;
+      ctx.translate(u.x,u.y+bob+hover+dropY);
+      if(u.moving&&!u.air)ctx.rotate(Math.sin(u.animT)*0.05);
+      drawUnitSprite(u,team);   // 8방향 인지 렌더 (시트 등록 시 자동 전환)
+      ctx.restore();
+      ctx.globalAlpha=1;
+    });
     if(u.hero){ /* 영웅 표식 + 오라 범위 */
       const sy=u.y-u.r-8+dropY+hover;
       upr(u.x,sy,()=>{ctx.fillStyle="#ffd24d";ctx.font="bold "+Math.round(u.r*0.9)+"px sans-serif";ctx.textAlign="center";ctx.fillText("★",u.x,sy);});
@@ -2830,7 +2833,7 @@ function draw(){
   });
   ctx.restore();   // 셰이크 해제 — 아래 배치 미리보기는 흔들리지 않게 (조준 안정)
   ctx.save();
-  if(viewFlip()){ctx.translate(W,H);ctx.rotate(Math.PI);}   // 고스트도 화면 반전 좌표계에서
+  if(viewFlip()){ctx.translate(0,H);ctx.scale(1,-1);}   // 고스트도 상하 반전 좌표계에서
   /* 드래그 고스트 */
   if(S.sel&&S.mouse){
     if(S.sel.type==="build"){
@@ -2838,7 +2841,7 @@ function draw(){
       const tx=Math.round(S.mouse.x/TILE-d.w/2),ty=Math.round(S.mouse.y/TILE-d.h/2);
       const bad=buildBlockReason(S.sel.key,tx,ty,MYSIDE);
       ctx.globalAlpha=0.65;
-      drawBuildingSprite(S.sel.key,1,tx*TILE,ty*TILE,d.w*TILE,d.h*TILE,MYSIDE,1);
+      upr((tx+d.w/2)*TILE,(ty+d.h/2)*TILE,()=>drawBuildingSprite(S.sel.key,1,tx*TILE,ty*TILE,d.w*TILE,d.h*TILE,MYSIDE,1));
       ctx.globalAlpha=1;
       ctx.fillStyle=bad?"rgba(255,60,60,.3)":"rgba(120,255,140,.22)";
       ctx.fillRect(tx*TILE,ty*TILE,d.w*TILE,d.h*TILE);
@@ -2854,9 +2857,9 @@ function draw(){
       const key=S.heroSlots[S.sel.slot].key,d=BAL.HEROES[key];
       const bad=heroBlockReason(S.mouse.x,S.mouse.y);
       unitShadow(S.mouse.x,S.mouse.y+d.r*0.75,d.r*0.9);
-      ctx.save();ctx.globalAlpha=0.6;ctx.translate(S.mouse.x,S.mouse.y);
-      const fn=SPRH[key];if(fn)fn(d.r,true,0,null);
-      ctx.restore();
+      upr(S.mouse.x,S.mouse.y,()=>{ctx.save();ctx.globalAlpha=0.6;ctx.translate(S.mouse.x,S.mouse.y);
+        const fn=SPRH[key];if(fn)fn(d.r,true,0,null);
+        ctx.restore();});
       if(d.aura||d.heal){ctx.strokeStyle="rgba(255,210,80,.5)";ctx.lineWidth=1.5;ctx.setLineDash([4,5]);
         ctx.beginPath();ctx.arc(S.mouse.x,S.mouse.y,BAL.AURA_R*TILE,0,7);ctx.stroke();ctx.setLineDash([]);}
       if(bad){ctx.fillStyle="rgba(255,60,60,.4)";ctx.beginPath();ctx.arc(S.mouse.x,S.mouse.y,d.r*1.15,0,7);ctx.fill();}
