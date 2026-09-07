@@ -2369,6 +2369,39 @@ function buildBG(){
     c.beginPath(); c.moveTo(rx+1,ry2); c.lineTo(rx+1,ry2+rh2); c.stroke();
     c.beginPath(); c.moveTo(rx+rw-1,ry2); c.lineTo(rx+rw-1,ry2+rh2); c.stroke();
   });
+  /* 다리 (2026-09-07): 길이 강을 가로지르는 구간은 나무 판자 다리로 — 판자는 통행 방향과 직각 */
+  (BAL.FEATS||[]).filter(f=>f.t==="river").forEach(rv=>{
+    (BAL.ROADS||[BAL.ROAD]).forEach(rd=>{
+      const ix0=Math.max(rv.x0,rd.x0), ix1=Math.min(rv.x1,rd.x1);
+      const iy0=Math.max(rv.y0,rd.y0), iy1=Math.min(rv.y1,rd.y1);
+      if(ix0>ix1||iy0>iy1)return;
+      const vert=(rd.y1-rd.y0)>=(rd.x1-rd.x0);   // 길 진행 방향
+      const pad=5;   // 강기슭에 살짝 걸치게
+      let x=ix0*TILE, y=iy0*TILE, w=(ix1-ix0+1)*TILE, h=(iy1-iy0+1)*TILE;
+      if(vert){y-=pad;h+=pad*2;} else {x-=pad;w+=pad*2;}
+      /* 물 위 그림자 */
+      c.fillStyle="rgba(10,30,55,.30)";
+      c.fillRect(x-3,y-2,w+6,h+4);
+      /* 다리 바닥 (나무) */
+      c.fillStyle="#b07a36"; c.fillRect(x,y,w,h);
+      /* 판자 줄눈 + 판자 결 하이라이트 */
+      c.strokeStyle="rgba(90,55,20,.8)"; c.lineWidth=1.6;
+      if(vert){for(let yy=y+6;yy<y+h-2;yy+=7){c.beginPath();c.moveTo(x+2,yy);c.lineTo(x+w-2,yy);c.stroke();}}
+      else{for(let xx=x+6;xx<x+w-2;xx+=7){c.beginPath();c.moveTo(xx,y+2);c.lineTo(xx,y+h-2);c.stroke();}}
+      c.fillStyle="rgba(255,224,170,.18)";
+      for(let i=0;i<Math.max(6,w*h/450);i++)c.fillRect(x+3+rnd()*(w-10),y+3+rnd()*(h-8),5+rnd()*6,2);
+      /* 양측 난간 보 + 기둥 */
+      c.fillStyle="#7a4e1d";
+      if(vert){c.fillRect(x,y,4,h);c.fillRect(x+w-4,y,4,h);}
+      else{c.fillRect(x,y,w,4);c.fillRect(x,y+h-4,w,4);}
+      c.fillStyle="#5d3a13";
+      if(vert){for(let yy=y+2;yy<y+h-4;yy+=14){c.fillRect(x-1.5,yy,7,5);c.fillRect(x+w-5.5,yy,7,5);}}
+      else{for(let xx=x+2;xx<x+w-4;xx+=14){c.fillRect(xx,y-1.5,5,7);c.fillRect(xx,y+h-5.5,5,7);}}
+      /* 외곽선 */
+      c.strokeStyle="rgba(60,35,10,.85)"; c.lineWidth=2;
+      c.strokeRect(x+1,y+1,w-2,h-2);
+    });
+  });
   /* 가스 타일 */
   BAL.GAS_ZONES.forEach(([gx,gy])=>{
     c.fillStyle="rgba(160,90,220,.28)";
