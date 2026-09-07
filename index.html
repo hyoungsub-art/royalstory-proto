@@ -255,9 +255,12 @@ const BAL={
  /* cap: 티어별 엘릭서 상한 10/20/30 (2026-09-04). 자연 회복으로 상한 도달 시 엘릭서 스타 1개 적립(바 초기화),
     스타는 녹여서 "현재 상한만큼" 엘릭서로 환원. 영웅 소환 비용 = 스타(HERO_COST 단위).
     승급·업그레이드 비용은 해당 시점 상한 이하 유지 */
- /* 2026-09-04 비용 전반 상향: 스타 자동 사용으로 상한 초과 비용도 지불 가능 — 승급·변형을 더 무거운 결정으로.
-    2026-09-07 규칙: 건물 레벨업 비용 < 변형 비용 (Lv2 10 · Lv3 12 < 변형 14) — 변형이 티어 내 최상위 투자 */
- ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierCost:[0,0,12,20], upCost:[0,0,10,12], transformCost:14},
+ /* 2026-09-07 경제 개편: 승급·변형 = 엘릭서 스타(★), 레벨업 = 엘릭서.
+    - tierStars: 킵 ★1 / 캐슬 ★2
+    - transformStars[요구 티어]: 1티어에서 가능한 변형 ★1 / 킵 ★2 / 캐슬 ★3 (요구 티어 = max(변형 티어 조건, minLevel — 레벨 상한이 티어이므로))
+    - upPerLevel[건물 등급]: 레벨당 엘릭서 — 1티어 건설 건물 4 / 킵 건물 8 / 변형 획득 건물 12 */
+ ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5,
+       tierStars:[0,0,1,2], transformStars:[0,1,2,3], upPerLevel:[0,4,8,12]},
  EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -704,15 +707,20 @@ function spend(side,amt){
     S.eElixir-=amt;
   }
 }
-/* 티어 승급 (양측 공용) */
+/* 스타 지불 (양측 공용) — 승급·변형 재화. 엘릭서로 대체 불가 (상한 도달 적립으로만 획득) */
+function spendStars(side,n){
+  if(starsOf(side)<n)return false;
+  if(side==="player")S.stars-=n; else S.eStars-=n;
+  return true;
+}
+/* 티어 승급 (양측 공용) — 비용: 엘릭서 스타 (킵 ★1 / 캐슬 ★2, 2026-09-07 개편) */
 function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
   if(cur>=3)return false;
-  const nt=cur+1, cost=BAL.ECON.tierCost[nt];
+  const nt=cur+1, need=BAL.ECON.tierStars[nt];
   const ok=nt===2?hasBarracksLine(side):hasSanctumLine(side);
-  if(!ok||effElixir(side)<cost)return false;
-  spend(side,cost);
-  if(side==="player"){S.tier=nt;toast(TIER_NM[nt]+" 승급! 최대 엘릭서 "+BAL.ECON.cap[nt]);}
+  if(!ok||!spendStars(side,need))return false;
+  if(side==="player"){S.tier=nt;toast(TIER_NM[nt]+" 승급! (★"+need+") 최대 엘릭서 "+BAL.ECON.cap[nt]);}
   else{S.eTier=nt;toast("⚠ 적이 "+TIER_NM[nt]+"(으)로 승급!");}
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(hall)burst(hall.cx,hall.cy,"255,220,120",20,160);
@@ -722,8 +730,24 @@ function doTierUp(side){
 
 /* 유닛 레벨 배율: 생산 건물 레벨이 곧 유닛 레벨 (2026-08-30 개정) */
 function lvMult(level){return 1+BAL.UPG_PWR*((level||1)-1);}
-/* 목표 레벨별 업그레이드 비용 (숫자 단일값도 허용) */
-function upCostFor(targetLv){const c=BAL.ECON.upCost;return Array.isArray(c)?(c[targetLv]||c[c.length-1]):c;}
+/* 레벨업 비용 (레벨당 고정, 2026-09-07): 건물 등급별 — 1티어 건설 4 / 킵 건설 8 / 변형 획득 12 */
+function upCostFor(bOrKey){
+  const key=bOrKey&&bOrKey.key?bOrKey.key:bOrKey;
+  const d=BAL.BUILDINGS[key];if(!d)return 999;
+  /* 건물 등급: 건설 패널에서 직접 짓는 건물 = 자체 요구 티어(1/2), 변형으로만 얻는 건물 = 3등급 */
+  const cls=PANEL_BUILDS.includes(key)?(d.tier||1):3;
+  const a=BAL.ECON.upPerLevel;
+  return a[Math.min(cls,a.length-1)]||a[a.length-1];
+}
+/* 변형 비용 (★, 2026-09-07): 변형이 가능해지는 티어 기준 — max(티어 조건, minLevel: 레벨 상한 = 티어) */
+function transformReqTier(fromKey,toKey){
+  const tr=(BAL.BUILDINGS[fromKey].transforms||[]).find(x=>x.key===toKey)||{};
+  return Math.max(1,tr.tier||1,tr.minLevel||1);
+}
+function transformStarsFor(fromKey,toKey){
+  const a=BAL.ECON.transformStars, r=transformReqTier(fromKey,toKey);
+  return a[Math.min(r,a.length-1)]||r;
+}
 
 /* ---------- 유닛/영웅 ---------- */
 /* ---------- 8방향 대응 구조 (2026-09-04) ----------
@@ -962,9 +986,8 @@ function buildingUpdate(b,dt){
 }
 /* 변형 (양측 공용) */
 function transformBuilding(b,newKey){
-  const cost=BAL.ECON.transformCost;
-  if(effElixir(b.side)<cost){if(b.side==="player")toast("엘릭서 부족");return;}
-  spend(b.side,cost);
+  const need=transformStarsFor(b.key,newKey);   // 비용 = 엘릭서 스타 (2026-09-07)
+  if(!spendStars(b.side,need)){if(b.side==="player"){toast("엘릭서 스타 부족 (★"+need+" 필요)");SND.play("error");}return;}
   const nd=BAL.BUILDINGS[newKey];
   const ratio=b.hp/b.maxHp;
   /* 변형 시 레벨 초기화 (확정 규칙): 업그레이드한 건물을 변형하면 새 건물 Lv1부터 시작 */
@@ -1014,7 +1037,7 @@ function aiUpdate(dt){
   const tryB=(key,pref)=>{
     if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;   // 스테이지 해금 규칙은 양측 동일
     const d=BAL.BUILDINGS[key];
-    if(effElixir(side)<d.cost)return false;
+    if(elixirOf(side)<d.cost)return false;   // AI는 건물 구매에 스타를 융해하지 않는다 — ★은 승급·변형·영웅 재원 (2026-09-07)
     if(d.tier>tier)return false;
     if(!hasPrereq(side,d.prereq))return false;
     const spot=findSpot(key,side,pref);
@@ -1049,10 +1072,9 @@ function aiUpdate(dt){
           S.buildings.forEach(x=>{if(x.side===side&&x.hp>0&&x.key==="tower"){
             const dd=Math.hypot(x.cx-intruder.x,x.cy-intruder.y);if(dd<btd&&dd<=8*TILE){btd=dd;bt=x;}}});
           if(bt){
-            if(effElixir(side)>=BAL.ECON.transformCost){
-              transformBuilding(bt,canArc?"arcaneTower":"guardTower");return;
-            }
-            return;   // 변형 비용 저축 — 기본 타워 추가 건설로 낭비하지 않는다
+            const tk=canArc?"arcaneTower":"guardTower";
+            if(starsOf(side)>=transformStarsFor(bt.key,tk)){transformBuilding(bt,tk);return;}
+            return;   // 스타 적립 대기 (지출 보류 → 상한 도달 → ★) — 기본 타워 남발 금지
           }
         }
         /* 신규 방어 타워 건설: 유닛 침입은 즉시. 건물 크리핑은 변형 능력이 생긴 뒤에만 (그 전엔 테크 우선) */
@@ -1063,7 +1085,8 @@ function aiUpdate(dt){
   /* 0-1) 영웅 소환 (어려움 이상) — 규칙은 플레이어와 동등: 비용 = 스타, 사망 시 쿨다운.
      침입자가 있으면 요격 위치에, 없으면 가장 전진한 아군 건물 앞에 투입.
      단, 킵 이전에는 금지 — 킵 비용(12)이 티어1 상한(10)을 넘어 스타가 승급 재원이기 때문 (2026-09-04) */
-  if(st.heroUse&&S.eTier>=2&&S.eStars>=Math.max(1,BAL.HERO_COST)){
+  if(st.heroUse&&S.eTier>=2&&S.eStars>=Math.max(1,BAL.HERO_COST)
+     &&(cnt("guardTower")+cnt("arcaneTower"))>=(st.atkTwMin||0)){   // 스타는 방어 타워 확보가 먼저 (2026-09-07)
     const slot=(S.eHeroSlots||[]).find(s=>s.state==="ready");
     if(slot){
       const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
@@ -1112,11 +1135,9 @@ function aiUpdate(dt){
       if(!base){
         if(towerCnt<st.towerMax&&tryB("tower","fwd"))return;
       } else if(hasPrereq(side,["workshop","siegeWorkshop"])||(tier>=3&&hasSanctumLine(side))){
-        if(effElixir(side)>=BAL.ECON.transformCost){
-          if(tier>=3&&hasSanctumLine(side)){transformBuilding(base,"arcaneTower");return;}
-          transformBuilding(base,"guardTower");return;
-        }
-        return;   // 변형 비용 저축 — 아래 선택 지출 보류
+        const tk=(tier>=3&&hasSanctumLine(side))?"arcaneTower":"guardTower";
+        if(starsOf(side)>=transformStarsFor("tower",tk)){transformBuilding(base,tk);return;}
+        return;   // 스타 적립 대기 — 아래 선택 지출 보류 (엘릭서 상한 도달 → ★)
       }
     }
   }
@@ -1143,30 +1164,28 @@ function aiUpdate(dt){
     }
   }
   /* 7) 상위 변형 — Lv3 달성 건물만 대상 (레벨 투자가 선행되어야 함) */
-  if(st.transform&&effElixir(side)>=BAL.ECON.transformCost){
-    if(cnt("shieldBarracks")<1){
-      const b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="barracks"&&x.level>=3);
-      if(b){transformBuilding(b,"shieldBarracks");return;}
-    }
-    if(cnt("knightHall")<1){
-      const ab=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="assaultBarracks"&&x.level>=3);
-      if(ab){transformBuilding(ab,"knightHall");return;}
-    }
-    if(cnt("shooterGarden")<1){
-      const a=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="archery"&&x.level>=3);
-      if(a){transformBuilding(a,"shooterGarden");return;}
-    }
+  if(st.transform){
+    /* 스타 부족 시에도 return — 지출을 멈춰 스타를 적립 (변형 = ★ 재화, 2026-09-07) */
+    const tryTf=(fromKey,toKey)=>{
+      const bb=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key===fromKey&&x.level>=3);
+      if(!bb)return false;
+      if(starsOf(side)>=transformStarsFor(fromKey,toKey))transformBuilding(bb,toKey);
+      return true;
+    };
+    if(cnt("shieldBarracks")<1&&tryTf("barracks","shieldBarracks"))return;
+    if(cnt("knightHall")<1&&tryTf("assaultBarracks","knightHall"))return;
+    if(cnt("shooterGarden")<1&&tryTf("archery","shooterGarden"))return;
   }
   /* 상위 변형: Lv3 달성 건물만 대상 (워크숍→시즈 워크숍, 생텀→드래곤 네스트) */
-  if(st.aviary&&effElixir(side)>=BAL.ECON.transformCost){
-    if(cnt("siegeWorkshop")<1){
-      const wk=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="workshop"&&x.level>=3);
-      if(wk){transformBuilding(wk,"siegeWorkshop");return;}
-    }
-    if(cnt("dragonNest")<1){
-      const sn=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="sanctum"&&x.level>=3);
-      if(sn){transformBuilding(sn,"dragonNest");return;}
-    }
+  if(st.aviary){
+    const tryTf2=(fromKey,toKey)=>{
+      const bb=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key===fromKey&&x.level>=3);
+      if(!bb)return false;
+      if(starsOf(side)>=transformStarsFor(fromKey,toKey))transformBuilding(bb,toKey);
+      return true;
+    };
+    if(cnt("siegeWorkshop")<1&&tryTf2("workshop","siegeWorkshop"))return;
+    if(cnt("dragonNest")<1&&tryTf2("sanctum","dragonNest"))return;
   }
   /* 8) 생산 증설 (공격형은 전방으로) */
   if(prodCnt<st.prodMax&&tryB(cnt("archery")+cnt("shooterGarden")<2?"archery":"barracks",prodPref))return;
@@ -1174,21 +1193,25 @@ function aiUpdate(dt){
   if(maxLv>1){
     /* 모든 상위 변형이 Lv3 조건이므로 레벨 투자가 곧 변형 준비 — 제외 없음 */
     const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv);
-    if(up){const c=upCostFor(up.level+1);
-      if(effElixir(side)>=c+2){spend(side,c);up.level++;
+    if(up){const c=upCostFor(up);
+      if(elixirOf(side)>=c+2){spend(side,c);up.level++;   // 스타 융해 없이 순수 엘릭서로만 (★ 보호)
         S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
         burst(up.cx,up.cy,"140,220,255",8,100);return;}
       if(up)return;   // 레벨업 대상이 남았으면 저축 (유닛 질 우선)
     }
   }
   /* 9-1) 타워 화력 확보: 기본 타워 → 가드/아케인 변형 (towerTf 목표까지 — 기본 타워는 비무장이므로 필수 방어 수단) */
-  if((st.towerTf||0)>0&&effElixir(side)>=BAL.ECON.transformCost){
+  if((st.towerTf||0)>0){
     const tfCnt=cnt("guardTower")+cnt("arcaneTower");
     if(tfCnt<st.towerTf){
       const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
       if(base){
-        if(tier>=3&&hasSanctumLine(side)){transformBuilding(base,"arcaneTower");return;}
-        if(tier>=2&&hasPrereq(side,["workshop","siegeWorkshop"])){transformBuilding(base,"guardTower");return;}
+        const tk=(tier>=3&&hasSanctumLine(side))?"arcaneTower":
+                 (tier>=2&&hasPrereq(side,["workshop","siegeWorkshop"]))?"guardTower":null;
+        if(tk){
+          if(starsOf(side)>=transformStarsFor("tower",tk)){transformBuilding(base,tk);return;}
+          return;   // 스타 적립 대기
+        }
       }
     }
   }
@@ -1328,31 +1351,31 @@ function showStrip(b){
   }
   if(b.key==="hall"){
     if(S.tier<3){
-      const nt=S.tier+1, cost=BAL.ECON.tierCost[nt];
+      const nt=S.tier+1, need=BAL.ECON.tierStars[nt];   // 승급 비용 = ★ (2026-09-07)
       const met=nt===2?hasBarracksLine("player"):hasSanctumLine("player");
       const needNm=nt===2?"배럭 계열":"아케인 생텀 계열";
       const hard=!met;
-      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
-          +`${TIER_NM[nt]} 승급 (${cost})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
+      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-star="${need}"`} ${!hard&&S.stars<need?"disabled":""}>`
+          +`${TIER_NM[nt]} 승급 (★${need})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
     if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
   (d.transforms||[]).forEach((tr,i)=>{
     if(tr.minLevel&&b.level<tr.minLevel)return;   // 레벨 조건 변형은 조건 충족 시에만 버튼 표시
-    const nd=BAL.BUILDINGS[tr.key], cost=BAL.ECON.transformCost;
+    const nd=BAL.BUILDINGS[tr.key], need=transformStarsFor(b.key,tr.key);   // 변형 비용 = ★
     const cond=[];
     if(tr.tier&&t<tr.tier)cond.push(TIER_NM[tr.tier]);
     if(!hasPrereq("player",tr.prereq))cond.push(prereqName(tr.prereq));
     const hard=cond.length>0;
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
     const warn=(!hard&&b.level>1)?`<br><span style="font-size:10px;color:#ffb0b0">⚠ Lv${b.level} → Lv1 초기화</span>`:"";
-    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
+    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-star="${need}"`} ${!hard&&S.stars<need?"disabled":""}>`
         +`<img src="${ICONS[tr.key]||""}" draggable="false">`
-        +`<span>➔ ${nd.nm} (${cost})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</span></button>`;
+        +`<span>➔ ${nd.nm} (★${need})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</span></button>`;
   });
-  /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) */
+  /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) — 비용: 레벨당 고정 엘릭서 (건물 등급별) */
   if(d.prod){
-    const cost=upCostFor(b.level+1);
+    const cost=upCostFor(b);
     if(b.level<3){
       const hard=b.level>=t;
       html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
@@ -1382,11 +1405,14 @@ function refreshBubble(){
   document.querySelectorAll("#bubble button[data-cost]").forEach(btn=>{
     btn.disabled=effElixir("player")<+btn.dataset.cost;
   });
+  document.querySelectorAll("#bubble button[data-star]").forEach(btn=>{
+    btn.disabled=S.stars<+btn.dataset.star;
+  });
 }
 function tierUp(){if(doTierUp("player"))SND.play("tierup");}
 function upgradeSel(){
   const b=S.selBld; if(!b)return;
-  const cost=upCostFor(b.level+1);
+  const cost=upCostFor(b);
   if(b.level>=Math.min(3,effTier("player"))||effElixir("player")<cost)return;
   spend("player",cost); b.level++;
   SND.play("levelup");
@@ -1399,17 +1425,18 @@ function canTierUpP(){
   if(S.tier>=3)return false;
   const nt=S.tier+1;
   const met=nt===2?hasBarracksLine("player"):hasSanctumLine("player");
-  return met&&effElixir("player")>=BAL.ECON.tierCost[nt];
+  return met&&S.stars>=BAL.ECON.tierStars[nt];
 }
 function canUpgradeB(b){
   const d=BAL.BUILDINGS[b.key];
-  return !!d.prod&&b.level<Math.min(3,effTier("player"))&&effElixir("player")>=upCostFor(b.level+1);
+  return !!d.prod&&b.level<Math.min(3,effTier("player"))&&effElixir("player")>=upCostFor(b);
 }
 function canTransformB(b){
   const d=BAL.BUILDINGS[b.key];
-  if(!d.transforms||effElixir("player")<BAL.ECON.transformCost)return false;
+  if(!d.transforms)return false;
   const t=effTier("player");
-  return d.transforms.some(tr=>(!tr.minLevel||b.level>=tr.minLevel)&&(!tr.tier||t>=tr.tier)&&hasPrereq("player",tr.prereq));
+  return d.transforms.some(tr=>(!tr.minLevel||b.level>=tr.minLevel)&&(!tr.tier||t>=tr.tier)
+    &&hasPrereq("player",tr.prereq)&&S.stars>=transformStarsFor(b.key,tr.key));
 }
 /* 철거: 즉시 파괴 처리 (환불 없음). 본진은 불가 */
 function demolishSel(){
@@ -2752,8 +2779,9 @@ function buildEditorUI(){
   if(edTab==="rules"){
     [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
      ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
-     ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierCost.2","킵 승급 비용"],["ECON.tierCost.3","캐슬 승급 비용"],
-     ["ECON.upCost.2","레벨2 업그레이드 비용"],["ECON.upCost.3","레벨3 업그레이드 비용"],["ECON.transformCost","변형 비용"],
+     ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierStars.2","킵 승급 (★)"],["ECON.tierStars.3","캐슬 승급 (★)"],
+     ["ECON.transformStars.1","변형 1티어 (★)"],["ECON.transformStars.2","변형 킵 (★)"],["ECON.transformStars.3","변형 캐슬 (★)"],
+     ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
@@ -3010,7 +3038,7 @@ const TUT=(()=>{
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
     {t:"② <b>타워</b>를 좌우 <b>◆ 가스 지역</b> 방향에 건설하세요 — 타워 주변이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ 영역에 들어온 <b>◆ 가스 지역</b>에 <b>엘릭서 기지</b>를 건설하세요 — 엘릭서 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
-    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급</b> — 상위 건물·엘릭서 상한·유닛 레벨 상한이 열립니다",ok:()=>S.tier>=2},
+    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (★1)</b> — 엘릭서가 가득 차면 ★이 적립됩니다. 상위 건물·상한·레벨이 열립니다",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
     {t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 비용은 ★ (엘릭서가 가득 차면 적립)",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
     {t:"⑦ 마지막! 병력을 이끌고 <b>적 본진</b>을 파괴하세요",ok:()=>false},
@@ -3018,8 +3046,10 @@ const TUT=(()=>{
   function start(){active=true;idx=0;bonusGiven=false;render();}
   function stop(){active=false;const b=bar();if(b)b.style.display="none";}
   function render(){const b=bar();if(!b)return;b.style.display=active?"block":"none";if(active)b.innerHTML=steps[idx].t;}
+  let bonus2=false;
   function update(){
     if(!active||!S||S.over)return;
+    if(idx===3&&S.stars<1&&!bonus2){bonus2=true;S.stars=1;toast("(튜토리얼) 승급용 엘릭서 스타 ★1 지급");renderPanel();}
     if(idx===5&&S.stars<1&&!bonusGiven){bonusGiven=true;S.stars=1;toast("(튜토리얼) 엘릭서 스타 ★1 지급");renderPanel();}
     if(steps[idx].ok()){idx=Math.min(idx+1,steps.length-1);SND.play("star");render();}
   }
