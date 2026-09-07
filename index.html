@@ -374,17 +374,40 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
   clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
 
 /* ---------- 맵 ---------- */
+/* 지형 요소 (2026-09-07): 강 = 건설·배치 불가 + 지상 이속 50% / 숲 = 건설 불가 + 이속 75% /
+   바위·성벽 = 건설·배치 불가. 유닛 이동은 직선(경로 탐색 없음)이라 지형은 통행을 막지 않고
+   건설·배치·이속에만 관여한다. 길이 지형 위를 지나면 그 구간은 다리/통로 (지형 해제) */
+const TERR={river:{build:false,deploy:false,spd:0.5},
+            forest:{build:false,deploy:true,spd:0.75},
+            rock:{build:false,deploy:false,spd:1},
+            wall:{build:false,deploy:false,spd:1}};
 function makeTiles(){
   const tiles=[];
-  for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false,road:false};}
+  for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false,road:false,terr:null};}
   BAL.GAS_ZONES.forEach(([gx,gy])=>{for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)
     if(tiles[gy+dy]&&tiles[gy+dy][gx+dx])tiles[gy+dy][gx+dx].gas=true;});
+  /* 지형 요소 적용 (길보다 먼저 — 길이 겹치면 다리로 지형 해제) */
+  (BAL.FEATS||[]).forEach(f=>{
+    const td=TERR[f.t];if(!td)return;
+    for(let y=f.y0;y<=f.y1;y++)for(let x=f.x0;x<=f.x1;x++){
+      if(!tiles[y]||!tiles[y][x])continue;
+      tiles[y][x].terr=f.t; tiles[y][x].build=false;
+      if(!td.deploy)tiles[y][x].deploy=false;
+    }
+  });
   /* 길: 건설 불가, 유닛 이동·배치 가능 — 맵에 따라 여러 갈래 지원 (2026-09-04) */
   (BAL.ROADS||[BAL.ROAD]).forEach(rd=>{
     for(let y=rd.y0;y<=rd.y1;y++)for(let x=rd.x0;x<=rd.x1;x++)
-      if(tiles[y]&&tiles[y][x]){tiles[y][x].road=true;tiles[y][x].build=false;}
+      if(tiles[y]&&tiles[y][x]){tiles[y][x].road=true;tiles[y][x].build=false;tiles[y][x].terr=null;tiles[y][x].deploy=true;}
   });
   return tiles;
+}
+/* 지상 유닛의 현재 타일 지형 이속 배율 (공중 유닛은 무시) */
+function terrSpd(u){
+  if(u.air)return 1;
+  const tx=Math.floor(u.x/TILE),ty=Math.floor(u.y/TILE);
+  const t=S.tiles[ty]&&S.tiles[ty][tx];
+  return (t&&t.terr)?(TERR[t.terr].spd||1):1;
 }
 
 /* ---------- 사운드 (Web Audio 절차 합성 — 외부 파일 없음, 2026-09-04) ----------
@@ -739,7 +762,7 @@ function unitUpdate(u,dt){
       const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
-      if(d>u.aoe.castRng*TILE*0.8){moveToward(u,tx,ty,u.spd*dt);u.moving=true;}}
+      if(d>u.aoe.castRng*TILE*0.8){moveToward(u,tx,ty,u.spd*dt*terrSpd(u));u.moving=true;}}
     return;
   }
   const tgt=nearestTarget(u);
@@ -765,7 +788,7 @@ function unitUpdate(u,dt){
     }
     return;
   }
-  moveToward(u,tx,ty,u.spd*dt); u.moving=true;
+  moveToward(u,tx,ty,u.spd*dt*terrSpd(u)); u.moving=true;
 }
 function moveToward(u,tx,ty,step){const d=Math.hypot(tx-u.x,ty-u.y);if(d<1)return;
   u.x+=(tx-u.x)/d*step;u.y+=(ty-u.y)/d*step;
@@ -2274,6 +2297,50 @@ function buildBG(){
   c.strokeStyle=th.grid;c.lineWidth=1;
   for(let x=0;x<=COLS;x++){c.beginPath();c.moveTo(x*TILE,0);c.lineTo(x*TILE,H);c.stroke();}
   for(let y=0;y<=ROWS;y++){c.beginPath();c.moveTo(0,y*TILE);c.lineTo(W,y*TILE);c.stroke();}
+  /* 지형 요소 렌더 (2026-09-07) — 테마별 색: 초원/협곡. 길이 위를 덮으면 그 구간은 다리처럼 보임 */
+  const FC=th.cliff
+    ?{wA:"#4a86ad",wB:"#8fc0dd",tA:"#6b8a3f",tB:"#49622a",rA:"#8d6b4a",rB:"#b08a5e",sA:"#a89a80",sB:"#6e6350"}
+    :{wA:"#3a76c4",wB:"#84b4ec",tA:"#2e7d32",tB:"#215d26",rA:"#8f8f86",rB:"#b5b5aa",sA:"#b9b6a8",sB:"#7a7568"};
+  (BAL.FEATS||[]).forEach(f=>{
+    const fx=f.x0*TILE,fy=f.y0*TILE,fw=(f.x1-f.x0+1)*TILE,fh=(f.y1-f.y0+1)*TILE;
+    if(f.t==="river"){
+      c.fillStyle=FC.wA;c.fillRect(fx,fy,fw,fh);
+      c.strokeStyle=FC.wB;c.lineWidth=1.6;
+      const n=Math.max(5,Math.round(fw*fh/700));
+      for(let i=0;i<n;i++){const wx=fx+rnd()*(fw-16),wy=fy+3+rnd()*(fh-6);
+        c.beginPath();c.moveTo(wx,wy);c.quadraticCurveTo(wx+8,wy-3,wx+16,wy);c.stroke();}
+      c.strokeStyle="rgba(18,48,88,.55)";c.lineWidth=2;c.strokeRect(fx+1,fy+1,fw-2,fh-2);
+    } else if(f.t==="forest"){
+      c.fillStyle="rgba(25,75,25,.14)";c.fillRect(fx,fy,fw,fh);
+      for(let y=f.y0;y<=f.y1;y++)for(let x=f.x0;x<=f.x1;x++){
+        const cnt=1+(rnd()<0.55?1:0);
+        for(let k=0;k<cnt;k++){
+          const px2=x*TILE+7+rnd()*(TILE-14), py2=y*TILE+10+rnd()*(TILE-16), s=7+rnd()*4;
+          c.fillStyle="#6b4a2a";c.fillRect(px2-1.5,py2+s*0.45,3,5);
+          c.fillStyle=rnd()<0.5?FC.tA:FC.tB;
+          c.beginPath();c.moveTo(px2,py2-s);c.lineTo(px2-s*0.78,py2+s*0.55);c.lineTo(px2+s*0.78,py2+s*0.55);c.closePath();c.fill();
+          c.strokeStyle="rgba(12,32,12,.5)";c.lineWidth=1;c.stroke();
+        }
+      }
+    } else if(f.t==="rock"){
+      for(let y=f.y0;y<=f.y1;y++)for(let x=f.x0;x<=f.x1;x++){
+        const px2=x*TILE+TILE/2+(rnd()-0.5)*6, py2=y*TILE+TILE/2+(rnd()-0.5)*6, s=8+rnd()*5;
+        c.fillStyle=FC.rA;c.beginPath();c.ellipse(px2,py2,s,s*0.72,rnd()*0.6,0,7);c.fill();
+        c.fillStyle=FC.rB;c.beginPath();c.ellipse(px2-s*0.28,py2-s*0.3,s*0.45,s*0.3,0,0,7);c.fill();
+        c.strokeStyle="rgba(40,35,25,.55)";c.lineWidth=1.4;
+        c.beginPath();c.ellipse(px2,py2,s,s*0.72,0,0,7);c.stroke();
+      }
+    } else if(f.t==="wall"){
+      c.fillStyle=FC.sA;c.fillRect(fx,fy,fw,fh);
+      c.strokeStyle="rgba(60,55,45,.45)";c.lineWidth=1.2;
+      for(let yy=fy+10;yy<fy+fh;yy+=10){c.beginPath();c.moveTo(fx,yy);c.lineTo(fx+fw,yy);c.stroke();}
+      for(let xx=fx+12;xx<fx+fw;xx+=17){c.beginPath();c.moveTo(xx,fy+3);c.lineTo(xx,fy+fh-3);c.stroke();}
+      c.fillStyle=FC.sB;
+      for(let xx=fx;xx<fx+fw-6;xx+=14)c.fillRect(xx,fy,8,6);   // 총안
+      c.fillStyle="rgba(0,0,0,.18)";c.fillRect(fx,fy+fh-6,fw,6);
+      c.strokeStyle="rgba(50,45,35,.8)";c.lineWidth=2;c.strokeRect(fx+1,fy+1,fw-2,fh-2);
+    }
+  });
   /* 길 (본진↔본진, 건설 불가 통로) — 맵에 따라 여러 갈래. 협곡 테마는 길 = 협곡 바닥 (절벽 그림자) */
   (BAL.ROADS||[BAL.ROAD]).forEach(rd=>{
     const rx=rd.x0*TILE, rw=(rd.x1-rd.x0+1)*TILE, ry2=rd.y0*TILE, rh2=(rd.y1-rd.y0+1)*TILE;
@@ -2626,35 +2693,53 @@ const MAPS={
 function applyMap(id,layout){
   const m=MAPS[id]||MAPS.plain;
   curMap=MAPS[id]?id:"plain";
-  const lay=layout||m;   // 스테이지 레이아웃 오버라이드 — 테마는 왕국(id), 길·가스는 스테이지
-  BAL.ROADS=lay.roads; BAL.ROAD=lay.roads[0]; BAL.GAS_ZONES=lay.gas;
+  const lay=layout||m;   // 스테이지 레이아웃 오버라이드 — 테마는 왕국(id), 길·가스·지형은 스테이지
+  BAL.ROADS=lay.roads; BAL.ROAD=lay.roads[0]; BAL.GAS_ZONES=lay.gas; BAL.FEATS=lay.feat||[];
   bgCache=null;   // 배경 캐시 재생성 (테마 반영)
 }
 /* --- 스테이지별 레벨 디자인 (2026-09-05): 왕국 비주얼 테마는 유지, 길·가스 배치를 단계마다 변형.
    대칭 의무 없음 — 다양성 우선 (PvE 스테이지, 2026-09-05 방침). 길 사각형을 여러 개 조합해
    가로 물길·지그재그·광장·미로 등 자유 구성. 규칙: 본진(x8-10, y1-3/20-22)과 겹치지 않기 --- */
+/* feat: 지형 요소 사각형 {t:"river|forest|rock|wall", x0,x1,y0,y1} — 가스·본진과 겹치지 않게 배치.
+   길이 지형 위를 지나는 구간 = 다리/통로. 모든 스테이지의 길·가스·지형 구성이 서로 다름 (2026-09-07) */
 const K1_LAYOUTS=[
-  {nm:"중앙 대로",  roads:[{x0:8,x1:10,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]]},
-  {nm:"갈라진 여울",roads:[{x0:0,x1:6,y0:10,y1:12},{x0:12,x1:18,y0:10,y1:12}],   // 가로 물길, 중앙만 트임
-                    gas:[[2,5],[15,6],[8,15],[0,17],[17,16]]},
-  {nm:"넓은 대로",  roads:[{x0:7,x1:11,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]]},
+  {nm:"중앙 대로",  roads:[{x0:8,x1:10,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]],
+    feat:[{t:"forest",x0:4,x1:6,y0:5,y1:6},{t:"forest",x0:12,x1:14,y0:16,y1:17},{t:"rock",x0:13,x1:14,y0:7,y1:7},{t:"rock",x0:4,x1:5,y0:15,y1:15}]},
+  {nm:"여울목",     roads:[{x0:8,x1:10,y0:4,y1:19}], gas:[[0,5],[17,5],[0,17],[17,17],[13,7]],   // 강을 다리 하나로 건너는 요충지
+    feat:[{t:"river",x0:0,x1:18,y0:10,y1:12},{t:"forest",x0:2,x1:4,y0:14,y1:15}]},
+  {nm:"성벽 옛터",  roads:[{x0:7,x1:11,y0:4,y1:19}], gas:[[0,5],[17,5],[0,11],[17,11],[0,17],[17,17]],   // 무너진 성벽이 측면을 막는다
+    feat:[{t:"wall",x0:2,x1:5,y0:7,y1:7},{t:"wall",x0:13,x1:16,y0:7,y1:7},{t:"wall",x0:2,x1:5,y0:16,y1:16},{t:"wall",x0:13,x1:16,y0:16,y1:16},{t:"rock",x0:0,x1:0,y0:9,y1:10}]},
   {nm:"지그재그 길",roads:[{x0:3,x1:5,y0:4,y1:11},{x0:3,x1:13,y0:9,y1:11},{x0:11,x1:13,y0:9,y1:19}],   // S자 통로
-                    gas:[[15,5],[0,8],[16,14],[6,17],[0,14]]},
-  {nm:"중앙 광장",  roads:[{x0:5,x1:13,y0:8,y1:15}],   // 거대한 개활지 — 건설 불가, 대규모 회전
-                    gas:[[0,4],[16,4],[0,18],[16,18],[8,5],[8,17]]},
-  {nm:"두 물길",    roads:[{x0:0,x1:11,y0:7,y1:8},{x0:7,x1:18,y0:14,y1:15}],   // 어긋난 가로 이중 물길
-                    gas:[[14,4],[2,10],[15,10],[3,18],[16,17]]},
-  {nm:"세 갈래",    roads:[{x0:1,x1:3,y0:4,y1:19},{x0:8,x1:10,y0:4,y1:19},{x0:15,x1:17,y0:4,y1:19}], gas:[[5,5],[5,17],[12,5],[12,17],[5,11],[12,11]]},
-  {nm:"결전장",     roads:[{x0:4,x1:6,y0:4,y1:19},{x0:12,x1:14,y0:4,y1:19}], gas:[[9,5],[9,17],[0,11],[17,11],[0,5],[0,17]]},
+    gas:[[15,5],[0,8],[16,14],[6,17],[0,14]],
+    feat:[{t:"forest",x0:0,x1:2,y0:4,y1:5},{t:"forest",x0:15,x1:17,y0:17,y1:18},{t:"rock",x0:7,x1:8,y0:6,y1:6}]},
+  {nm:"중앙 광장",  roads:[{x0:5,x1:13,y0:8,y1:15}],   // 거대한 개활지 — 대규모 회전전
+    gas:[[0,4],[16,4],[0,18],[16,18],[8,5],[8,17]],
+    feat:[{t:"rock",x0:2,x1:3,y0:11,y1:12},{t:"rock",x0:15,x1:16,y0:11,y1:12},{t:"forest",x0:0,x1:1,y0:8,y1:10}]},
+  {nm:"두 강",      roads:[{x0:8,x1:10,y0:4,y1:19}],   // 어긋난 두 강을 다리 둘로 건넌다
+    gas:[[14,4],[2,10],[15,10],[3,18],[16,17]],
+    feat:[{t:"river",x0:0,x1:11,y0:7,y1:8},{t:"river",x0:7,x1:18,y0:14,y1:15},{t:"forest",x0:0,x1:2,y0:16,y1:18}]},
+  {nm:"세 갈래 숲", roads:[{x0:1,x1:3,y0:4,y1:19},{x0:8,x1:10,y0:4,y1:19},{x0:15,x1:17,y0:4,y1:19}],
+    gas:[[5,5],[5,17],[12,5],[12,17],[5,11],[12,11]],
+    feat:[{t:"forest",x0:5,x1:6,y0:7,y1:9},{t:"forest",x0:12,x1:13,y0:13,y1:15},{t:"rock",x0:5,x1:5,y0:14,y1:14}]},
+  {nm:"결전장",     roads:[{x0:4,x1:6,y0:4,y1:19},{x0:12,x1:14,y0:4,y1:19}],   // 중앙 성문(성벽 틈)을 둘러싼 결전
+    gas:[[9,5],[9,17],[0,11],[17,11],[0,5],[0,17]],
+    feat:[{t:"wall",x0:7,x1:8,y0:11,y1:11},{t:"wall",x0:10,x1:11,y0:11,y1:11},{t:"rock",x0:0,x1:1,y0:7,y1:7},{t:"rock",x0:17,x1:18,y0:16,y1:16}]},
 ];
 const K2_LAYOUTS=[
-  {nm:"쌍둥이 협곡",roads:[{x0:3,x1:5,y0:4,y1:19},{x0:13,x1:15,y0:4,y1:19}], gas:[[8,6],[8,16],[0,5],[0,17],[17,5],[17,17]]},
-  {nm:"세 줄 협곡",roads:[{x0:1,x1:2,y0:4,y1:19},{x0:8,x1:10,y0:4,y1:19},{x0:16,x1:17,y0:4,y1:19}], gas:[[4,6],[4,16],[12,6],[12,16],[4,11],[12,11]]},
-  {nm:"대협곡",    roads:[{x0:6,x1:12,y0:4,y1:19}], gas:[[0,5],[0,17],[17,5],[17,17],[0,11],[17,11]]},
-  {nm:"굽은 협곡", roads:[{x0:2,x1:4,y0:4,y1:13},{x0:2,x1:15,y0:11,y1:13},{x0:13,x1:15,y0:11,y1:19}],   // ㄱ자 대협곡
-                    gas:[[8,5],[17,7],[0,16],[8,17],[16,16]]},
-  {nm:"미로 협곡", roads:[{x0:6,x1:7,y0:4,y1:15},{x0:11,x1:12,y0:8,y1:19},{x0:0,x1:3,y0:9,y1:10},{x0:15,x1:18,y0:13,y1:14}],   // 어긋난 균열 지대
-                    gas:[[0,5],[16,5],[13,4],[4,17],[0,20],[17,17]]},
+  {nm:"쌍둥이 협곡",roads:[{x0:3,x1:5,y0:4,y1:19},{x0:13,x1:15,y0:4,y1:19}], gas:[[8,6],[8,16],[0,5],[0,17],[17,5],[17,17]],
+    feat:[{t:"rock",x0:8,x1:9,y0:9,y1:9},{t:"rock",x0:9,x1:10,y0:13,y1:13},{t:"forest",x0:0,x1:1,y0:9,y1:10}]},
+  {nm:"세 줄 협곡",roads:[{x0:1,x1:2,y0:4,y1:19},{x0:8,x1:10,y0:4,y1:19},{x0:16,x1:17,y0:4,y1:19}],
+    gas:[[4,6],[4,16],[12,6],[12,16],[4,11],[12,11]],
+    feat:[{t:"rock",x0:4,x1:5,y0:8,y1:8},{t:"rock",x0:12,x1:13,y0:13,y1:13},{t:"river",x0:14,x1:15,y0:4,y1:5}]},
+  {nm:"오아시스 대협곡",roads:[{x0:6,x1:12,y0:4,y1:19}],   // 대협곡 양쪽의 오아시스와 관목
+    gas:[[0,5],[0,17],[17,5],[17,17],[0,11],[17,11]],
+    feat:[{t:"river",x0:0,x1:2,y0:8,y1:9},{t:"river",x0:16,x1:18,y0:13,y1:14},{t:"forest",x0:3,x1:4,y0:5,y1:6}]},
+  {nm:"굽은 협곡", roads:[{x0:2,x1:4,y0:4,y1:13},{x0:2,x1:15,y0:11,y1:13},{x0:13,x1:15,y0:11,y1:19}],   // ㄱ자 대협곡 + 옛 성벽
+    gas:[[8,5],[17,7],[0,16],[8,17],[16,16]],
+    feat:[{t:"wall",x0:7,x1:10,y0:7,y1:7},{t:"rock",x0:16,x1:17,y0:10,y1:10}]},
+  {nm:"미로 협곡", roads:[{x0:6,x1:7,y0:4,y1:15},{x0:11,x1:12,y0:8,y1:19},{x0:0,x1:3,y0:9,y1:10},{x0:15,x1:18,y0:13,y1:14}],   // 어긋난 균열 + 오아시스
+    gas:[[0,5],[16,5],[13,4],[4,17],[0,20],[17,17]],
+    feat:[{t:"river",x0:15,x1:17,y0:8,y1:9},{t:"rock",x0:4,x1:4,y0:7,y1:7},{t:"rock",x0:14,x1:14,y0:17,y1:17},{t:"rock",x0:9,x1:9,y0:5,y1:5}]},
 ];
 function stageLayout(ki,i){return (ki===0?K1_LAYOUTS:ki===1?K2_LAYOUTS:[])[i]||null;}
 /* --- 진행도 저장 --- */
