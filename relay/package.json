@@ -1,0 +1,9 @@
+{
+  "name": "kingdomcraft-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "킹덤 크래프트 PvP 매칭·릴레이 서버 (로직 없음, 중계 전용)",
+  "main": "relay.js",
+  "scripts": { "start": "node relay.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}
