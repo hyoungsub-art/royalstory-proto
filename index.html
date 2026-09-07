@@ -219,10 +219,14 @@
 </div>
 <div id="pvp-scr" class="scr">
   <h1 style="font-size:24px;">⚔ 대전 매칭</h1>
-  <div id="pvp-spin"></div>
-  <div class="sub" id="pvp-status">상대를 찾는 중...</div>
-  <div class="sub" style="max-width:320px;text-align:center;">※ 프로토타입: 온라인 매칭 서버 미구현 —<br>잠시 대기 후 스파링 상대(AI)와 연결됩니다</div>
-  <button class="back" onclick="cancelPvp()">매칭 취소</button>
+  <div id="pvp-spin" style="display:none;"></div>
+  <div class="sub" id="pvp-status">대전 방식을 선택하세요</div>
+  <input id="pvp-url" placeholder="릴레이 서버 주소 (예: ws://localhost:8787)"
+    style="width:min(340px,84vw);background:var(--panel);border:1.5px solid var(--panel2);border-radius:8px;
+           padding:9px 12px;color:var(--text);font-size:12.5px;">
+  <button class="mode-btn" onclick="pvpConnect()"><b>🌐 실시간 매칭</b><span class="d">릴레이 서버로 다른 플레이어와 1:1 락스텝 대전</span></button>
+  <button class="mode-btn" onclick="pvpSparring()"><b>🤖 스파링</b><span class="d">AI 상대와 즉시 대전 (어려움)</span></button>
+  <button class="back" onclick="cancelPvp()">← 로비</button>
 </div>
 <div id="toast"></div>
 <div id="editor">
@@ -370,6 +374,11 @@ let simTick=0, simAcc=0, simSeed=1;
 let CMD_LOG=[], PENDING=[], REPLAY=false;
 let RNG=mulberry(1);
 function grnd(){return RNG();}
+/* 내 진영 (1단계 PvP, 2026-09-07): 호스트 = "player"(아래·파랑), 게스트 = "enemy"(위·빨강).
+   두 클라이언트가 같은 캐논 시뮬레이션을 공유하고 각자 자기 진영만 조작한다 — 좌표 변환 불필요. */
+let MYSIDE="player";
+function mySlots(){return MYSIDE==="player"?S.heroSlots:(S.eHeroSlots||[]);}
+function myTier(){return MYSIDE==="player"?S.tier:S.eTier;}
 /* 난이도 (적 전용 배율) */
 let diffKey="normal";
 function diff(){return BAL.DIFF[diffKey]||BAL.DIFF.normal;}
@@ -666,13 +675,14 @@ function buildBlockReason(key,tx,ty,side){
   if(!inFriendlyZonePt(tx+d.w/2,ty+d.h/2,side))return"아군 영역 밖";
   return null;
 }
-/* 영웅 배치 판정 */
-function heroBlockReason(x,y){
+/* 영웅 배치 판정 (side 인식 — PvP 게스트는 위 진영) */
+function heroBlockReason(x,y,side){
+  side=side||MYSIDE;
   const tx=Math.floor(x/TILE),ty=Math.floor(y/TILE);
   if(tx<0||ty<0||tx>=COLS||ty>=ROWS)return"맵 밖";
   if(!S.tiles[ty][tx].deploy)return"배치 불가 타일";
   if(occGrid()[ty][tx])return"건물 위 배치 불가";
-  if(!inFriendlyZone(tx,ty,"player"))return"아군 영역 밖";
+  if(!inFriendlyZone(tx,ty,side))return"아군 영역 밖";
   return null;
 }
 
@@ -714,7 +724,7 @@ function spend(side,amt){
     let melted=0;
     while(S.elixir<amt&&S.stars>0){S.stars--;S.elixir+=cap;melted++;}
     S.elixir-=amt;
-    if(melted>0){toast("★ 스타 "+melted+"개 자동 사용");renderPanel();}
+    if(melted>0&&side===MYSIDE){toast("★ 스타 "+melted+"개 자동 사용");renderPanel();}
   }else{
     while(S.eElixir<amt&&S.eStars>0){S.eStars--;S.eElixir+=cap;}
     S.eElixir-=amt;
@@ -733,11 +743,12 @@ function doTierUp(side){
   const nt=cur+1, need=BAL.ECON.tierStars[nt];
   const ok=nt===2?hasBarracksLine(side):hasSanctumLine(side);
   if(!ok||!spendStars(side,need))return false;
-  if(side==="player"){S.tier=nt;toast(TIER_NM[nt]+" 승급! (★"+need+") 최대 엘릭서 "+BAL.ECON.cap[nt]);}
-  else{S.eTier=nt;toast("⚠ 적이 "+TIER_NM[nt]+"(으)로 승급!");}
+  if(side==="player")S.tier=nt; else S.eTier=nt;
+  if(side===MYSIDE)toast(TIER_NM[nt]+" 승급! (★"+need+") 최대 엘릭서 "+BAL.ECON.cap[nt]);
+  else toast("⚠ 상대가 "+TIER_NM[nt]+"(으)로 승급!");
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(hall)burst(hall.cx,hall.cy,"255,220,120",20,160);
-  if(side==="player"){renderPanel();hideStrip();}   // 실행 후 말풍선 닫기
+  if(side===MYSIDE){renderPanel();hideStrip();}   // 실행 후 말풍선 닫기
   return true;
 }
 
@@ -1000,15 +1011,15 @@ function buildingUpdate(b,dt){
 /* 변형 (양측 공용) */
 function transformBuilding(b,newKey){
   const need=transformStarsFor(b.key,newKey);   // 비용 = 엘릭서 스타 (2026-09-07)
-  if(!spendStars(b.side,need)){if(b.side==="player"){toast("엘릭서 스타 부족 (★"+need+" 필요)");SND.play("error");}return;}
+  if(!spendStars(b.side,need)){if(b.side===MYSIDE){toast("엘릭서 스타 부족 (★"+need+" 필요)");SND.play("error");}return;}
   const nd=BAL.BUILDINGS[newKey];
   const ratio=b.hp/b.maxHp;
   /* 변형 시 레벨 초기화 (확정 규칙): 업그레이드한 건물을 변형하면 새 건물 Lv1부터 시작 */
   const lostLv=b.level;
   b.key=newKey; b.maxHp=nd.hp; b.hp=Math.round(nd.hp*ratio); b.prodT=0; b.level=1;
-  if(lostLv>1&&b.side==="player")toast(nd.nm+"(으)로 변형 — 레벨 Lv"+lostLv+" → Lv1 초기화");
+  if(lostLv>1&&b.side===MYSIDE)toast(nd.nm+"(으)로 변형 — 레벨 Lv"+lostLv+" → Lv1 초기화");
   S.occ=null; burst(b.cx,b.cy,"255,220,120",14,140);
-  if(b.side==="player"){SND.play("transform");renderPanel(); hideStrip();}   // 실행 후 말풍선 닫기
+  if(b.side===MYSIDE){SND.play("transform");renderPanel(); hideStrip();}   // 실행 후 말풍선 닫기
 }
 /* ---------- 적 건설 AI ---------- */
 function findSpot(key,side,pref){
@@ -1239,11 +1250,12 @@ function swapMode(){
   hideStrip(); renderPanel();
 }
 const PANEL_BUILDS=["elixirBase","barracks","archery","assaultBarracks","workshop","sanctum","tower"];   // 상위 생산 건물은 변형으로 획득
-function buildLockReason(key){
+function buildLockReason(key,side){
+  side=side||MYSIDE;
   if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return "이 단계 미해금";
-  const d=BAL.BUILDINGS[key], t=effTier("player");
+  const d=BAL.BUILDINGS[key], t=effTier(side);
   if(d.tier>t)return TIER_NM[d.tier]+" 필요";
-  if(!hasPrereq("player",d.prereq))return prereqName(d.prereq)+" 필요";
+  if(!hasPrereq(side,d.prereq))return prereqName(d.prereq)+" 필요";
   return null;
 }
 let panelDirty=false;
@@ -1256,19 +1268,19 @@ function renderPanel(){
     PANEL_BUILDS.forEach(key=>{
       const d=BAL.BUILDINGS[key], lock=buildLockReason(key);
       const div=document.createElement("div");
-      div.className="p-item"+(lock?" locked":(effElixir("player")<d.cost?" dim":""));
+      div.className="p-item"+(lock?" locked":(effElixir(MYSIDE)<d.cost?" dim":""));
       div.innerHTML=`<div class="p-cost">${d.cost}</div><img draggable="false" src="${ICONS[key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(lock?`<div class="p-lock">🔒\n${lock}</div>`:"");
       if(!lock)attachDrag(div,{type:"build",key});
       p.appendChild(div);
     });
   } else {
-    S.heroSlots.forEach((slot,i)=>{
+    mySlots().forEach((slot,i)=>{
       const d=BAL.HEROES[slot.key];
       const cost=Math.max(1,BAL.HERO_COST);
       const hLock=GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key);   // 스테이지 영웅 해금
       const div=document.createElement("div");
-      div.className="p-item"+((hLock||slot.state!=="ready")?" locked":(S.stars<cost?" dim":""));
+      div.className="p-item"+((hLock||slot.state!=="ready")?" locked":(starsOf(MYSIDE)<cost?" dim":""));
       div.innerHTML=`<div class="p-cost">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(hLock?`<div class="p-lock">🔒\n미해금</div>`:
           slot.state==="field"?`<div class="p-cd" style="font-size:10px;">출전 중</div>`:
@@ -1314,38 +1326,39 @@ function tryBuildAt(key,x,y){
   const d=BAL.BUILDINGS[key];
   const tx=Math.round(x/TILE-d.w/2), ty=Math.round(y/TILE-d.h/2);
   const lock=buildLockReason(key); if(lock){toast(lock);SND.play("error");return;}
-  if(effElixir("player")<d.cost){toast("엘릭서 부족");SND.play("error");return;}
-  const reason=buildBlockReason(key,tx,ty,"player");
+  if(effElixir(MYSIDE)<d.cost){toast("엘릭서 부족");SND.play("error");return;}
+  const reason=buildBlockReason(key,tx,ty,MYSIDE);
   if(reason){toast(reason);SND.play("error");return;}
-  issueCmd({type:"build",key,tx,ty});   // 실행은 다음 틱 (결정론 커맨드)
+  issueCmd({type:"build",key,tx,ty,side:MYSIDE});   // 실행은 다음 틱 (결정론 커맨드)
 }
-function execBuild(key,tx,ty){
+function execBuild(side,key,tx,ty){
   const d=BAL.BUILDINGS[key];
-  if(buildLockReason(key)||effElixir("player")<d.cost||buildBlockReason(key,tx,ty,"player"))return;
-  spend("player",d.cost);
-  const b=addBuilding(key,"player",tx,ty);
+  if(buildLockReason(key,side)||effElixir(side)<d.cost||buildBlockReason(key,tx,ty,side))return;
+  spend(side,d.cost);
+  const b=addBuilding(key,side,tx,ty);
   burst(b.cx,b.cy,"205,195,165",12,120);
   SND.play("place");
   renderPanel();
 }
 function tryHeroAt(slotIdx,x,y){
-  const slot=S.heroSlots[slotIdx];
+  const slot=mySlots()[slotIdx];
   if(GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key)){toast("이 단계에서는 사용할 수 없는 영웅입니다");SND.play("error");return;}
   if(slot.state!=="ready")return;
   const cost=Math.max(1,BAL.HERO_COST);   // 영웅 비용 = 엘릭서 스타 (최소 1)
-  if(S.stars<cost){toast("엘릭서 스타 부족 (★"+cost+" 필요)");SND.play("error");return;}
-  const reason=heroBlockReason(x,y);
+  if(starsOf(MYSIDE)<cost){toast("엘릭서 스타 부족 (★"+cost+" 필요)");SND.play("error");return;}
+  const reason=heroBlockReason(x,y,MYSIDE);
   if(reason){toast(reason);SND.play("error");return;}
-  issueCmd({type:"hero",slot:slotIdx,x,y});   // 실행은 다음 틱 (결정론 커맨드)
+  issueCmd({type:"hero",slot:slotIdx,x,y,side:MYSIDE});   // 실행은 다음 틱 (결정론 커맨드)
 }
-function execHero(slotIdx,x,y){
-  const slot=S.heroSlots[slotIdx];
+function execHero(side,slotIdx,x,y){
+  const slots=side==="player"?S.heroSlots:(S.eHeroSlots||[]);
+  const slot=slots[slotIdx];
   if(!slot||slot.state!=="ready")return;
   if(GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key))return;
   const cost=Math.max(1,BAL.HERO_COST);
-  if(S.stars<cost||heroBlockReason(x,y))return;
-  S.stars-=cost;
-  slot.state="field"; slot.unit=spawnUnit(slot.key,"player",x,y,true);
+  if(starsOf(side)<cost||heroBlockReason(x,y,side))return;
+  if(side==="player")S.stars-=cost; else S.eStars-=cost;
+  slot.state="field"; slot.unit=spawnUnit(slot.key,side,x,y,true);
   SND.play("hero");
   renderPanel();
 }
@@ -1356,7 +1369,7 @@ cv.addEventListener("click",e=>{
   const x=(e.clientX-rect.left)*(cv.width/rect.width), y=(e.clientY-rect.top)*(cv.height/rect.height);
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
-  if(b&&b.side==="player"&&b.hp>0){
+  if(b&&b.side===MYSIDE&&b.hp>0){
     if(S.selBld===b)hideStrip();      // 같은 건물 재클릭 → 말풍선 닫기 (토글)
     else showStrip(b);
   }
@@ -1368,7 +1381,7 @@ function hideStrip(){document.getElementById("bubble").style.display="none";S.se
 function showStrip(b){
   S.selBld=b;
   const el=document.getElementById("bubble");
-  const d=BAL.BUILDINGS[b.key], t=effTier("player");
+  const d=BAL.BUILDINGS[b.key], t=effTier(MYSIDE);
   const unitNm=d.prod?(BAL.UNITS[d.prod.unit]||{}).nm||"유닛":"";
   let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">${unitNm} Lv${Math.min(b.level,t)}</span>`:""}</div>`;
   /* 철거 버튼 — 최상단·소형 (본진은 철거 불가) */
@@ -1376,26 +1389,26 @@ function showStrip(b){
     html+=`<button class="b-mini" onclick="demolishSel()">🔨 철거</button>`;
   }
   if(b.key==="hall"){
-    if(S.tier<3){
-      const nt=S.tier+1, need=BAL.ECON.tierStars[nt];   // 승급 비용 = ★ (2026-09-07)
-      const met=nt===2?hasBarracksLine("player"):hasSanctumLine("player");
+    if(myTier()<3){
+      const nt=myTier()+1, need=BAL.ECON.tierStars[nt];   // 승급 비용 = ★ (2026-09-07)
+      const met=nt===2?hasBarracksLine(MYSIDE):hasSanctumLine(MYSIDE);
       const needNm=nt===2?"배럭 계열":"아케인 생텀 계열";
       const hard=!met;
-      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-star="${need}"`} ${!hard&&S.stars<need?"disabled":""}>`
+      html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-star="${need}"`} ${!hard&&starsOf(MYSIDE)<need?"disabled":""}>`
           +`${TIER_NM[nt]} 승급 (★${need})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
-    if(effTier("player")<S.tier)html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
+    if(effTier(MYSIDE)<myTier())html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
   (d.transforms||[]).forEach((tr,i)=>{
     if(tr.minLevel&&b.level<tr.minLevel)return;   // 레벨 조건 변형은 조건 충족 시에만 버튼 표시
     const nd=BAL.BUILDINGS[tr.key], need=transformStarsFor(b.key,tr.key);   // 변형 비용 = ★
     const cond=[];
     if(tr.tier&&t<tr.tier)cond.push(TIER_NM[tr.tier]);
-    if(!hasPrereq("player",tr.prereq))cond.push(prereqName(tr.prereq));
+    if(!hasPrereq(MYSIDE,tr.prereq))cond.push(prereqName(tr.prereq));
     const hard=cond.length>0;
     /* 레벨을 올린 건물이면 변형 시 Lv1 초기화 경고 표시 */
     const warn=(!hard&&b.level>1)?`<br><span style="font-size:10px;color:#ffb0b0">⚠ Lv${b.level} → Lv1 초기화</span>`:"";
-    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-star="${need}"`} ${!hard&&S.stars<need?"disabled":""}>`
+    html+=`<button onclick="transformSel(${i})" ${hard?'disabled data-hard="1"':`data-star="${need}"`} ${!hard&&starsOf(MYSIDE)<need?"disabled":""}>`
         +`<img src="${ICONS[tr.key]||""}" draggable="false">`
         +`<span>➔ ${nd.nm} (★${need})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</span></button>`;
   });
@@ -1404,7 +1417,7 @@ function showStrip(b){
     const cost=upCostFor(b);
     if(b.level<3){
       const hard=b.level>=t;
-      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir("player")<cost?"disabled":""}>`
+      html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir(MYSIDE)<cost?"disabled":""}>`
           +`레벨업 → ${unitNm} Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
@@ -1429,24 +1442,24 @@ function showStrip(b){
 function refreshBubble(){
   if(!S.selBld)return;
   document.querySelectorAll("#bubble button[data-cost]").forEach(btn=>{
-    btn.disabled=effElixir("player")<+btn.dataset.cost;
+    btn.disabled=effElixir(MYSIDE)<+btn.dataset.cost;
   });
   document.querySelectorAll("#bubble button[data-star]").forEach(btn=>{
-    btn.disabled=S.stars<+btn.dataset.star;
+    btn.disabled=starsOf(MYSIDE)<+btn.dataset.star;
   });
 }
-function tierUp(){issueCmd({type:"tier"});hideStrip();}
+function tierUp(){issueCmd({type:"tier",side:MYSIDE});hideStrip();}
 function upgradeSel(){
   const b=S.selBld; if(!b)return;
   const cost=upCostFor(b);
-  if(b.level>=Math.min(3,effTier("player"))||effElixir("player")<cost)return;
-  issueCmd({type:"upgrade",bid:b.id});
+  if(b.level>=Math.min(3,effTier(MYSIDE))||effElixir(MYSIDE)<cost)return;
+  issueCmd({type:"upgrade",bid:b.id,side:MYSIDE});
   hideStrip();   // 실행은 다음 틱
 }
-function execUpgrade(b){
+function execUpgrade(side,b){
   const cost=upCostFor(b);
-  if(b.level>=Math.min(3,effTier("player"))||effElixir("player")<cost)return;
-  spend("player",cost); b.level++;
+  if(b.level>=Math.min(3,effTier(side))||effElixir(side)<cost)return;
+  spend(side,cost); b.level++;
   SND.play("levelup");
   burst(b.cx,b.cy,"140,220,255",10,120);
   S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"150,220,255"});
@@ -1454,35 +1467,35 @@ function execUpgrade(b){
 }
 /* 행동 가능 판정 — 건물 뱃지 표시용 (플레이어 측) */
 function canTierUpP(){
-  if(S.tier>=3)return false;
-  const nt=S.tier+1;
-  const met=nt===2?hasBarracksLine("player"):hasSanctumLine("player");
-  return met&&S.stars>=BAL.ECON.tierStars[nt];
+  if(myTier()>=3)return false;
+  const nt=myTier()+1;
+  const met=nt===2?hasBarracksLine(MYSIDE):hasSanctumLine(MYSIDE);
+  return met&&starsOf(MYSIDE)>=BAL.ECON.tierStars[nt];
 }
 function canUpgradeB(b){
   const d=BAL.BUILDINGS[b.key];
-  return !!d.prod&&b.level<Math.min(3,effTier("player"))&&effElixir("player")>=upCostFor(b);
+  return !!d.prod&&b.level<Math.min(3,effTier(MYSIDE))&&effElixir(MYSIDE)>=upCostFor(b);
 }
 function canTransformB(b){
   const d=BAL.BUILDINGS[b.key];
   if(!d.transforms)return false;
-  const t=effTier("player");
+  const t=effTier(MYSIDE);
   return d.transforms.some(tr=>(!tr.minLevel||b.level>=tr.minLevel)&&(!tr.tier||t>=tr.tier)
-    &&hasPrereq("player",tr.prereq)&&S.stars>=transformStarsFor(b.key,tr.key));
+    &&hasPrereq(MYSIDE,tr.prereq)&&starsOf(MYSIDE)>=transformStarsFor(b.key,tr.key));
 }
 /* 철거: 즉시 파괴 처리 (환불 없음). 본진은 불가 */
 function demolishSel(){
   const b=S.selBld;
   if(!b||b.key==="hall")return;
-  issueCmd({type:"demolish",bid:b.id});   // 실행은 다음 틱
+  issueCmd({type:"demolish",bid:b.id,side:MYSIDE});   // 실행은 다음 틱
   hideStrip();
 }
 function transformSel(i){
   const b=S.selBld; if(!b)return;
   const tr=(BAL.BUILDINGS[b.key].transforms||[])[i]; if(!tr)return;
-  const t=effTier("player");
-  if((tr.tier&&t<tr.tier)||(tr.minLevel&&b.level<tr.minLevel)||!hasPrereq("player",tr.prereq))return;
-  issueCmd({type:"transform",bid:b.id,toKey:tr.key});   // 실행은 다음 틱
+  const t=effTier(MYSIDE);
+  if((tr.tier&&t<tr.tier)||(tr.minLevel&&b.level<tr.minLevel)||!hasPrereq(MYSIDE,tr.prereq))return;
+  issueCmd({type:"transform",bid:b.id,toKey:tr.key,side:MYSIDE});   // 실행은 다음 틱
   hideStrip();
 }
 
@@ -1492,28 +1505,30 @@ function transformSel(i){
    실행 시점에 재검증(자원·조건)하므로 리플레이/락스텝에서 그대로 재현된다. */
 function issueCmd(cmd){
   if(REPLAY){toast("리플레이 재생 중 — 조작 불가");return;}
+  if(typeof NET!=="undefined"&&NET.on){NET.issue(cmd);return;}   // PvP: 라운드 지연 스케줄
   cmd.tick=simTick+1;
   PENDING.push(cmd); CMD_LOG.push(cmd);
 }
 function bldById(id){return S.buildings.find(b=>b.id===id&&b.hp>0);}
 function execCmd(c){
+  const sd=c.side||"player";   // 커맨드 발행 진영 (PvP: 상대 커맨드는 상대 진영으로)
   switch(c.type){
-    case "build": execBuild(c.key,c.tx,c.ty); break;
-    case "tier": if(doTierUp("player"))SND.play("tierup"); break;
+    case "build": execBuild(sd,c.key,c.tx,c.ty); break;
+    case "tier": if(doTierUp(sd)&&sd===MYSIDE)SND.play("tierup"); break;
     case "transform": {
-      const b=bldById(c.bid); if(!b)break;
+      const b=bldById(c.bid); if(!b||b.side!==sd)break;
       const tr=(BAL.BUILDINGS[b.key].transforms||[]).find(x=>x.key===c.toKey); if(!tr)break;
-      const t=effTier("player");
-      if((tr.tier&&t<tr.tier)||(tr.minLevel&&b.level<tr.minLevel)||!hasPrereq("player",tr.prereq))break;
+      const t=effTier(sd);
+      if((tr.tier&&t<tr.tier)||(tr.minLevel&&b.level<tr.minLevel)||!hasPrereq(sd,tr.prereq))break;
       transformBuilding(b,c.toKey); break;
     }
-    case "upgrade": {const b=bldById(c.bid); if(b)execUpgrade(b); break;}
+    case "upgrade": {const b=bldById(c.bid); if(b&&b.side===sd)execUpgrade(sd,b); break;}
     case "demolish": {
       const b=bldById(c.bid);
-      if(b&&b.key!=="hall"){b.hp=0;toast(BAL.BUILDINGS[b.key].nm+" 철거");SND.play("demolish");}
+      if(b&&b.side===sd&&b.key!=="hall"){b.hp=0;if(sd===MYSIDE){toast(BAL.BUILDINGS[b.key].nm+" 철거");SND.play("demolish");}}
       break;
     }
-    case "hero": execHero(c.slot,c.x,c.y); break;
+    case "hero": execHero(sd,c.slot,c.x,c.y); break;
   }
 }
 /* ---------- 리플레이 (0단계 산출물): 시드 + 커맨드 로그 = 게임 전체 ---------- */
@@ -1552,7 +1567,12 @@ function loop(ts){
   if(!S.over){
     simAcc+=raw*gameSpeed;
     if(simAcc>SIM_TICK*8)simAcc=SIM_TICK*8;   // 프레임 스파이크 캡 (탭 복귀 등)
-    while(simAcc>=SIM_TICK&&!S.over){stepSim(SIM_TICK);simAcc-=SIM_TICK;}
+    while(simAcc>=SIM_TICK&&!S.over){
+      if(typeof NET!=="undefined"&&NET.on&&!NET.canStep())break;   // 락스텝: 상대 라운드 대기
+      stepSim(SIM_TICK);
+      if(typeof NET!=="undefined"&&NET.on)NET.afterTick();
+      simAcc-=SIM_TICK;
+    }
     updateHUD();
   }
   tickFx(raw*gameSpeed);   // 이펙트·파티클은 연출 — 프레임 시간 사용 (로직 무관)
@@ -1572,15 +1592,16 @@ function stepSim(dt){
     /* 경제 (양측 동일 공식). 자연 회복으로 상한 도달 시 → 엘릭서 스타 1개 적립, 바 초기화.
        (녹이기로 채운 상한 상태는 재적립되지 않음 — 상한 "미만→도달" 순간에만 적립) */
     const gas=S.buildings.filter(b=>b.side==="player"&&b.key==="elixirBase"&&b.hp>0).length;
-    const pb=S.elixir, pCap=elixirCap();
+    const pb=S.elixir, pCap=capFor("player");
     S.elixir=Math.min(pCap,pb+dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen);
     if(pb<pCap&&S.elixir>=pCap){S.stars++;S.elixir=0;
-      toast("★ 엘릭서 스타 +1 (보유 "+S.stars+")");SND.play("star");renderPanel();}
+      if(MYSIDE==="player"){toast("★ 엘릭서 스타 +1 (보유 "+S.stars+")");SND.play("star");renderPanel();}}
     const eGas=S.buildings.filter(b=>b.side==="enemy"&&b.key==="elixirBase"&&b.hp>0).length;
     const eb=S.eElixir, eCap=capFor("enemy");
     S.eElixir=Math.min(eCap,eb+dt*(1+BAL.ECON.gasBonus*eGas)/BAL.ECON.regen);
-    if(eb<eCap&&S.eElixir>=eCap){S.eStars++;S.eElixir=0;}
-    aiUpdate(dt);
+    if(eb<eCap&&S.eElixir>=eCap){S.eStars++;S.eElixir=0;
+      if(MYSIDE==="enemy"){toast("★ 엘릭서 스타 +1 (보유 "+S.eStars+")");SND.play("star");renderPanel();}}
+    if(!(GAME_CFG&&GAME_CFG.net))aiUpdate(dt);   // PvP(실매칭)에서는 AI 없음 — 위 진영은 상대 커맨드가 조종
     if(TUT.active)TUT.update();   // 튜토리얼 목표 달성 체크
     recomputeAuras();
     S.units.forEach(u=>unitUpdate(u,dt));
@@ -1589,11 +1610,11 @@ function stepSim(dt){
     S.units.forEach(u=>{if(u.hp<=0){deathFx(u);
       if(u.hero){const slots=u.side==="player"?S.heroSlots:(S.eHeroSlots||[]);
         const slot=slots.find(s=>s.unit===u);
-        if(slot){slot.state="cd";slot.cd=BAL.HERO_CD;slot.unit=null;if(u.side==="player")renderPanel();}}}});
+        if(slot){slot.state="cd";slot.cd=BAL.HERO_CD;slot.unit=null;if(u.side===MYSIDE)renderPanel();}}}});
     S.units=S.units.filter(u=>u.hp>0);
     S.buildings.forEach(b=>{if(b.hp<=0&&!b.boomed){b.boomed=true;b.rubbleT=6;buildingBoom(b);S.occ=null;S.zoneDirty=true;
       if(S.selBld===b)hideStrip();
-      if(b.side==="enemy")toast(BAL.BUILDINGS[b.key].nm+" 파괴! 배제 반경 해제");
+      if(b.side!==MYSIDE)toast(BAL.BUILDINGS[b.key].nm+" 파괴! 배제 반경 해제");
       renderPanel();}});
     /* 잔해 소멸 (2026-09-07): 파괴 6초 후 잔해 제거 — 빈 셀로 명확히 */
     let rubbleGone=false;
@@ -1601,19 +1622,20 @@ function stepSim(dt){
     if(rubbleGone){S.buildings=S.buildings.filter(b=>!(b.boomed&&b.rubbleT<=0));S.occ=null;S.zoneDirty=true;}
     /* 영웅 쿨다운 */
     let cdChanged=false;
-    S.heroSlots.forEach(s=>{if(s.state==="cd"){s.cd-=dt;if(s.cd<=0){s.state="ready";cdChanged=true;}}});
-    (S.eHeroSlots||[]).forEach(s=>{if(s.state==="cd"){s.cd-=dt;if(s.cd<=0)s.state="ready";}});
+    S.heroSlots.forEach(s=>{if(s.state==="cd"){s.cd-=dt;if(s.cd<=0){s.state="ready";if(MYSIDE==="player")cdChanged=true;}}});
+    (S.eHeroSlots||[]).forEach(s=>{if(s.state==="cd"){s.cd-=dt;if(s.cd<=0){s.state="ready";if(MYSIDE==="enemy")cdChanged=true;}}});
     if(cdChanged)renderPanel();
-    document.querySelectorAll(".p-cd[data-cd]").forEach(el=>{const s=S.heroSlots[+el.dataset.cd];if(s&&s.state==="cd")el.textContent=Math.ceil(s.cd);});
-    /* 승패 */
+    document.querySelectorAll(".p-cd[data-cd]").forEach(el=>{const s=mySlots()[+el.dataset.cd];if(s&&s.state==="cd")el.textContent=Math.ceil(s.cd);});
+    /* 승패 (내 진영 기준) */
     const pHall=S.buildings.find(b=>b.side==="player"&&b.key==="hall");
     const eHall=S.buildings.find(b=>b.side==="enemy"&&b.key==="hall");
-    if(eHall&&eHall.hp<=0)endGame(true);
-    else if(pHall&&pHall.hp<=0)endGame(false);
+    if(eHall&&eHall.hp<=0)endGame(MYSIDE==="player");
+    else if(pHall&&pHall.hp<=0)endGame(MYSIDE==="enemy");
   }
 }
 function endGame(win){
   S.over=true;
+  if(GAME_CFG&&GAME_CFG.net&&typeof NET!=="undefined")NET.shutdown();   // 대전 종료 시 연결 정리
   SND.play(win?"win":"lose");
   if(win)confetti();else shake(12);
   /* 모드별 결과 화면 (2026-09-04): 스토리 = 진행 저장 + 다음 단계, 튜토리얼 = 완료 처리 */
@@ -1631,7 +1653,7 @@ function endGame(win){
     PROG.tut=1;saveProg();TUT.stop();
     detail="튜토리얼 완료! 이제 스토리 모드에 도전하세요";
     btns+=`<button onclick="closeOv();showKingdoms()">스토리 모드 ▶</button>`;
-  } else {
+  } else if(!cfg.net){
     btns+=`<button onclick="restart()">다시 시작</button>`;
   }
   btns+=`<button onclick="toLobby()" style="background:var(--panel2);">로비</button>`;
@@ -1642,9 +1664,12 @@ function endGame(win){
   document.getElementById("overlay").style.display="flex";
 }
 function closeOv(){document.getElementById("overlay").style.display="none";}
-function toggleSpeed(){gameSpeed=gameSpeed===0?1:gameSpeed===1?2:gameSpeed===2?4:1;syncPauseUI();}
+function toggleSpeed(){
+  if(typeof NET!=="undefined"&&NET.on){toast("실시간 대전 중에는 배속 변경 불가");return;}
+  gameSpeed=gameSpeed===0?1:gameSpeed===1?2:gameSpeed===2?4:1;syncPauseUI();}
 let pausedPrev=1;
 function togglePause(){
+  if(typeof NET!=="undefined"&&NET.on){toast("실시간 대전 중에는 일시 정지 불가");return;}
   if(gameSpeed===0)gameSpeed=pausedPrev||1;
   else{pausedPrev=gameSpeed;gameSpeed=0;}
   syncPauseUI();
@@ -1656,24 +1681,24 @@ function syncPauseUI(){
   const ep=document.getElementById("ed-pause");if(ep)ep.textContent=p?"▶":"⏸";
 }
 function updateHUD(){
-  const cap=elixirCap();
-  document.getElementById("elixir-fill").style.width=(S.elixir/cap*100)+"%";
-  document.getElementById("elixir-num").textContent=Math.floor(S.elixir)+"/"+cap;
-  const t=effTier("player");
-  document.getElementById("tier-label").textContent=TIER_NM[t]+(t<S.tier?" (강등)":"");
+  const cap=capFor(MYSIDE), el=elixirOf(MYSIDE);
+  document.getElementById("elixir-fill").style.width=(el/cap*100)+"%";
+  document.getElementById("elixir-num").textContent=Math.floor(el)+"/"+cap;
+  const t=effTier(MYSIDE);
+  document.getElementById("tier-label").textContent=TIER_NM[t]+(t<myTier()?" (강등)":"");
   const m=Math.floor(S.elapsed/60),s=Math.floor(S.elapsed%60);
   document.getElementById("time-label").textContent=m+":"+String(s).padStart(2,"0");
   refreshBubble();
   /* 패널 dim 갱신 */
-  document.querySelectorAll("#panel .p-item").forEach((el,i)=>{
-    if(el.classList.contains("locked"))return;
-    if(S.mode==="build")el.classList.toggle("dim",effElixir("player")<BAL.BUILDINGS[PANEL_BUILDS[i]].cost);
-    else el.classList.toggle("dim",S.stars<Math.max(1,BAL.HERO_COST));
+  document.querySelectorAll("#panel .p-item").forEach((el2,i)=>{
+    if(el2.classList.contains("locked"))return;
+    if(S.mode==="build")el2.classList.toggle("dim",effElixir(MYSIDE)<BAL.BUILDINGS[PANEL_BUILDS[i]].cost);
+    else el2.classList.toggle("dim",starsOf(MYSIDE)<Math.max(1,BAL.HERO_COST));
   });
   /* 엘릭서 스타 칩 (표시 전용 — 자동 사용) */
   const sc=document.getElementById("star-chip");
-  sc.textContent="★"+S.stars;
-  sc.style.opacity=S.stars>0?"1":"0.45";
+  sc.textContent="★"+starsOf(MYSIDE);
+  sc.style.opacity=starsOf(MYSIDE)>0?"1":"0.45";
 }
 
 /* ============================================================ 렌더링 (치비 스타일 — v1 계승) ============================================================ */
@@ -2649,7 +2674,7 @@ function draw(){
   /* 드래그 중: 영역 표시 */
   if(S.sel){
     for(let ty=0;ty<ROWS;ty++)for(let tx=0;tx<COLS;tx++){
-      const fz=inFriendlyZone(tx,ty,"player"), ex=inEnemyExclusion(tx,ty,"player");
+      const fz=inFriendlyZone(tx,ty,MYSIDE), ex=inEnemyExclusion(tx,ty,MYSIDE);
       if(S.sel.type==="build"){
         if(fz&&!ex){ctx.fillStyle="rgba(120,200,255,.13)";ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);}
         if(ex&&fz){ctx.fillStyle="rgba(255,80,80,.14)";ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);}
@@ -2677,7 +2702,7 @@ function draw(){
       roundRectPath(px+2,py+2,pw-4,ph-4,6);ctx.fill();}
     if(b.hp<b.maxHp)drawHpBar(b.cx,py-8,b.hp,b.maxHp,Math.min(50,pw-8),b.side);
     /* 행동 가능 뱃지 (맥동): ↑ = 레벨업/승급 가능, ➔ = 변형 가능 */
-    if(b.side==="player"&&!S.over){
+    if(b.side===MYSIDE&&!S.over){
       const up=b.key==="hall"?canTierUpP():canUpgradeB(b);
       const tf=canTransformB(b);
       if(up||tf){
@@ -2779,9 +2804,9 @@ function draw(){
     if(S.sel.type==="build"){
       const d=BAL.BUILDINGS[S.sel.key];
       const tx=Math.round(S.mouse.x/TILE-d.w/2),ty=Math.round(S.mouse.y/TILE-d.h/2);
-      const bad=buildBlockReason(S.sel.key,tx,ty,"player");
+      const bad=buildBlockReason(S.sel.key,tx,ty,MYSIDE);
       ctx.globalAlpha=0.65;
-      drawBuildingSprite(S.sel.key,1,tx*TILE,ty*TILE,d.w*TILE,d.h*TILE,"player",1);
+      drawBuildingSprite(S.sel.key,1,tx*TILE,ty*TILE,d.w*TILE,d.h*TILE,MYSIDE,1);
       ctx.globalAlpha=1;
       ctx.fillStyle=bad?"rgba(255,60,60,.3)":"rgba(120,255,140,.22)";
       ctx.fillRect(tx*TILE,ty*TILE,d.w*TILE,d.h*TILE);
@@ -2838,6 +2863,7 @@ function buildIcons(){
 function bGet(p){return p.split(".").reduce((o,k)=>o&&o[k],BAL);}
 function bSet(p,v){const ks=p.split("."),last=ks.pop();const o=ks.reduce((o,k)=>o[k],BAL);o[last]=v;}
 function toggleEditor(){
+  if(typeof NET!=="undefined"&&NET.on){toast("실시간 대전 중에는 에디터 사용 불가 (동기화 붕괴 방지)");return;}
   const e=document.getElementById("editor");
   if(e.style.display==="block"){e.style.display="none";}
   else{buildEditorUI();e.style.display="block";}
@@ -3064,6 +3090,7 @@ function syncLobby(){
 }
 function toLobby(){
   closeOv(); TUT.stop(); gameSpeed=0;
+  if(typeof NET!=="undefined")NET.shutdown();   // 대전 중 이탈 = 연결 종료 (상대에게 통보)
   if(pvpTimer){clearInterval(pvpTimer);pvpTimer=null;}
   hideStrip();
   showScr("lobby"); syncLobby();
@@ -3107,6 +3134,7 @@ function startGame(cfg){
   if(cfg.mode==="practice")diffKey=cfg.diff||store.getItem("rs2_diff")||"normal";
   else if(cfg.diff)diffKey=cfg.diff;
   /* 결정론 초기화: 시드 고정 + 커맨드 로그 리셋 (리플레이면 저장된 시드·커맨드 재생) */
+  MYSIDE=cfg.mySide||"player";
   simSeed=cfg.seed!==undefined?cfg.seed:(((Math.random()*1e9)|0)||1);
   RNG=mulberry(simSeed);
   simTick=0; simAcc=0;
@@ -3133,24 +3161,98 @@ function startStory(ki,i){
   startGame({mode:"story",diff:st.diff,map:K.map,story:{ki,i},layout:lay,
     allowB:allow?new Set(allow):null,allowH,tip:st.nm+(lay?" · "+lay.nm:"")+" — "+st.d});
 }
-/* --- 대전 매칭 (프로토타입: 온라인 서버 미구현 — 대기 후 스파링 AI 연결) --- */
-let pvpTimer=null;
+/* --- 대전 (1단계, 2026-09-07): 릴레이 서버 실매칭 + 결정론 락스텝. 스파링(AI)은 보조 --- */
+let pvpTimer=null;   // (구 타이머 — 미사용, 호환 유지)
+function pvpStatus(msg,spin){
+  const el=document.getElementById("pvp-status"); if(el)el.textContent=msg;
+  const sp=document.getElementById("pvp-spin"); if(sp)sp.style.display=spin?"block":"none";
+}
 function showPvp(){
   showScr("pvp-scr");
-  const el=document.getElementById("pvp-status");
-  el.textContent="상대를 찾는 중...";
-  const t0=Date.now(), wait=6000+Math.random()*5000;
-  if(pvpTimer)clearInterval(pvpTimer);
-  pvpTimer=setInterval(()=>{
-    if(Date.now()-t0>=wait){
-      clearInterval(pvpTimer);pvpTimer=null;
-      el.textContent="상대 발견! 스파링 상대와 연결합니다";
-      SND.play("star");
-      setTimeout(()=>startGame({mode:"pvp",diff:"hard",map:"plain",tip:"⚔ 대전 (스파링 상대) — 본진을 파괴하세요"}),900);
-    } else el.textContent="상대를 찾는 중... "+Math.floor((Date.now()-t0)/1000)+"초";
-  },500);
+  pvpStatus("대전 방식을 선택하세요",false);
+  const inp=document.getElementById("pvp-url");
+  if(inp&&!inp.value)inp.value=store.getItem("rs2_ws")||"ws://localhost:8787";
 }
-function cancelPvp(){if(pvpTimer){clearInterval(pvpTimer);pvpTimer=null;}showScr("lobby");}
+function pvpSparring(){
+  startGame({mode:"pvp",diff:"hard",map:"plain",tip:"⚔ 스파링 (AI 상대) — 본진을 파괴하세요"});
+}
+function pvpConnect(){
+  const u=(document.getElementById("pvp-url").value||"").trim();
+  if(!u){pvpStatus("서버 주소를 입력하세요",false);return;}
+  store.setItem("rs2_ws",u);
+  NET.connectAndQueue(u);
+}
+function cancelPvp(){NET.shutdown();showScr("lobby");}
+/* ---------- NET: 릴레이 락스텝 (1단계) ----------
+   라운드 = 3틱(10Hz). 라운드 R에 발행한 커맨드는 양쪽 모두 라운드 R+2의 첫 틱에 실행 (~200ms 지연).
+   다음 라운드로 넘어가려면 상대의 (R-2) 라운드 패킷 수신이 필요 — 어긋남 없는 완전 동기. */
+const NET=(()=>{
+  const ROUND=3, DELAY=2;
+  let ws=null, on=false, roundCmds=[], oppRounds={}, sentRound=-1;
+  function connectAndQueue(url){
+    shutdown();
+    let sock;
+    try{sock=new WebSocket(url);}catch(e){pvpStatus("주소 형식 오류 (ws:// 또는 wss://)",false);return;}
+    ws=sock;
+    pvpStatus("서버 연결 중...",true);
+    ws.onopen=()=>{ws.send(JSON.stringify({type:"queue"}));pvpStatus("상대를 찾는 중...",true);};
+    ws.onerror=()=>pvpStatus("연결 실패 — 서버 주소·상태를 확인하세요",false);
+    ws.onclose=()=>{if(on)netEnd("연결이 끊어졌습니다",null);};
+    ws.onmessage=ev=>{
+      let d; try{d=JSON.parse(ev.data);}catch(e){return;}
+      if(d.type==="waiting")pvpStatus("상대 대기 중... 창을 유지하세요",true);
+      else if(d.type==="start")startNet(d);
+      else if(d.type==="round"){
+        if(oppRounds[d.r]===undefined){
+          oppRounds[d.r]=true;
+          (d.cmds||[]).forEach(c=>{c.tick=(d.r+DELAY)*ROUND+1;PENDING.push(c);CMD_LOG.push(c);});
+        }
+      }
+      else if(d.type==="peer_left")netEnd("상대가 떠났습니다",true);
+    };
+  }
+  function startNet(d){
+    on=true; roundCmds=[]; oppRounds={}; sentRound=-1;
+    startGame({mode:"pvp",net:true,seed:d.seed,map:"plain",
+      mySide:d.side==="host"?"player":"enemy",
+      tip:"⚔ 실시간 대전 — 당신은 "+(d.side==="host"?"아래(파랑)":"위(빨강)")+" 진영입니다"});
+    gameSpeed=1; syncPauseUI();
+    SND.play("hero");
+  }
+  /* 커맨드 발행: (현재 라운드+DELAY) 라운드 첫 틱에 실행 예약 + 이번 라운드 패킷에 적재 */
+  function issue(cmd){
+    const r=Math.floor(simTick/ROUND);
+    cmd.tick=(r+DELAY)*ROUND+1;
+    PENDING.push(cmd); CMD_LOG.push(cmd); roundCmds.push(cmd);
+  }
+  /* 락스텝 게이트: 다음 틱이 속한 라운드 R 진행에는 상대 라운드 (R-DELAY) 필요 */
+  function canStep(){
+    const r=Math.floor(simTick/ROUND);   // 다음 틱 simTick+1 의 라운드 = floor(simTick/ROUND)
+    if(r<DELAY)return true;
+    return oppRounds[r-DELAY]!==undefined;
+  }
+  /* 틱 완료 후: 라운드 경계면 내 커맨드 발송 */
+  function afterTick(){
+    if(simTick%ROUND!==0)return;
+    const r=simTick/ROUND-1;
+    if(r<=sentRound)return;
+    sentRound=r;
+    if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"round",r,cmds:roundCmds}));
+    roundCmds=[];
+  }
+  function netEnd(msg,iWin){
+    const wasOn=on; on=false;
+    toast(msg);
+    if(wasOn&&S&&!S.over&&iWin!==null)endGame(!!iWin);
+    shutdown();
+  }
+  function shutdown(){
+    on=false;
+    if(ws){try{ws.onclose=null;ws.close();}catch(e){} ws=null;}
+    roundCmds=[]; oppRounds={}; sentRound=-1;
+  }
+  return {connectAndQueue,issue,canStep,afterTick,shutdown,get on(){return on;}};
+})();
 /* --- 튜토리얼: 목표 스크립트 --- */
 const TUT=(()=>{
   let active=false, idx=0, bonusGiven=false;
