@@ -374,13 +374,12 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
   clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
 
 /* ---------- 맵 ---------- */
-/* 지형 요소 (2026-09-07): 강 = 건설·배치 불가 + 지상 이속 50% / 숲 = 건설 불가 + 이속 75% /
-   바위·성벽 = 건설·배치 불가. 유닛 이동은 직선(경로 탐색 없음)이라 지형은 통행을 막지 않고
-   건설·배치·이속에만 관여한다. 길이 지형 위를 지나면 그 구간은 다리/통로 (지형 해제) */
-const TERR={river:{build:false,deploy:false,spd:0.5},
-            forest:{build:false,deploy:true,spd:0.75},
-            rock:{build:false,deploy:false,spd:1},
-            wall:{build:false,deploy:false,spd:1}};
+/* 지형 요소 (2026-09-07): 강·성벽·바위 = 건설·배치 불가 + **지상 이동 불가** (강 도하는 다리로만, 공중은 전부 통과) /
+   숲 = 건설 불가 + 이속 75%. 길이 지형 위를 지나면 그 구간은 다리/통로 (지형 해제) */
+const TERR={river:{build:false,deploy:false,spd:1,pass:false},
+            forest:{build:false,deploy:true,spd:0.75,pass:true},
+            rock:{build:false,deploy:false,spd:1,pass:false},
+            wall:{build:false,deploy:false,spd:1,pass:false}};
 function makeTiles(){
   const tiles=[];
   for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false,road:false,terr:null};}
@@ -408,6 +407,74 @@ function terrSpd(u){
   const tx=Math.floor(u.x/TILE),ty=Math.floor(u.y/TILE);
   const t=S.tiles[ty]&&S.tiles[ty][tx];
   return (t&&t.terr)?(TERR[t.terr].spd||1):1;
+}
+/* ---------- 지상 경로 탐색 (2026-09-07): 강·성벽 이동 불가화 ----------
+   직선이 뚫려 있으면 그대로 직진(기존 동작), 막혀 있을 때만 A*로 우회.
+   격자 19×24라 비용이 작고, 경로는 유닛별 캐시 + 1.2초 주기 재계산 */
+function passableTile(tx,ty){
+  if(tx<0||ty<0||tx>=COLS||ty>=ROWS)return false;
+  const tr=S.tiles[ty][tx].terr;
+  return !(tr&&TERR[tr].pass===false);
+}
+function lineClear(x0,y0,x1,y1){
+  const d=Math.hypot(x1-x0,y1-y0), n=Math.max(1,Math.ceil(d/(TILE*0.25)));
+  for(let i=1;i<=n;i++){
+    const x=x0+(x1-x0)*i/n, y=y0+(y1-y0)*i/n;
+    if(!passableTile(Math.floor(x/TILE),Math.floor(y/TILE)))return false;
+  }
+  return true;
+}
+function findPath(sx,sy,gx,gy){
+  if(!passableTile(gx,gy)){   // 목표 타일이 막혀 있으면 인접 통행 타일로 보정
+    let best=null,bd=1e9;
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+      const nx=gx+dx,ny=gy+dy;
+      if(passableTile(nx,ny)){const dd=dx*dx+dy*dy;if(dd<bd){bd=dd;best=[nx,ny];}}}
+    if(!best)return null; gx=best[0];gy=best[1];
+  }
+  const key=(x,y)=>y*COLS+x;
+  const open=[{x:sx,y:sy,g:0,f:0}], came={}, gs={}; gs[key(sx,sy)]=0;
+  const closed=new Set();
+  while(open.length){
+    let bi=0;for(let i=1;i<open.length;i++)if(open[i].f<open[bi].f)bi=i;
+    const cur=open.splice(bi,1)[0], ck=key(cur.x,cur.y);
+    if(closed.has(ck))continue; closed.add(ck);
+    if(cur.x===gx&&cur.y===gy){
+      const path=[]; let k=ck;
+      while(came[k]!==undefined){const x=k%COLS,y=(k-x)/COLS;path.push({x:x*TILE+TILE/2,y:y*TILE+TILE/2});k=came[k];}
+      path.reverse(); return path;
+    }
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;
+      const nx=cur.x+dx,ny=cur.y+dy;
+      if(!passableTile(nx,ny))continue;
+      if(dx&&dy&&(!passableTile(cur.x+dx,cur.y)||!passableTile(cur.x,cur.y+dy)))continue;   // 코너 컷 방지
+      const ng=cur.g+(dx&&dy?1.414:1), nk=key(nx,ny);
+      if(gs[nk]!==undefined&&gs[nk]<=ng)continue;
+      gs[nk]=ng; came[nk]=ck;
+      open.push({x:nx,y:ny,g:ng,f:ng+Math.hypot(nx-gx,ny-gy)});
+    }
+    if(closed.size>COLS*ROWS)break;
+  }
+  return null;
+}
+/* 지상 유닛 스마트 이동: 직선 우선, 막히면 경로 따라 우회 (공중은 항상 직진) */
+function moveSmart(u,tx,ty,step,dt){
+  if(u.air||lineClear(u.x,u.y,tx,ty)){u.path=null;moveToward(u,tx,ty,step);return;}
+  const gx=Math.max(0,Math.min(COLS-1,Math.floor(tx/TILE)));
+  const gy=Math.max(0,Math.min(ROWS-1,Math.floor(ty/TILE)));
+  u.pathT=(u.pathT||0)-dt;
+  const goalMoved=!u.pathGoal||Math.abs(u.pathGoal.x-gx)+Math.abs(u.pathGoal.y-gy)>1;
+  if(!u.path||!u.path.length||goalMoved||u.pathT<=0){
+    u.path=findPath(Math.floor(u.x/TILE),Math.floor(u.y/TILE),gx,gy);
+    u.pathGoal={x:gx,y:gy}; u.pathT=1.2;
+  }
+  if(!u.path||!u.path.length){moveToward(u,tx,ty,step);return;}   // 경로 없음 — 최후 직진 (기존 동작)
+  while(u.path.length>1&&lineClear(u.x,u.y,u.path[1].x,u.path[1].y))u.path.shift();   // 지름길 당기기
+  if(u.path.length&&Math.hypot(u.path[0].x-u.x,u.path[0].y-u.y)<8)u.path.shift();
+  const wp=u.path.length?u.path[0]:{x:tx,y:ty};
+  setFacing(u,wp.x-u.x,wp.y-u.y);   // 우회 중에는 이동 방향을 바라본다
+  moveToward(u,wp.x,wp.y,step);
 }
 
 /* ---------- 사운드 (Web Audio 절차 합성 — 외부 파일 없음, 2026-09-04) ----------
@@ -762,7 +829,7 @@ function unitUpdate(u,dt){
       const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
-      if(d>u.aoe.castRng*TILE*0.8){moveToward(u,tx,ty,u.spd*dt*terrSpd(u));u.moving=true;}}
+      if(d>u.aoe.castRng*TILE*0.8){moveSmart(u,tx,ty,u.spd*dt*terrSpd(u),dt);u.moving=true;}}
     return;
   }
   const tgt=nearestTarget(u);
@@ -788,7 +855,7 @@ function unitUpdate(u,dt){
     }
     return;
   }
-  moveToward(u,tx,ty,u.spd*dt*terrSpd(u)); u.moving=true;
+  moveSmart(u,tx,ty,u.spd*dt*terrSpd(u),dt); u.moving=true;
 }
 function moveToward(u,tx,ty,step){const d=Math.hypot(tx-u.x,ty-u.y);if(d<1)return;
   u.x+=(tx-u.x)/d*step;u.y+=(ty-u.y)/d*step;
