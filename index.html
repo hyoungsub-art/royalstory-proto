@@ -614,7 +614,10 @@ function newGame(){
   renderPanel(); updateHUD(); hideStrip();
   document.getElementById("overlay").style.display="none";
 }
-function restart(){ if(GAME_CFG)startGame(GAME_CFG); else newGame(); }
+function restart(){
+  if(typeof NET!=="undefined"&&NET.on){toast("실시간 대전 중에는 재시작할 수 없습니다");return;}
+  if(GAME_CFG)startGame(GAME_CFG); else newGame();
+}
 function addBuilding(key,side,tx,ty){
   const d=BAL.BUILDINGS[key];
   const bhp=d.hp;   // 건물 HP는 양측 동일
@@ -3089,6 +3092,10 @@ function syncLobby(){
   document.getElementById("lb-story").textContent=`왕국을 골라 거점을 1단계부터 공략합니다 (초원 ${progOf(0)}/8 · 협곡 ${progOf(1)}/5)`;
 }
 function toLobby(){
+  /* 실시간 대전 중 이탈 = 항복 — 실수 방지 확인 (2026-09-07) */
+  if(typeof NET!=="undefined"&&NET.on&&S&&!S.over){
+    if(!confirm("실시간 대전을 포기하고 나갈까요? (상대의 승리로 처리됩니다)"))return;
+  }
   closeOv(); TUT.stop(); gameSpeed=0;
   if(typeof NET!=="undefined")NET.shutdown();   // 대전 중 이탈 = 연결 종료 (상대에게 통보)
   if(pvpTimer){clearInterval(pvpTimer);pvpTimer=null;}
