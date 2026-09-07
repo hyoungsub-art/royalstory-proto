@@ -1565,13 +1565,13 @@ function loop(ts){
   const raw=Math.min(0.1,(ts-lastTs)/1000);
   lastTs=ts;
   if(!S.over){
-    simAcc+=raw*gameSpeed;
-    if(simAcc>SIM_TICK*8)simAcc=SIM_TICK*8;   // 프레임 스파이크 캡 (탭 복귀 등)
-    while(simAcc>=SIM_TICK&&!S.over){
-      if(typeof NET!=="undefined"&&NET.on&&!NET.canStep())break;   // 락스텝: 상대 라운드 대기
-      stepSim(SIM_TICK);
-      if(typeof NET!=="undefined"&&NET.on)NET.afterTick();
-      simAcc-=SIM_TICK;
+    if(typeof NET!=="undefined"&&NET.on){
+      /* 넷 모드: 절대 시간 기준 펌프 (rAF·타이머·ws 이벤트 어디서 불려도 이중 진행 없음) */
+      NET.pump();
+    } else {
+      simAcc+=raw*gameSpeed;
+      if(simAcc>SIM_TICK*8)simAcc=SIM_TICK*8;   // 프레임 스파이크 캡 (탭 복귀 등)
+      while(simAcc>=SIM_TICK&&!S.over){stepSim(SIM_TICK);simAcc-=SIM_TICK;}
     }
     updateHUD();
   }
@@ -3195,6 +3195,7 @@ function cancelPvp(){NET.shutdown();showScr("lobby");}
 const NET=(()=>{
   const ROUND=3, DELAY=2;
   let ws=null, on=false, roundCmds=[], oppRounds={}, sentRound=-1;
+  let netT0=0, pumpTimer=null;   // 절대 시간 페이싱 + 백그라운드 탭용 타이머 펌프
   function connectAndQueue(url){
     shutdown();
     let sock;
@@ -3213,6 +3214,7 @@ const NET=(()=>{
           oppRounds[d.r]=true;
           (d.cmds||[]).forEach(c=>{c.tick=(d.r+DELAY)*ROUND+1;PENDING.push(c);CMD_LOG.push(c);});
         }
+        pump();   // 백그라운드 탭(rAF 정지)도 상대 라운드 수신으로 전진 — 크롬 탭 스로틀 대응 (2026-09-07)
       }
       else if(d.type==="peer_left")netEnd("상대가 떠났습니다",true);
     };
@@ -3223,7 +3225,20 @@ const NET=(()=>{
       mySide:d.side==="host"?"player":"enemy",
       tip:"⚔ 실시간 대전 — 당신은 "+(d.side==="host"?"아래(파랑)":"위(빨강)")+" 진영입니다"});
     gameSpeed=1; syncPauseUI();
+    netT0=performance.now();
+    if(pumpTimer)clearInterval(pumpTimer);
+    pumpTimer=setInterval(pump,250);   // 백그라운드 탭 폴백 (숨김 탭에서도 ≥1Hz 동작)
     SND.play("hero");
+  }
+  /* 절대 시간 페이싱: 시작 후 경과 실시간까지만, 락스텝 게이트가 허용하는 만큼 전진.
+     rAF 루프·타이머·ws 이벤트 어디서 호출돼도 목표 틱은 하나라 이중 진행이 없다. */
+  function pump(){
+    if(!on||!S||S.over)return;
+    const target=Math.floor((performance.now()-netT0)/(SIM_TICK*1000));
+    let guard=0;
+    while(simTick<target&&canStep()&&!S.over&&guard++<150){
+      stepSim(SIM_TICK); afterTick();
+    }
   }
   /* 커맨드 발행: (현재 라운드+DELAY) 라운드 첫 틱에 실행 예약 + 이번 라운드 패킷에 적재 */
   function issue(cmd){
@@ -3254,10 +3269,11 @@ const NET=(()=>{
   }
   function shutdown(){
     on=false;
+    if(pumpTimer){clearInterval(pumpTimer);pumpTimer=null;}
     if(ws){try{ws.onclose=null;ws.close();}catch(e){} ws=null;}
     roundCmds=[]; oppRounds={}; sentRound=-1;
   }
-  return {connectAndQueue,issue,canStep,afterTick,shutdown,get on(){return on;}};
+  return {connectAndQueue,issue,canStep,afterTick,pump,shutdown,get on(){return on;}};
 })();
 /* --- 튜토리얼: 목표 스크립트 --- */
 const TUT=(()=>{
