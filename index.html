@@ -3211,9 +3211,10 @@ function pvpStatus(msg,spin){
 function showPvp(){
   showScr("pvp-scr");
   const inp=document.getElementById("pvp-url");
-  /* 기본 릴레이 주소 = 페이지를 서빙한 호스트 (인트라망: 서버 PC IP를 자동으로 따라감, 2026-09-07) */
+  /* 우선순위: URL ?relay= (링크 공유용) > 저장값 > 페이지 호스트 기반 기본값 */
+  let qRelay=null; try{qRelay=new URLSearchParams(location.search).get("relay");}catch(e){}
   const defRelay=(location.protocol==="http:"&&location.hostname)?("ws://"+location.hostname+":8787"):"ws://localhost:8787";
-  if(inp&&!inp.value)inp.value=store.getItem("rs2_ws")||defRelay;
+  if(inp&&(!inp.value||qRelay))inp.value=qRelay||store.getItem("rs2_ws")||defRelay;
   /* 접속 환경 안내: 아티팩트/https 페이지는 WebSocket 제약이 있다 (2026-09-07) */
   const isLocal=/^(localhost|127\.)/.test(location.hostname)||location.protocol==="file:";
   if(location.hostname.includes("claude"))
