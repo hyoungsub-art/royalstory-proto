@@ -263,10 +263,10 @@ const BAL={
     승급·업그레이드 비용은 해당 시점 상한 이하 유지 */
  /* 2026-09-07 경제 개편: 승급·변형 = 엘릭서 스타(★), 레벨업 = 엘릭서.
     - tierStars: 킵 ★1 / 캐슬 ★2
-    - transformStars[건설 티어]: 원본·사전조건 건물이 1티어(스트롱홀드) 계열이면 ★1, 2티어(킵) 계열이면 ★2 (2026-09-08 — 캐슬 건설 건물이 없어 ★3 미발생)
+    - transformStar: 건물 변형 비용 일괄 ★1 (2026-09-08 확정 — 승급 비용과 별개)
     - upPerLevel[건물 등급]: 레벨당 엘릭서 — 1티어 건설 건물 4 / 킵 건물 8 / 변형 획득 건물 12 */
  ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5,
-       tierStars:[0,0,1,2], transformStars:[0,1,2,3], upPerLevel:[0,4,8,12]},
+       tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
  EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -307,8 +307,8 @@ const BAL={
   archer:       {nm:"아처",        hp:310,  dmg:55,  hs:1.3, rng:3.2, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리 (공·방 절반, 사거리 하향)
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.6, r:15, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 철갑 기병 — 말 탑승, 기병보다 큼 (r 13→15)
-  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.4, r:17, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 — 나이트보다 큼 (r 13→17)
-  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:620, hs:3.0, rng:4.0, spd:0.3, r:18, cat:"gp", bldgOnly:true},              // 건물만 공격 — 공성류 최대 (r 13→18)
+  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.4, r:20, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 — 나이트보다 확실히 큼 (r 17→20)
+  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:620, hs:3.0, rng:4.0, spd:0.3, r:21, cat:"gp", bldgOnly:true},              // 건물만 공격 — 공성류 최대, 드래곤(22) 직전 (r 18→21)
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
   dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:22, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 — 유닛 중 최대급 (r 18→22)
   golem:        {nm:"골렘",        hp:3000, dmg:300, hs:1.8, rng:0.9, spd:0.55, r:22, cat:"gp", melee:true},   // 최상위 지상 물리 탱커 — 유닛 중 최대급 (r 18→22)
@@ -776,8 +776,9 @@ function transformReqTier(fromKey,toKey){
   return Math.max(1,Math.min(2,t));
 }
 function transformStarsFor(fromKey,toKey){
-  const a=BAL.ECON.transformStars, r=transformReqTier(fromKey,toKey);
-  return a[Math.min(r,a.length-1)]||r;
+  /* 2026-09-08 확정: 변형 비용 일괄 ★1 (transformStar). 티어별 차등은 폐지 — transformReqTier는 참고용으로 유지 */
+  const v=BAL.ECON.transformStar;
+  return (v!==undefined&&v!==null)?v:1;
 }
 
 /* ---------- 유닛/영웅 ---------- */
@@ -3137,7 +3138,7 @@ function buildEditorUI(){
     [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
      ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
      ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierStars.2","킵 승급 (★)"],["ECON.tierStars.3","캐슬 승급 (★)"],
-     ["ECON.transformStars.1","변형 1티어 (★)"],["ECON.transformStars.2","변형 킵 (★)"],["ECON.transformStars.3","변형 캐슬 (★)"],
+     ["ECON.transformStar","건물 변형 비용 (★, 일괄)"],
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
