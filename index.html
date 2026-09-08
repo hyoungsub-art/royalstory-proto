@@ -303,28 +303,28 @@ const BAL={
  UNITS:{
   footman:      {nm:"풋맨",        hp:883,  dmg:101, hs:1.2, rng:0.8, spd:1.0, r:10, cat:"gp", melee:true},   // 2026-08-30 공·방 절반
   shieldman:    {nm:"쉴드맨",      hp:1600, dmg:90,  hs:1.4, rng:0.8, spd:0.9, r:11, cat:"gp", melee:true, rangedResist:0.6},   // 원거리 물리 피해 60% 경감 (쉴드 배럭)
-  cavalry:      {nm:"돌격 기병",   hp:1200, dmg:220, hs:1.3, rng:0.9, spd:1.9, r:12, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 창 관통: 근접 유닛에 +50% / 원거리에 취약 +50%
+  cavalry:      {nm:"돌격 기병",   hp:1200, dmg:220, hs:1.3, rng:0.9, spd:1.9, r:14, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 창 관통 — 말 탑승, 풋맨보다 큼 (r 12→14)
   archer:       {nm:"아처",        hp:310,  dmg:55,  hs:1.3, rng:3.2, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리 (공·방 절반, 사거리 하향)
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
-  knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.6, r:13, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 철갑 기병 — 창 관통 +50% / 원거리 취약 +50%
-  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.4, r:13, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 (워크숍) — 초저속
-  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:620, hs:3.0, rng:4.0, spd:0.3, r:13, cat:"gp", bldgOnly:true},              // 건물만 공격 (시즈 워크숍) — 공격 타워(5~6)에 아웃레인지당함
+  knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.6, r:15, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 철갑 기병 — 말 탑승, 기병보다 큼 (r 13→15)
+  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.4, r:17, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 — 나이트보다 큼 (r 13→17)
+  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:620, hs:3.0, rng:4.0, spd:0.3, r:18, cat:"gp", bldgOnly:true},              // 건물만 공격 — 공성류 최대 (r 13→18)
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
-  dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:18, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 (드래곤 네스트) — 대형 (r 14→18)
-  golem:        {nm:"골렘",        hp:3000, dmg:300, hs:1.8, rng:0.9, spd:0.55, r:18, cat:"gp", melee:true},   // 최상위 지상 물리 탱커 (골렘 요람) — 대형·저속
+  dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:22, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 — 유닛 중 최대급 (r 18→22)
+  golem:        {nm:"골렘",        hp:3000, dmg:300, hs:1.8, rng:0.9, spd:0.55, r:22, cat:"gp", melee:true},   // 최상위 지상 물리 탱커 — 유닛 중 최대급 (r 18→22)
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
  /* 영웅: 소환 비용 = 엘릭서 스타. 스탯은 최상위 유닛(드래곤 2400/320)보다 상위 (2026-09-04 상향) */
  HEROES:{
-  archmage:    {nm:"아크메이지",   hp:2600, dmg:380, hs:1.4, rng:4.0, spd:1.0, r:14, antiair:true,
+  archmage:    {nm:"아크메이지",   hp:2600, dmg:380, hs:1.4, rng:4.0, spd:1.0, r:25, antiair:true,
                 aura:{label:"지상 원거리 강화", test:"groundRanged"}},
-  mountainKing:{nm:"마운틴 킹",    hp:4200, dmg:520, hs:1.4, rng:0.9, spd:1.1, r:14, melee:true,
+  mountainKing:{nm:"마운틴 킹",    hp:4200, dmg:520, hs:1.4, rng:0.9, spd:1.1, r:25, melee:true,
                 aura:{label:"지상 근접 물리 강화", test:"groundMeleePhys"}},
-  paladin:     {nm:"팔라딘",       hp:3800, dmg:300, hs:1.3, rng:0.9, spd:1.0, r:14, melee:true,
+  paladin:     {nm:"팔라딘",       hp:3800, dmg:300, hs:1.3, rng:0.9, spd:1.0, r:25, melee:true,
                 heal:50},
-  bloodMage:   {nm:"블러드 메이지",hp:2800, dmg:0,   hs:1,   rng:0,   spd:1.0, r:14,
+  bloodMage:   {nm:"블러드 메이지",hp:2800, dmg:0,   hs:1,   rng:0,   spd:1.0, r:25,
                 aoe:{dmg:450, rad:1.8, period:3, castRng:5}},
-  skyMage:     {nm:"스카이 메이지",hp:2500, dmg:360, hs:1.3, rng:4.0, spd:1.0, r:14, antiair:true,
+  skyMage:     {nm:"스카이 메이지",hp:2500, dmg:360, hs:1.3, rng:4.0, spd:1.0, r:25, antiair:true,
                 aura:{label:"마법 유닛 강화", test:"magic"}},
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
@@ -2094,10 +2094,180 @@ const SPRU={footman:sprKnight,shieldman:sprShieldman,cavalry:sprCavalry,archer:s
   rifleman:sprMusket,knight:sprArmoredKnight,
   ram:sprRam,siegeTank:sprSiegeTank,
   mage:(r,t,s,u)=>sprMage(r,t,s,u),dragon:sprDragon,golem:sprGolem};   // 마법사 로브 = 진영색
-const SPRH={archmage:(r,t,s,u)=>sprMage(r,t,s,u,"#e8e8f5","#b8c4e8"),
-  mountainKing:sprValk, paladin:sprKnight,
-  bloodMage:(r,t,s,u)=>sprMage(r,t,s,u,"#c03030","#8a1f1f"),
-  skyMage:(r,t,s,u)=>sprMage(r,t,s,u,"#3a9ad9","#2a6fa8")};
+/* ---------- 영웅 전용 스프라이트 (2026-09-08): 유닛보다 크고 캐릭터성·디테일 강화 ----------
+   규칙: 원점 중심, 머리 위(-y)·발 아래(+y), 반지름 r. 진영 식별은 발밑 링·★·오라로 처리되므로
+   영웅은 고유 색을 유지한다. sw>0 이면 공격 스윙. */
+function heroGlow(r,col){
+  const g=ctx.createRadialGradient(0,-r*0.15,r*0.15,0,-r*0.15,r*1.6);
+  g.addColorStop(0,col);g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,-r*0.15,r*1.6,0,7);ctx.fill();
+}
+function heroCape(r,col){
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(-r*0.5,-r*0.15);
+  ctx.quadraticCurveTo(-r*1.0,r*0.55,-r*0.62,r*1.18);
+  ctx.quadraticCurveTo(0,r*0.95,r*0.62,r*1.18);
+  ctx.quadraticCurveTo(r*1.0,r*0.55,r*0.5,-r*0.15);ctx.closePath();ctx.fill();po(Math.max(1,r*0.1));
+}
+/* 아크메이지 — 원소 마법사: 긴 수염 + 별 달린 뾰족 모자 + 수정구 지팡이 */
+function sprArchmage(r,team,sw,u){
+  const lw=Math.max(1,r*0.11), robe="#e9ecf7", trim="#8fb0ff", skin="#f6cfa2";
+  heroGlow(r,"rgba(150,190,255,.35)");
+  heroCape(r,"#3a58b0");
+  /* 로브 몸체 (아래로 퍼지는 형태) */
+  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(0,r*1.06,r*0.5,r*0.14,0,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=robe;ctx.beginPath();ctx.moveTo(-r*0.42,-r*0.1);ctx.lineTo(r*0.42,-r*0.1);
+  ctx.lineTo(r*0.66,r*1.0);ctx.lineTo(-r*0.66,r*1.0);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle=trim;ctx.fillRect(-r*0.66,r*0.82,r*1.32,r*0.14);   // 밑단 금테
+  /* 지팡이 + 수정구 (오른손) */
+  ctx.save();ctx.translate(r*0.6,r*0.35);ctx.rotate(-0.25+(sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*0.7:0));
+  ctx.fillStyle="#7a5a30";roundRectPath(-r*0.06,-r*1.5,r*0.12,r*1.7,r*0.05);ctx.fill();po(lw);
+  const orbC=sw>0.14?"#fff6c0":"#9fd0ff";
+  ctx.fillStyle="rgba(140,200,255,.5)";ctx.beginPath();ctx.arc(0,-r*1.6,r*0.34,0,7);ctx.fill();
+  ctx.fillStyle=orbC;ctx.beginPath();ctx.arc(0,-r*1.6,r*0.2,0,7);ctx.fill();po(lw*0.8);
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-r*0.06,-r*1.66,r*0.07,0,7);ctx.fill();
+  ctx.restore();
+  /* 머리 */
+  ctx.fillStyle=skin;ctx.beginPath();ctx.arc(0,-r*0.34,r*0.44,0,7);ctx.fill();po(lw);
+  chibiEyes(r,-r*0.34,r*0.17);
+  /* 긴 수염 */
+  ctx.fillStyle="#f2f2f2";ctx.beginPath();ctx.moveTo(-r*0.3,-r*0.24);
+  ctx.quadraticCurveTo(-r*0.18,r*0.5,0,r*0.62);ctx.quadraticCurveTo(r*0.18,r*0.5,r*0.3,-r*0.24);
+  ctx.quadraticCurveTo(0,-r*0.05,-r*0.3,-r*0.24);ctx.closePath();ctx.fill();po(lw*0.8);
+  /* 뾰족 모자 + 별 + 처진 끝 */
+  ctx.fillStyle="#33489a";
+  ctx.beginPath();ctx.ellipse(0,-r*0.66,r*0.66,r*0.16,0,0,7);ctx.fill();po(lw);
+  ctx.beginPath();ctx.moveTo(-r*0.44,-r*0.68);ctx.quadraticCurveTo(r*0.1,-r*1.9,r*0.55,-r*1.5);
+  ctx.quadraticCurveTo(r*0.2,-r*1.2,r*0.44,-r*0.68);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#ffd24d";const sx2=r*0.02,sy2=-r*1.02;
+  ctx.beginPath();for(let i=0;i<5;i++){const a=-Math.PI/2+i*2*Math.PI*2/5;ctx.lineTo(sx2+Math.cos(a)*r*0.16,sy2+Math.sin(a)*r*0.16);}ctx.closePath();ctx.fill();
+}
+/* 마운틴 킹 — 드워프 왕: 뿔 왕관 투구 + 땋은 수염 + 대형 워해머 */
+function sprMountainKing(r,team,sw,u){
+  const lw=Math.max(1,r*0.12), plate="#b98b3e", plate2="#8a642a", skin="#f0b98a";
+  heroGlow(r,"rgba(255,200,90,.3)");
+  /* 워해머 (양손, 어깨 뒤) */
+  ctx.save();ctx.translate(r*0.2,-r*0.1);ctx.rotate(-0.6+(sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*1.8:0));
+  ctx.fillStyle="#6b4a24";roundRectPath(-r*0.09,-r*0.2,r*0.18,r*1.5,r*0.06);ctx.fill();po(lw);
+  ctx.fillStyle="#7a8288";roundRectPath(-r*0.5,-r*0.66,r*1.0,r*0.6,r*0.1);ctx.fill();po(lw);
+  ctx.fillStyle="#9aa2a8";roundRectPath(-r*0.5,-r*0.62,r*0.28,r*0.52,r*0.08);ctx.fill();
+  ctx.restore();
+  /* 다부진 몸통 (판금) */
+  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(-r*0.34,r*1.04,r*0.24,r*0.13,0,0,7);ctx.fill();po(lw);
+  ctx.beginPath();ctx.ellipse(r*0.34,r*1.04,r*0.24,r*0.13,0,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=plate;roundRectPath(-r*0.64,r*0.05,r*1.28,r*0.98,r*0.26);ctx.fill();po(lw);
+  ctx.fillStyle=plate2;roundRectPath(-r*0.14,r*0.1,r*0.28,r*0.9,r*0.1);ctx.fill();   // 중앙 판
+  const tc=team?TEAM_COL.player:TEAM_COL.enemy;
+  ctx.fillStyle=tc.main;ctx.beginPath();ctx.arc(0,r*0.42,r*0.14,0,7);ctx.fill();po(lw*0.7);   // 진영 문장
+  /* 머리 + 땋은 수염 */
+  ctx.fillStyle=skin;ctx.beginPath();ctx.arc(0,-r*0.28,r*0.46,0,7);ctx.fill();po(lw);
+  ctx.fillStyle="#c98b3a";   // 붉은갈색 수염 (땋은 2갈래)
+  ctx.beginPath();ctx.moveTo(-r*0.4,-r*0.2);ctx.lineTo(r*0.4,-r*0.2);ctx.lineTo(r*0.28,r*0.5);
+  ctx.lineTo(r*0.12,r*0.28);ctx.lineTo(0,r*0.52);ctx.lineTo(-r*0.12,r*0.28);ctx.lineTo(-r*0.28,r*0.5);ctx.closePath();ctx.fill();po(lw*0.8);
+  ctx.fillStyle="#a86a28";[[-0.2,0.5],[0.2,0.5]].forEach(([fx,fy])=>{ctx.beginPath();ctx.arc(r*fx,r*fy,r*0.06,0,7);ctx.fill();});
+  chibiEyes(r,-r*0.34,r*0.16);
+  /* 뿔 왕관 투구 */
+  ctx.fillStyle=plate;ctx.beginPath();ctx.arc(0,-r*0.5,r*0.5,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#f2ead8";   // 뿔
+  ctx.beginPath();ctx.moveTo(-r*0.42,-r*0.6);ctx.quadraticCurveTo(-r*0.95,-r*0.8,-r*0.78,-r*1.2);ctx.quadraticCurveTo(-r*0.5,-r*0.85,-r*0.3,-r*0.7);ctx.closePath();ctx.fill();po(lw);
+  ctx.beginPath();ctx.moveTo(r*0.42,-r*0.6);ctx.quadraticCurveTo(r*0.95,-r*0.8,r*0.78,-r*1.2);ctx.quadraticCurveTo(r*0.5,-r*0.85,r*0.3,-r*0.7);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#ffd24d";[[-0.22,-0.86],[0,-0.96],[0.22,-0.86]].forEach(([fx,fy])=>{   // 왕관 뾰족
+    ctx.beginPath();ctx.moveTo(r*fx-r*0.07,-r*0.62);ctx.lineTo(r*fx+r*0.07,-r*0.62);ctx.lineTo(r*fx,r*fy);ctx.closePath();ctx.fill();po(lw*0.6);});
+}
+/* 팔라딘 — 성기사: 날개 투구 + 십자 카이트 방패 + 검 + 성스러운 광채 */
+function sprPaladin(r,team,sw,u){
+  const lw=Math.max(1,r*0.12), plate="#e8e6da", plate2="#c9c6b6", gold="#ffcf3f", skin="#f6cfa2";
+  const tc=team?TEAM_COL.player:TEAM_COL.enemy;
+  heroGlow(r,"rgba(255,240,180,.4)");
+  heroCape(r,tc.dark);
+  /* 검 (오른손) */
+  ctx.save();ctx.translate(r*0.62,r*0.38);ctx.rotate(-0.4+(sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*1.6:0));
+  ctx.fillStyle="#eef2f6";roundRectPath(-r*0.08,-r*1.35,r*0.16,r*1.2,r*0.05);ctx.fill();po(lw);
+  ctx.fillStyle=gold;roundRectPath(-r*0.26,-r*0.2,r*0.52,r*0.12,r*0.04);ctx.fill();po(lw*0.7);
+  ctx.restore();
+  /* 판금 몸체 */
+  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(-r*0.3,r*1.04,r*0.22,r*0.12,0,0,7);ctx.fill();po(lw);
+  ctx.beginPath();ctx.ellipse(r*0.3,r*1.04,r*0.22,r*0.12,0,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=plate;roundRectPath(-r*0.56,r*0.06,r*1.12,r*0.96,r*0.28);ctx.fill();po(lw);
+  ctx.fillStyle=gold;ctx.fillRect(-r*0.08,r*0.1,r*0.16,r*0.66);ctx.fillRect(-r*0.24,r*0.32,r*0.48,r*0.14);   // 가슴 십자
+  /* 머리 + 날개 투구 */
+  ctx.fillStyle=skin;ctx.beginPath();ctx.arc(0,-r*0.34,r*0.42,0,7);ctx.fill();po(lw);
+  chibiEyes(r,-r*0.32,r*0.16);
+  ctx.fillStyle=plate2;ctx.beginPath();ctx.arc(0,-r*0.42,r*0.5,Math.PI,0);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle=gold;roundRectPath(-r*0.1,-r*1.2,r*0.2,r*0.44,r*0.05);ctx.fill();po(lw*0.7);   // 볏
+  ctx.fillStyle="#fff";   // 양 날개
+  ctx.beginPath();ctx.moveTo(-r*0.44,-r*0.5);ctx.quadraticCurveTo(-r*1.1,-r*0.72,-r*1.15,-r*0.98);ctx.quadraticCurveTo(-r*0.75,-r*0.72,-r*0.4,-r*0.62);ctx.closePath();ctx.fill();po(lw*0.9);
+  ctx.beginPath();ctx.moveTo(r*0.44,-r*0.5);ctx.quadraticCurveTo(r*1.1,-r*0.72,r*1.15,-r*0.98);ctx.quadraticCurveTo(r*0.75,-r*0.72,r*0.4,-r*0.62);ctx.closePath();ctx.fill();po(lw*0.9);
+  /* 대형 카이트 방패 (왼쪽) + 십자 */
+  ctx.fillStyle=plate2;ctx.beginPath();ctx.moveTo(-r*1.28,-r*0.5);ctx.lineTo(-r*0.5,-r*0.5);ctx.lineTo(-r*0.5,r*0.55);
+  ctx.quadraticCurveTo(-r*0.9,r*1.05,-r*1.28,r*0.55);ctx.closePath();ctx.fill();po(lw*1.2);
+  ctx.fillStyle=tc.main;ctx.beginPath();ctx.moveTo(-r*1.18,-r*0.4);ctx.lineTo(-r*0.6,-r*0.4);ctx.lineTo(-r*0.6,r*0.5);
+  ctx.quadraticCurveTo(-r*0.9,r*0.88,-r*1.18,r*0.5);ctx.closePath();ctx.fill();po(lw*0.7);
+  ctx.fillStyle=gold;ctx.fillRect(-r*0.96,-r*0.32,r*0.12,r*0.72);ctx.fillRect(-r*1.08,0,r*0.36,r*0.12);
+}
+/* 블러드 메이지 — 흑마법사: 후드 그림자 얼굴 + 붉은 눈 + 공전하는 피 구슬 */
+function sprBloodMage(r,team,sw,u){
+  const lw=Math.max(1,r*0.11), robe="#7a1420", robe2="#4a0c14";
+  heroGlow(r,"rgba(220,40,60,.35)");
+  /* 공전 피 구슬 3개 */
+  const t=u?u.animT:0;
+  for(let i=0;i<3;i++){const a=t*0.6+i*2.09;
+    ctx.fillStyle="rgba(230,40,60,.35)";ctx.beginPath();ctx.arc(Math.cos(a)*r*1.1,-r*0.2+Math.sin(a)*r*0.5,r*0.2,0,7);ctx.fill();
+    ctx.fillStyle="#e83048";ctx.beginPath();ctx.arc(Math.cos(a)*r*1.1,-r*0.2+Math.sin(a)*r*0.5,r*0.11,0,7);ctx.fill();po(lw*0.6);}
+  heroCape(r,robe2);
+  /* 후드 로브 (아래로 퍼짐) */
+  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(0,r*1.06,r*0.5,r*0.14,0,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=robe;ctx.beginPath();ctx.moveTo(-r*0.44,-r*0.2);ctx.lineTo(r*0.44,-r*0.2);
+  ctx.lineTo(r*0.66,r*1.0);ctx.lineTo(-r*0.66,r*1.0);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle=robe2;ctx.beginPath();ctx.moveTo(0,-r*0.15);ctx.lineTo(r*0.2,r*1.0);ctx.lineTo(-r*0.2,r*1.0);ctx.closePath();ctx.fill();
+  /* 해골 문장 */
+  ctx.fillStyle="#e8dfe0";ctx.beginPath();ctx.arc(0,r*0.4,r*0.15,0,7);ctx.fill();po(lw*0.6);
+  ctx.fillStyle=robe2;ctx.beginPath();ctx.arc(-r*0.06,r*0.4,r*0.04,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.06,r*0.4,r*0.04,0,7);ctx.fill();
+  /* 후드 (얼굴은 그림자) */
+  ctx.fillStyle=robe;ctx.beginPath();ctx.moveTo(-r*0.5,-r*0.1);ctx.quadraticCurveTo(-r*0.58,-r*0.95,0,-r*1.05);
+  ctx.quadraticCurveTo(r*0.58,-r*0.95,r*0.5,-r*0.1);ctx.quadraticCurveTo(0,-r*0.36,-r*0.5,-r*0.1);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle="#1a0308";ctx.beginPath();ctx.ellipse(0,-r*0.42,r*0.32,r*0.42,0,0,7);ctx.fill();   // 그림자 얼굴
+  ctx.fillStyle=sw>0.14?"#fff":"#ff2d44";   // 붉은 눈 두 개
+  ctx.beginPath();ctx.arc(-r*0.13,-r*0.42,r*0.07,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(r*0.13,-r*0.42,r*0.07,0,7);ctx.fill();
+  ctx.fillStyle="rgba(255,60,80,.5)";ctx.beginPath();ctx.arc(-r*0.13,-r*0.42,r*0.13,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.13,-r*0.42,r*0.13,0,7);ctx.fill();
+}
+/* 스카이 메이지 — 폭풍 마법사: 깃털 날개 + 번개 지팡이 + 흐르는 머리 */
+function sprSkyMage(r,team,sw,u){
+  const lw=Math.max(1,r*0.11), robe="#2f9ad6", robe2="#1c6ea8", skin="#f6cfa2";
+  heroGlow(r,"rgba(120,200,255,.4)");
+  /* 깃털 날개 (뒤, 펼침) */
+  ctx.fillStyle="#dceefc";
+  [[-1,-1],[1,1]].forEach(([sgn])=>{ ctx.save();ctx.scale(sgn,1);
+    ctx.beginPath();ctx.moveTo(r*0.38,-r*0.3);
+    ctx.quadraticCurveTo(r*1.15,-r*0.75,r*1.28,-r*0.1);
+    ctx.quadraticCurveTo(r*0.95,-r*0.05,r*1.1,r*0.35);
+    ctx.quadraticCurveTo(r*0.75,r*0.25,r*0.82,r*0.6);
+    ctx.quadraticCurveTo(r*0.5,r*0.35,r*0.42,r*0.5);ctx.closePath();ctx.fill();po(lw*0.8);ctx.restore(); });
+  /* 로브 */
+  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(0,r*1.06,r*0.48,r*0.14,0,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=robe;ctx.beginPath();ctx.moveTo(-r*0.42,-r*0.15);ctx.lineTo(r*0.42,-r*0.15);
+  ctx.lineTo(r*0.62,r*1.0);ctx.lineTo(-r*0.62,r*1.0);ctx.closePath();ctx.fill();po(lw);
+  ctx.fillStyle=robe2;ctx.fillRect(-r*0.62,r*0.8,r*1.24,r*0.16);
+  ctx.strokeStyle="#bfe6ff";ctx.lineWidth=lw*0.7;   // 번개 트림
+  ctx.beginPath();ctx.moveTo(-r*0.1,-r*0.1);ctx.lineTo(r*0.08,r*0.35);ctx.lineTo(-r*0.06,r*0.4);ctx.lineTo(r*0.12,r*0.85);ctx.stroke();
+  /* 지팡이 + 번개 (오른손) */
+  ctx.save();ctx.translate(r*0.6,r*0.35);ctx.rotate(-0.25+(sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*0.7:0));
+  ctx.fillStyle="#cfd6de";roundRectPath(-r*0.06,-r*1.4,r*0.12,r*1.6,r*0.05);ctx.fill();po(lw);
+  ctx.strokeStyle=sw>0.12?"#fff":"#8fd4ff";ctx.lineWidth=lw;ctx.beginPath();
+  ctx.moveTo(0,-r*1.5);ctx.lineTo(-r*0.18,-r*1.72);ctx.lineTo(r*0.06,-r*1.8);ctx.lineTo(-r*0.12,-r*2.02);ctx.stroke();
+  ctx.fillStyle="rgba(150,215,255,.6)";ctx.beginPath();ctx.arc(0,-r*1.5,r*0.2,0,7);ctx.fill();
+  ctx.restore();
+  /* 머리 + 흐르는 머리카락 */
+  ctx.fillStyle=skin;ctx.beginPath();ctx.arc(0,-r*0.34,r*0.44,0,7);ctx.fill();po(lw);
+  ctx.fillStyle="#eaf4ff";ctx.beginPath();ctx.moveTo(-r*0.44,-r*0.5);ctx.quadraticCurveTo(-r*0.5,-r*0.9,0,-r*0.86);
+  ctx.quadraticCurveTo(r*0.5,-r*0.9,r*0.44,-r*0.5);ctx.quadraticCurveTo(r*0.5,-r*0.2,r*0.36,r*0.05);
+  ctx.lineTo(r*0.2,-r*0.28);ctx.quadraticCurveTo(0,-r*0.5,-r*0.2,-r*0.28);ctx.lineTo(-r*0.36,r*0.05);
+  ctx.quadraticCurveTo(-r*0.5,-r*0.2,-r*0.44,-r*0.5);ctx.closePath();ctx.fill();po(lw*0.8);
+  chibiEyes(r,-r*0.32,r*0.16);
+}
+const SPRH={archmage:sprArchmage, mountainKing:sprMountainKing, paladin:sprPaladin,
+  bloodMage:sprBloodMage, skyMage:sprSkyMage};
 
 /* --- 8방향 스프라이트 시트 등록부 (2026-09-04) ---
    실제 8방향 아트가 준비되면 여기 등록만 하면 해당 유닛/영웅이 시트 렌더로 자동 전환된다.
