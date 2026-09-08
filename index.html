@@ -271,6 +271,9 @@ const BAL={
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
  UNIT_CAP:60, HERO_COST:1, HERO_CD:12,   // HERO_COST 단위 = 엘릭서 스타 (최소 1, 2026-09-04)
+ /* 이동 감각 (2026-09-08, 가정): accel = 최고 속도 도달 빠르기(1/초, 9 ≈ 0.25초), turnRate = 선회 속도(rad/초, 11 ≈ 180°에 0.29초),
+    turnSlow = 큰 각도 선회 중 최소 속도 비율(뒤돌아설 때 제자리 선회 느낌). 결정론 시뮬 내부 값 — 양측 동일 적용 */
+ MOVE:{accel:9, turnRate:11, turnSlow:0.3},
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
@@ -788,10 +791,38 @@ function transformStarsFor(fromKey,toKey){
    - 렌더는 u.dir8만 참조 → 8방향 시트 아트가 준비되면 registerUnitSheet() 등록만으로 교체됨. */
 const DIR8_VEC=[[1,0],[0.707,0.707],[0,1],[-0.707,0.707],[-1,0],[-0.707,-0.707],[0,-1],[0.707,-0.707]];
 function setFacing(u,dx,dy){
+  /* 목표 방향(face)만 기록 — 실제 몸 방향(head)·dir8은 turnStep이 선회 속도로 따라간다 (2026-09-08) */
   if(Math.abs(dx)<0.5&&Math.abs(dy)<0.5)return;
   u.face=Math.atan2(dy,dx);
-  u.dir8=((Math.round(u.face/(Math.PI/4))%8)+8)%8;
   if(Math.abs(dx)>2)u.fx=dx>0?1:-1;   // (구) 좌우 플립 필드 호환 유지
+}
+/* ---------- 이동 감각 (2026-09-08): 스타/워크식 관성 + 선회 ----------
+   - head: 몸이 실제로 향한 각. face(목표 각)를 MOVE.turnRate로 따라간다 → 방향 전환 시 8방향 프레임을 순서대로 거친다
+   - vel : 현재 속도. 출발 시 MOVE.accel로 가속, 정지 시 stepSim에서 감속 (렌더의 기울기·발걸음이 이를 따른다)
+   - gait: 걷기 위상 = 이동 거리 / (r*0.6) — 발걸음이 실제 이동 거리에 맞물려 "미끄러짐"이 없다
+   모두 고정 dt 시뮬 안에서 갱신 → 결정론 유지 (락스텝 양측 동일) */
+function angDiff(a,b){let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return d;}
+function turnStep(u,dt){
+  if(u.head===undefined)u.head=u.face;
+  const M=BAL.MOVE||{turnRate:11};
+  const d=angDiff(u.head,u.face), mx=(M.turnRate||11)*dt;
+  u.head+=Math.abs(d)<=mx?d:Math.sign(d)*mx;
+  if(u.head>Math.PI)u.head-=2*Math.PI; else if(u.head<-Math.PI)u.head+=2*Math.PI;
+  u.dir8=((Math.round(u.head/(Math.PI/4))%8)+8)%8;
+  return Math.abs(angDiff(u.head,u.face));   // 남은 선회각
+}
+function locomote(u,tx,ty,dt){
+  const M=BAL.MOVE||{accel:9,turnSlow:0.3};
+  const rem=turnStep(u,dt);
+  /* 큰 각도 선회 중엔 감속 (뒤돌아설 때 제자리에서 몸을 돌린다). 공중 유닛은 선회 감속 없음 */
+  const ts=(M.turnSlow!==undefined?M.turnSlow:0.3);
+  const turnMul=u.air?1:(ts+(1-ts)*Math.max(0,Math.cos(rem)));
+  const want=u.spd*terrSpd(u)*turnMul;
+  u.vel=(u.vel||0)+(want-(u.vel||0))*Math.min(1,dt*(M.accel||9));
+  const step=u.vel*dt;
+  moveSmart(u,tx,ty,step,dt);
+  u.gait=(u.gait||0)+step/(u.r*0.6);
+  u.moving=true;
 }
 function spawnUnit(key,side,x,y,hero,level){
   const d=hero?BAL.HEROES[key]:BAL.UNITS[key];
@@ -805,6 +836,7 @@ function spawnUnit(key,side,x,y,hero,level){
   /* 초기 방향: 상대 본진 쪽 (플레이어 = 북, 적 = 남) */
   u.face=side==="player"?-Math.PI/2:Math.PI/2;
   u.dir8=side==="player"?6:2;
+  u.head=u.face; u.vel=0; u.gait=0;   // 이동 감각 상태 (선회·관성·걷기 위상)
   /* 유닛 레벨: 생산 건물 레벨을 그대로 계승 — 스탯에 즉시 반영 (영웅은 레벨 1) */
   u.level=hero?1:(level||1);
   if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;}
@@ -886,7 +918,7 @@ function unitUpdate(u,dt){
       const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
-      if(d>u.aoe.castRng*TILE*0.8){moveSmart(u,tx,ty,u.spd*dt*terrSpd(u),dt);u.moving=true;}}
+      if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
     return;
   }
   const tgt=nearestTarget(u);
@@ -895,8 +927,9 @@ function unitUpdate(u,dt){
   const reach=u.rng*TILE+u.r+tr;
   const ty=tgt.y!==undefined?tgt.y:tgt.cy, tx=tgt.x!==undefined?tgt.x:tgt.cx;
   const dd=Math.hypot(u.x-tx,u.y-ty);
-  setFacing(u,tx-u.x,ty-u.y);   // 이동·교전 공통: 목표 방향으로 8방향 갱신
+  setFacing(u,tx-u.x,ty-u.y);   // 이동·교전 공통: 목표 방향 갱신 (몸은 turnStep이 선회 속도로 따라감)
   if(dd<=reach){
+    turnStep(u,dt);   // 교전 중에도 제자리 선회
     u.cd-=dt;
     if(u.cd<=0){
       if(u.splash){
@@ -912,7 +945,7 @@ function unitUpdate(u,dt){
     }
     return;
   }
-  moveSmart(u,tx,ty,u.spd*dt*terrSpd(u),dt); u.moving=true;
+  locomote(u,tx,ty,dt);
 }
 function moveToward(u,tx,ty,step){const d=Math.hypot(tx-u.x,ty-u.y);if(d<1)return;
   u.x+=(tx-u.x)/d*step;u.y+=(ty-u.y)/d*step;
@@ -1618,7 +1651,7 @@ function stepSim(dt){
     if(!(GAME_CFG&&GAME_CFG.net))aiUpdate(dt);   // PvP(실매칭)에서는 AI 없음 — 위 진영은 상대 커맨드가 조종
     if(TUT.active)TUT.update();   // 튜토리얼 목표 달성 체크
     recomputeAuras();
-    S.units.forEach(u=>unitUpdate(u,dt));
+    S.units.forEach(u=>{unitUpdate(u,dt); if(!u.moving)u.vel=(u.vel||0)*Math.max(0,1-dt*12);});   // 정지 시 감속 → 기울기·발걸음이 자연스럽게 잦아든다
     S.buildings.forEach(b=>buildingUpdate(b,dt));
     /* 사망 처리 */
     S.units.forEach(u=>{if(u.hp<=0){deathFx(u);
@@ -1762,15 +1795,26 @@ function tickFx(dt){
   S.effects=S.effects.filter(f=>f.t>0);
 }
 /* --- 유닛 스프라이트 (v1 치비 계승 + 신규 3종) --- */
+let CUR_U=null, CUR_BOB=0;   // 지금 그리는 유닛 / 몸 바운스량 — drawUnitSprite가 설정, 발 지면 보정에 사용
+/* 걷는 두 발 (2026-09-08): 이동 거리 위상(gait)으로 교차, 앞으로 나가는 발은 살짝 들리며,
+   몸 바운스(CUR_BOB)를 반대로 보정해 발은 항상 지면에 붙는다 → "떠다니는" 느낌 제거.
+   보폭은 동서 이동일 때 크고 남북 이동일 때 작다(원근 근사). 정지 시 속도 비율이 0으로 잦아들어 기본 자세로 돌아온다 */
+function walkFeet(r,lw,gapX,footY,fw,fh,col){
+  const u=CUR_U, g=u?(u.gait||0):0, sr=u&&u.spd?Math.min(1,(u.vel||0)/u.spd):0;
+  const ax=Math.abs(Math.cos(u&&u.head!==undefined?u.head:0));
+  const s=Math.sin(g)*sr, stride=r*(0.18+0.24*ax), lift=r*0.16, fy=footY-(CUR_BOB||0);
+  ctx.fillStyle=col||"#4a4048";
+  ctx.beginPath();ctx.ellipse(-gapX+s*stride,fy-Math.max(0,s)*lift,fw,fh,0,0,7);ctx.fill();po(lw);
+  ctx.beginPath();ctx.ellipse(gapX-s*stride,fy-Math.max(0,-s)*lift,fw,fh,0,0,7);ctx.fill();po(lw);
+  return s;
+}
 function chibiBase(r,bodyC,skinC){
   const lw=Math.max(1,r*0.13);
-  ctx.fillStyle="#4a4048";
-  ctx.beginPath();ctx.ellipse(-r*0.3,r*1.02,r*0.2,r*0.12,0,0,7);ctx.fill();po(lw);
-  ctx.beginPath();ctx.ellipse(r*0.3,r*1.02,r*0.2,r*0.12,0,0,7);ctx.fill();po(lw);
+  const s=walkFeet(r,lw,r*0.3,r*1.02,r*0.2,r*0.12);
   ctx.fillStyle=bodyC;roundRectPath(-r*0.52,r*0.08,r*1.04,r*0.92,r*0.3);ctx.fill();po(lw);
-  ctx.fillStyle=skinC;
-  ctx.beginPath();ctx.arc(-r*0.58,r*0.48,r*0.16,0,7);ctx.fill();po(lw);
-  ctx.beginPath();ctx.arc(r*0.58,r*0.48,r*0.16,0,7);ctx.fill();po(lw);
+  ctx.fillStyle=skinC;   // 손: 같은 쪽 발과 반대로 흔들린다
+  ctx.beginPath();ctx.arc(-r*0.58-s*r*0.14,r*0.48,r*0.16,0,7);ctx.fill();po(lw);
+  ctx.beginPath();ctx.arc(r*0.58+s*r*0.14,r*0.48,r*0.16,0,7);ctx.fill();po(lw);
   ctx.fillStyle=skinC;ctx.beginPath();ctx.arc(0,-r*0.38,r*0.76,0,7);ctx.fill();po(lw);
 }
 function chibiEyes(r,y,gap){ctx.fillStyle=OUTLINE;
@@ -1899,12 +1943,12 @@ function sprShieldman(r,team,sw,u){
 function sprCavalry(r,team,sw,u){
   /* 돌격 기병: 말 + 기수 + 돌격 랜스 (근접 관통 / 원거리 취약) */
   const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
-  const at=u?u.animT:0, run=u&&u.moving?1:0, g=Math.sin(at*2)*run;
+  const sr=u&&u.spd?Math.min(1,(u.vel||0)/u.spd):0, g=Math.sin(u?(u.gait||0):0)*sr, hoofY=r*0.95-(CUR_BOB||0);   // 발굽은 지면 고정
   const thrust=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.5:0;
-  /* 말 다리 4 */
+  /* 말 다리 4 (질주 위상 = 이동 거리) */
   ctx.strokeStyle="#6b4423";ctx.lineWidth=lw*2.2;ctx.lineCap="round";
   [[-0.5,g],[-0.28,-g],[0.32,-g],[0.55,g]].forEach(([fx,sway])=>{
-    ctx.beginPath();ctx.moveTo(r*fx,r*0.35);ctx.lineTo(r*(fx+sway*0.12),r*0.95);ctx.stroke();});
+    ctx.beginPath();ctx.moveTo(r*fx,r*0.35);ctx.lineTo(r*(fx+sway*0.16),hoofY);ctx.stroke();});
   ctx.lineCap="butt";
   /* 말 몸통 + 팀 천 마갑 */
   ctx.fillStyle="#8a5a30";roundRectPath(-r*0.78,-r*0.2,r*1.5,r*0.66,r*0.28);ctx.fill();po(lw);
@@ -1935,11 +1979,11 @@ function sprCavalry(r,team,sw,u){
 function sprArmoredKnight(r,team,sw,u){
   /* 나이트: 철갑 기병 — 판금 말 + 풀 플레이트 기수 + 중랜스 */
   const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
-  const at=u?u.animT:0, run=u&&u.moving?1:0, g=Math.sin(at*2)*run;
+  const sr=u&&u.spd?Math.min(1,(u.vel||0)/u.spd):0, g=Math.sin(u?(u.gait||0):0)*sr, hoofY=r*0.95-(CUR_BOB||0);   // 발굽은 지면 고정
   const thrust=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.5:0;
-  ctx.strokeStyle="#5a6069";ctx.lineWidth=lw*2.3;ctx.lineCap="round";   // 판금 다리
+  ctx.strokeStyle="#5a6069";ctx.lineWidth=lw*2.3;ctx.lineCap="round";   // 판금 다리 (질주 위상 = 이동 거리)
   [[-0.5,g],[-0.28,-g],[0.32,-g],[0.55,g]].forEach(([fx,sway])=>{
-    ctx.beginPath();ctx.moveTo(r*fx,r*0.35);ctx.lineTo(r*(fx+sway*0.12),r*0.95);ctx.stroke();});
+    ctx.beginPath();ctx.moveTo(r*fx,r*0.35);ctx.lineTo(r*(fx+sway*0.16),hoofY);ctx.stroke();});
   ctx.lineCap="butt";
   /* 판금 마갑 몸통 */
   ctx.fillStyle="#b9c2cc";roundRectPath(-r*0.8,-r*0.24,r*1.55,r*0.7,r*0.28);ctx.fill();po(lw);
@@ -2000,7 +2044,7 @@ function sprArcher(r,team,sw,u){
 function sprRam(r,team,sw,u){
   /* 공성추: 바퀴 수레 + 지붕 + 앞으로 찌르는 통나무 램 (건물 전용) */
   const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
-  const at=u?u.animT:0, run=u&&u.moving?at*1.2:0;
+  const run=u?(u.gait||0)*2:0;   // 바퀴 회전각 = 이동 거리 / 바퀴 반지름 (gait = 거리/(0.6r), 바퀴 0.3r)
   const push=sw>0?Math.sin((0.28-sw)/0.28*Math.PI)*r*0.4:0;
   /* 바퀴 2 */
   [[-0.45],[0.45]].forEach(([fx])=>{
@@ -2025,7 +2069,7 @@ function sprRam(r,team,sw,u){
 function sprSiegeTank(r,team,sw,u){
   /* 공성 전차: 바퀴 + 투석 암 + 돌 (건물 전용 장거리) */
   const TC=team?TEAM_COL.player:TEAM_COL.enemy, lw=Math.max(1,r*0.12);
-  const at=u?u.animT:0, run=u&&u.moving?at*1.2:0;
+  const run=u?(u.gait||0)*2:0;   // 바퀴 회전각 = 이동 거리 기반 (미끄러짐 없음)
   const fire=sw>0?Math.sin((0.28-sw)/0.28*Math.PI):0;   // 발사 시 암이 앞으로 젖혀짐
   [[-0.5],[0.45]].forEach(([fx])=>{
     ctx.save();ctx.translate(r*fx,r*0.72);ctx.rotate(run);
@@ -2158,8 +2202,7 @@ function sprMountainKing(r,team,sw,u){
   ctx.fillStyle="#9aa2a8";roundRectPath(-r*0.5,-r*0.62,r*0.28,r*0.52,r*0.08);ctx.fill();
   ctx.restore();
   /* 다부진 몸통 (판금) */
-  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(-r*0.34,r*1.04,r*0.24,r*0.13,0,0,7);ctx.fill();po(lw);
-  ctx.beginPath();ctx.ellipse(r*0.34,r*1.04,r*0.24,r*0.13,0,0,7);ctx.fill();po(lw);
+  walkFeet(r,lw,r*0.34,r*1.04,r*0.24,r*0.13);
   ctx.fillStyle=plate;roundRectPath(-r*0.64,r*0.05,r*1.28,r*0.98,r*0.26);ctx.fill();po(lw);
   ctx.fillStyle=plate2;roundRectPath(-r*0.14,r*0.1,r*0.28,r*0.9,r*0.1);ctx.fill();   // 중앙 판
   const tc=team?TEAM_COL.player:TEAM_COL.enemy;
@@ -2191,8 +2234,7 @@ function sprPaladin(r,team,sw,u){
   ctx.fillStyle=gold;roundRectPath(-r*0.26,-r*0.2,r*0.52,r*0.12,r*0.04);ctx.fill();po(lw*0.7);
   ctx.restore();
   /* 판금 몸체 */
-  ctx.fillStyle="#4a4048";ctx.beginPath();ctx.ellipse(-r*0.3,r*1.04,r*0.22,r*0.12,0,0,7);ctx.fill();po(lw);
-  ctx.beginPath();ctx.ellipse(r*0.3,r*1.04,r*0.22,r*0.12,0,0,7);ctx.fill();po(lw);
+  walkFeet(r,lw,r*0.3,r*1.04,r*0.22,r*0.12);
   ctx.fillStyle=plate;roundRectPath(-r*0.56,r*0.06,r*1.12,r*0.96,r*0.28);ctx.fill();po(lw);
   ctx.fillStyle=gold;ctx.fillRect(-r*0.08,r*0.1,r*0.16,r*0.66);ctx.fillRect(-r*0.24,r*0.32,r*0.48,r*0.14);   // 가슴 십자
   /* 머리 + 날개 투구 */
@@ -2286,8 +2328,10 @@ function registerUnitSheet(key,def){
 /* 방향 인지 유닛 드로우 — 호출 시 ctx 원점은 유닛 중심.
    시트가 등록돼 있으면 dir8 행 + 걷기 프레임을 그리고,
    없으면 절차(칩비) 스프라이트에 8방향 근사(서반구 미러 + 남/북 기울기)를 적용한다. */
-function drawUnitSprite(u,team){
+const WHEELED={ram:1,siegeTank:1};   // 바퀴 유닛: 걷기 바운스 없음
+function drawUnitSprite(u,team,bob){
   const d=(u.dir8===undefined)?(u.side==="player"?6:2):u.dir8;
+  CUR_U=u; CUR_BOB=bob||0;   // 발 지면 보정용 (walkFeet·기병 발굽)
   const sh=UNIT_SHEETS[u.key];
   if(sh&&sh.img.complete&&sh.img.naturalWidth>0){
     const fr=u.moving?Math.floor((u.animT||0)/7*sh.fps)%sh.frames:0;
@@ -2946,9 +2990,15 @@ function draw(){
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
     const team=(u.side===MYSIDE);   // 색은 내 편 기준 (내 편=파랑)
-    const hover=u.air?Math.sin((u.animT||0)*0.8)*2-10:0;
+    /* 이동 감각 렌더 (2026-09-08): 속도 비율·진행 방향·걷기 위상은 시뮬 상태(vel/head/gait)를 그대로 읽는다 */
+    const spdR=u.spd>0?Math.min(1,(u.vel||0)/u.spd):0;               // 0(정지)~1(전속) — 가속·정지 감속 반영
+    const hx=Math.cos(u.head!==undefined?u.head:(u.face||0));       // 진행 방향 가로 성분 → 몸 기울기 방향
+    const g=u.gait||0;
+    const hover=u.air?Math.sin((u.animT||0)*0.5)*2.2-10:0;
     const dropY=u.deploy>0?-u.deploy*90:0;
-    const bob=u.air?0:(u.moving?Math.sin(u.animT)*1.6:Math.sin(u.animT*0.35)*0.6);
+    /* 걷기 바운스: 두 발이 교차하는 순간 몸이 가장 높다. 위상이 이동 거리라 발이 바닥을 미끄러지지 않고,
+       발 자체는 walkFeet에서 반대로 보정해 지면에 붙는다. 정지 중엔 바운스 0 (예전의 "둥둥" 대기 흔들림 제거) */
+    const bob=(u.air||WHEELED[u.key])?0:-Math.abs(Math.cos(g))*u.r*0.15*spdR;
     unitShadow(u.x,u.y+u.r*0.75,u.r*0.9*(u.deploy>0?0.5:1));
     ctx.strokeStyle=team?"rgba(60,130,255,.5)":"rgba(255,80,60,.5)";ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(u.x,u.y+u.r*0.75,u.r*0.9,u.r*0.38,0,0,7);ctx.stroke();
@@ -2956,11 +3006,23 @@ function draw(){
       ctx.save();
       ctx.globalAlpha=u.deploy>0?0.85:1;
       ctx.translate(u.x,u.y+bob+hover+dropY);
-      if(u.moving&&!u.air)ctx.rotate(Math.sin(u.animT)*0.05);
-      drawUnitSprite(u,team);   // 8방향 인지 렌더 (시트 등록 시 자동 전환)
+      /* 진행 방향으로 몸을 기울여 관성 표현(출발 시 앞으로, 정지 시 서서히 복귀) + 보행 좌우 흔들림. 공중은 뱅킹 */
+      ctx.rotate(hx*spdR*(u.air?0.16:0.10)+(u.air?0:Math.sin(g)*0.035*spdR));
+      if(!u.air){   // 대기 호흡: 발을 축으로 세로 1.2% 미세 신축 (속도가 붙으면 사라짐)
+        const br=1+Math.sin((u.animT||0)*0.6)*0.012*(1-Math.min(1,spdR/0.15));
+        ctx.translate(0,u.r);ctx.scale(1,br);ctx.translate(0,-u.r);}
+      drawUnitSprite(u,team,bob);   // 8방향 인지 렌더 (시트 등록 시 자동 전환)
       ctx.restore();
       ctx.globalAlpha=1;
     });
+    /* 발구름 먼지 (렌더 전용): 발이 땅에 닿는 위상마다 작은 흙먼지가 뒤로 흩어진다 */
+    if(!u.air&&u.moving&&spdR>0.5){
+      const si=Math.floor(g/Math.PI);
+      if(u._stepIx!==undefined&&si!==u._stepIx){
+        for(let i=0;i<(u.r>=14?2:1);i++)addP({x:u.x+(Math.random()-.5)*u.r*0.8,y:u.y+u.r*0.85,
+          vx:-hx*u.vel*0.25+(Math.random()-.5)*10,vy:-8-Math.random()*8,g:-6,t:0,life:0.35,size:1.6+Math.random()*1.2,col:"175,165,140",smoke:1});}
+      u._stepIx=si;
+    }
     if(u.hero){ /* 영웅 표식 + 오라 범위 */
       const sy=u.y-u.r-8+dropY+hover;
       upr(u.x,sy,()=>{ctx.fillStyle="#ffd24d";ctx.font="bold "+Math.round(u.r*0.9)+"px sans-serif";ctx.textAlign="center";ctx.fillText("★",u.x,sy);});
@@ -3143,7 +3205,8 @@ function buildEditorUI(){
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
-     ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"]]
+     ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
+     ["MOVE.accel","이동 가속 (1/초)"],["MOVE.turnRate","선회 속도 (rad/초)"],["MOVE.turnSlow","선회 중 최소 속도 비율"]]
      .forEach(([p,l])=>h+=edRow(p,l));
     h+=`<div class="ed-sec">난이도 = AI 전략 수준 (현재: ${DIFF_NM[diffKey]})</div>`
       +`<div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;">스탯·자원 규칙은 양측 동일 — 전략 차이로만 난이도가 갈립니다</div>`
