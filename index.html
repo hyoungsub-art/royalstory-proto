@@ -310,8 +310,8 @@ const BAL={
   archer:       {nm:"아처",        hp:310,  dmg:55,  hs:1.3, rng:3.2, spd:1.0, r:9,  cat:"gp", antiair:true},   // 기본 원거리 (공·방 절반, 사거리 하향)
   rifleman:     {nm:"라이플맨",    hp:720,  dmg:150, hs:1.6, rng:4.5, spd:1.0, r:9,  cat:"gp", antiair:true},   // 공속 1.1→1.6, 공격력 218→150
   knight:       {nm:"나이트",      hp:2300, dmg:330, hs:1.5, rng:0.9, spd:1.6, r:15, cat:"gp", melee:true, pierceVsMelee:0.5, rangedWeak:0.5},   // 철갑 기병 — 말 탑승, 기병보다 큼 (r 13→15)
-  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:1.8, rng:0.9, spd:0.4, r:20, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 — 나이트보다 확실히 큼 (r 17→20)
-  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:620, hs:3.0, rng:4.0, spd:0.3, r:21, cat:"gp", bldgOnly:true},              // 건물만 공격 — 공성류 최대, 드래곤(22) 직전 (r 18→21)
+  ram:          {nm:"공성추",      hp:2600, dmg:450, hs:2.4, rng:0.9, spd:0.32, r:20, cat:"gp", melee:true, bldgOnly:true},   // 건물만 공격 — 2026-09-08 이속 0.4→0.32, 공속 1.8→2.4 (더 둔중하게, 가정)
+  siegeTank:    {nm:"공성 전차",   hp:1500, dmg:620, hs:4.0, rng:4.0, spd:0.24, r:21, cat:"gp", bldgOnly:true},              // 건물만 공격 — 2026-09-08 이속 0.3→0.24, 공속 3.0→4.0 (가정)
   mage:         {nm:"마법사",      hp:620,  dmg:190, hs:1.4, rng:3.5, spd:1.0, r:9,  cat:"gm", antiair:true, splash:1.8},   // 사거리 < 라이플맨(4.5), 광역 강화
   dragon:       {nm:"드래곤",      hp:2400, dmg:320, hs:1.6, rng:3.0, spd:1.2, r:22, cat:"am", air:true, antiair:true, splash:1.2},   // 최상위 공중 마법 — 유닛 중 최대급 (r 18→22)
   golem:        {nm:"골렘",        hp:3000, dmg:300, hs:1.8, rng:0.9, spd:0.55, r:22, cat:"gp", melee:true},   // 최상위 지상 물리 탱커 — 유닛 중 최대급 (r 18→22)
@@ -2575,10 +2575,52 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillStyle="#3a3f45";roundRectPath(bx+bw*0.15,by+bh*0.5,bw*0.35,bh*0.22,3);ctx.fill();po(lw*0.8);  // 모루
       ctx.fillStyle="#ff9c3a";ctx.beginPath();ctx.arc(bx+bw*0.32,by+bh*0.42,bw*0.08,0,7);ctx.fill();
       break;}
-    case "workshop": case "siegeWorkshop":{
+    case "siegeWorkshop":{
+      /* 시즈 워크숍 (3×2, 2026-09-08 분리): 워크숍(목조 공방)과 구분되는 "요새형 병기창".
+         강판 벽체 + 흉벽 평지붕 + 지붕 위 투석기(팔·바구니·돌) + 철띠 대문 + 돌탄 더미. 기어·톱니 지붕 없음 */
+      const U=TILE, cx=px+pw/2;
+      const wx=px+pw*0.06, ww=pw*0.88, wtop=py+ph*0.36, wh=py+ph*0.94-wtop;
+      /* 강판 벽체 (중립 강철 + 진영색 띠) */
+      ctx.fillStyle="#8a929c";roundRectPath(wx,wtop,ww,wh,3);ctx.fill();po(lw);
+      ctx.save();roundRectPath(wx,wtop,ww,wh,3);ctx.clip();
+      ctx.fillStyle="#6f7780";ctx.fillRect(wx+ww*0.66,wtop,ww*0.34,wh);   // 그늘 면
+      ctx.fillStyle=T.main;ctx.fillRect(wx,wtop+wh*0.36,ww,U*0.22);        // 진영색 띠
+      ctx.strokeStyle="rgba(0,0,0,.22)";ctx.lineWidth=1;                   // 강판 이음새 (가로·세로)
+      for(let xx=wx+U*0.75;xx<wx+ww;xx+=U*0.75){ctx.beginPath();ctx.moveTo(xx,wtop);ctx.lineTo(xx,wtop+wh);ctx.stroke();}
+      ctx.beginPath();ctx.moveTo(wx,wtop+wh*0.36);ctx.lineTo(wx+ww,wtop+wh*0.36);ctx.stroke();
+      ctx.fillStyle="rgba(255,255,255,.4)";                                 // 리벳
+      for(let xx=wx+U*0.2;xx<wx+ww;xx+=U*0.37){ctx.beginPath();ctx.arc(xx,wtop+U*0.12,1.4,0,7);ctx.fill();ctx.beginPath();ctx.arc(xx,wtop+wh-U*0.12,1.4,0,7);ctx.fill();}
+      ctx.restore();
+      /* 흉벽 평지붕 (총안 반복) */
+      ctx.fillStyle=T.dark;
+      for(let xx=wx;xx<wx+ww-2;xx+=U*0.5){const w2=Math.min(U*0.28,wx+ww-xx);roundRectPath(xx,wtop-U*0.22,w2,U*0.24,1.5);ctx.fill();po(lw*0.6);}
+      ctx.fillStyle="#6f7780";roundRectPath(wx,wtop-U*0.04,ww,U*0.08,1);ctx.fill();   // 지붕 테두리
+      /* 지붕 위 투석기: 받침 + 기울어진 팔 + 바구니 속 돌 + 평형추 */
+      const bx0=cx-U*0.55, byy=wtop-U*0.1;
+      ctx.fillStyle="#6b4a26";roundRectPath(bx0,byy-U*0.14,U*1.1,U*0.14,2);ctx.fill();po(lw*0.7);            // 받침 들보
+      ctx.save();ctx.translate(cx-U*0.1,byy-U*0.14);ctx.rotate(-0.95);
+      ctx.fillStyle="#8a5a28";roundRectPath(-U*0.07,-U*1.05,U*0.14,U*1.25,2);ctx.fill();po(lw*0.7);         // 팔
+      ctx.fillStyle="#5a4028";ctx.beginPath();ctx.arc(0,-U*1.02,U*0.17,Math.PI,0);ctx.closePath();ctx.fill();po(lw*0.6);   // 바구니
+      ctx.fillStyle="#9a978a";ctx.beginPath();ctx.arc(0,-U*1.1,U*0.11,0,7);ctx.fill();po(lw*0.5);          // 돌탄
+      ctx.fillStyle=DARKGRAY;roundRectPath(-U*0.16,U*0.02,U*0.32,U*0.2,2);ctx.fill();po(lw*0.6);            // 평형추
+      ctx.restore();
+      ctx.fillStyle="#5a4028";ctx.beginPath();ctx.moveTo(cx-U*0.4,byy);ctx.lineTo(cx-U*0.1,byy-U*0.5);ctx.lineTo(cx+U*0.2,byy);ctx.closePath();ctx.fill();po(lw*0.6);   // A자 지지대
+      /* 철띠 대문 (가운데) */
+      const dw=U*1.05,dh=U*0.95,dx=cx-dw/2,dy=wtop+wh-dh;
+      ctx.fillStyle="#4a3420";roundRectPath(dx,dy,dw,dh,3);ctx.fill();po(lw*0.8);
+      ctx.strokeStyle="#3a3f45";ctx.lineWidth=lw*0.9;
+      ctx.beginPath();ctx.moveTo(dx+2,dy+dh*0.3);ctx.lineTo(dx+dw-2,dy+dh*0.3);ctx.moveTo(dx+2,dy+dh*0.7);ctx.lineTo(dx+dw-2,dy+dh*0.7);
+      ctx.moveTo(dx+dw/2,dy+2);ctx.lineTo(dx+dw/2,dy+dh-2);ctx.stroke();                                  // 철띠 + 중앙 이음
+      ctx.fillStyle=T.main;ctx.beginPath();ctx.arc(dx+dw/2,dy+dh*0.5,U*0.12,0,7);ctx.fill();po(lw*0.6);   // 진영 문장
+      /* 돌탄 더미 (왼쪽) + 총안 (오른쪽) */
+      ctx.fillStyle="#9a978a";
+      [[0.14,0.86,0.15],[0.26,0.86,0.15],[0.20,0.72,0.14]].forEach(([fx,fy,fr])=>{ctx.beginPath();ctx.arc(px+pw*fx,wtop+wh*fy,U*fr,0,7);ctx.fill();po(lw*0.6);});
+      ctx.fillStyle=DARKGRAY;roundRectPath(px+pw*0.78,wtop+wh*0.55,U*0.14,U*0.32,1.5);ctx.fill();po(lw*0.5);
+      break;}
+    case "workshop":{
       /* 넓은 산업 공방 (3×2) — 디테일은 타일 절대 크기로 그려 다른 건물과 조밀도 일치.
-         낮은 벽체 + 톱니 지붕(saw-tooth) + 차고문 + 기어 2개 + 굴뚝. 시즈 워크숍은 강판 리벳 추가 */
-      const U=TILE, siege=(key==="siegeWorkshop");
+         낮은 벽체 + 톱니 지붕(saw-tooth) + 차고문 + 기어 2개 + 굴뚝 (목조 공방 — 시즈 워크숍은 별도 case) */
+      const U=TILE;
       const wx=px+pw*0.06, ww=pw*0.88, wtop=py+ph*0.30, wh=py+ph*0.94-wtop;
       /* 벽체 */
       ctx.fillStyle=T.main;roundRectPath(wx,wtop,ww,wh,4);ctx.fill();po(lw);
@@ -2612,18 +2654,13 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
           ctx.fillStyle=fill;roundRectPath(-gr*0.22,-gr*0.22,gr*0.44,gr*0.44,1.5);ctx.fill();po(lw*0.5);ctx.restore();}
         ctx.fillStyle=T.dark;ctx.beginPath();ctx.arc(gcx,gcy,gr*0.34,0,7);ctx.fill();po(lw*0.6);};
       gear(px+pw*0.18,wtop+wh*0.5,CREAM);
-      gear(px+pw*0.82,wtop+wh*0.42,siege?"#d9dbe0":CREAM);
+      gear(px+pw*0.82,wtop+wh*0.42,CREAM);
       /* 굴뚝 + 연기 */
       const chx=px+pw*0.68;
       ctx.fillStyle=T.dark;roundRectPath(chx,rtop-U*0.5,U*0.34,U*0.7,2);ctx.fill();po(lw*0.8);
       ctx.fillStyle="rgba(120,120,120,.5)";
       ctx.beginPath();ctx.arc(chx+U*0.17,rtop-U*0.6,U*0.13,0,7);ctx.fill();
       ctx.beginPath();ctx.arc(chx+U*0.30,rtop-U*0.82,U*0.09,0,7);ctx.fill();
-      if(siege){   /* 시즈: 강판 리벳 + 포신 거치대 느낌 */
-        ctx.fillStyle="rgba(255,255,255,.35)";
-        for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(wx+U*0.25+i*U*0.55,wtop+U*0.22,1.6,0,7);ctx.fill();}
-        ctx.fillStyle=T.light;roundRectPath(px+pw*0.5-U*0.5,wtop-U*0.05,U*1.0,U*0.16,2);ctx.fill();po(lw*0.6);
-      }
       break;}
     case "sanctum":{
       /* 형태: 마법 구슬 지붕 — 큰 오브를 얹은 탑 (삼각 지붕 없음) */
