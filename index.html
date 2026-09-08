@@ -263,7 +263,7 @@ const BAL={
     승급·업그레이드 비용은 해당 시점 상한 이하 유지 */
  /* 2026-09-07 경제 개편: 승급·변형 = 엘릭서 스타(★), 레벨업 = 엘릭서.
     - tierStars: 킵 ★1 / 캐슬 ★2
-    - transformStars[요구 티어]: 1티어에서 가능한 변형 ★1 / 킵 ★2 / 캐슬 ★3 (요구 티어 = max(변형 티어 조건, minLevel — 레벨 상한이 티어이므로))
+    - transformStars[건설 티어]: 원본·사전조건 건물이 1티어(스트롱홀드) 계열이면 ★1, 2티어(킵) 계열이면 ★2 (2026-09-08 — 캐슬 건설 건물이 없어 ★3 미발생)
     - upPerLevel[건물 등급]: 레벨당 엘릭서 — 1티어 건설 건물 4 / 킵 건물 8 / 변형 획득 건물 12 */
  ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5,
        tierStars:[0,0,1,2], transformStars:[0,1,2,3], upPerLevel:[0,4,8,12]},
@@ -766,10 +766,14 @@ function upCostFor(bOrKey){
   const a=BAL.ECON.upPerLevel;
   return a[Math.min(cls,a.length-1)]||a[a.length-1];
 }
-/* 변형 비용 (★, 2026-09-07): 변형이 가능해지는 티어 기준 — max(티어 조건, minLevel: 레벨 상한 = 티어) */
+/* 변형 비용 (★, 2026-09-08 개정): 관련 건물의 **건설 티어** 기준 —
+   max(원본 건물 건설 티어, 사전 조건 건물들의 건설 티어). 레벨 조건·캐슬 게이트는 비용에 반영하지 않는다.
+   → 1티어(스트롱홀드) 건물 계열 ★1, 2티어(킵) 계열 ★2. 캐슬에서 건설되는 건물이 없으므로 ★3은 발생하지 않음 */
 function transformReqTier(fromKey,toKey){
   const tr=(BAL.BUILDINGS[fromKey].transforms||[]).find(x=>x.key===toKey)||{};
-  return Math.max(1,tr.tier||1,tr.minLevel||1);
+  let t=(BAL.BUILDINGS[fromKey]||{}).tier||1;   // 원본 건물의 건설 티어
+  (tr.prereq||[]).forEach(k=>{const d=BAL.BUILDINGS[k];if(d&&PANEL_BUILDS.includes(k))t=Math.max(t,d.tier||1);});   // 사전 조건 건물(직접 건설 가능한 것만)의 건설 티어
+  return Math.max(1,Math.min(2,t));
 }
 function transformStarsFor(fromKey,toKey){
   const a=BAL.ECON.transformStars, r=transformReqTier(fromKey,toKey);
