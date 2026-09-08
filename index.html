@@ -1306,9 +1306,9 @@ function attachDrag(div,info){
     const rect=cv.getBoundingClientRect();
     const off=e.pointerType==="touch"?60:e.pointerType==="pen"?40:0;
     const sx=(e.clientX-rect.left)*(cv.width/rect.width);
-    const syRaw=(e.clientY-rect.top)*(cv.height/rect.height);
-    dragState.rawX=sx; dragState.rawAimY=syRaw;   // 화면 좌표 (취소 제스처 판정용)
-    const sim=unflipPt(sx, syRaw-off);            // 손가락 위로 살짝 + 게스트 반전 보정 → 시뮬 좌표
+    const aimY=(e.clientY-rect.top)*(cv.height/rect.height)-off;   // 손가락 위로 살짝 (조준점, 화면 좌표)
+    dragState.rawX=sx; dragState.rawAimY=aimY;   // 화면 조준 좌표 (취소 제스처 — 오프셋 포함해 최하단 오취소 방지)
+    const sim=unflipPt(sx, aimY);                // 게스트 반전 보정 → 시뮬 좌표
     dragState.pt={x:Math.max(4,Math.min(W-4,sim.x)), y:Math.max(4,Math.min(H-4,sim.y))};
     S.mouse=dragState.pt; S.sel=info;
   });
