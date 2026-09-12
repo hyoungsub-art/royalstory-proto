@@ -3072,30 +3072,8 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillRect(cx0-bw*0.11,by+bh*0.74,bw*0.22,bh*0.26);
       break;}
     case "tower": case "guardTower": case "arcaneTower":{
-      if(key==="tower"){
-        /* 거점 (2026-09-12): 돌무더기 받침 + 깃대 + 펄럭이는 진영 깃발 — 망루 실루엣 없음 (변형 타워와 확실히 구분) */
-        const cx0=px+pw/2;
-        ctx.fillStyle="#9a927e";   // 돌무더기
-        ctx.beginPath();ctx.moveTo(bx+bw*0.08,by+bh*0.98);ctx.lineTo(bx+bw*0.2,by+bh*0.62);ctx.lineTo(bx+bw*0.45,by+bh*0.46);
-        ctx.lineTo(bx+bw*0.76,by+bh*0.56);ctx.lineTo(bx+bw*0.92,by+bh*0.98);ctx.closePath();ctx.fill();po(lw);
-        ctx.fillStyle="#b3ab98";ctx.beginPath();ctx.moveTo(bx+bw*0.3,by+bh*0.92);ctx.lineTo(bx+bw*0.38,by+bh*0.64);
-        ctx.lineTo(bx+bw*0.55,by+bh*0.56);ctx.lineTo(bx+bw*0.62,by+bh*0.92);ctx.closePath();ctx.fill();
-        /* 깃대 + 머리 장식 */
-        ctx.fillStyle="#6b4a26";roundRectPath(cx0-pw*0.025,by-ph*0.36,pw*0.05,bh*1.0+ph*0.36,2);ctx.fill();po(lw*0.8);
-        ctx.fillStyle=GOLD;ctx.beginPath();ctx.arc(cx0,by-ph*0.385,pw*0.04,0,7);ctx.fill();po(lw*0.6);
-        /* 깃발 (오른쪽으로 펄럭임) + 가로 띠 + 문장 — 2026-09-12 축소 */
-        const fy=by-ph*0.33, fw=pw*0.34, fh=ph*0.24, fx0=cx0+pw*0.025;
-        ctx.fillStyle=T.main;
-        ctx.beginPath();ctx.moveTo(fx0,fy);ctx.quadraticCurveTo(fx0+fw*0.5,fy-fh*0.14,fx0+fw,fy+fh*0.05);
-        ctx.lineTo(fx0+fw*0.78,fy+fh*0.5);ctx.lineTo(fx0+fw,fy+fh*0.95);ctx.quadraticCurveTo(fx0+fw*0.5,fy+fh*1.12,fx0,fy+fh);ctx.closePath();ctx.fill();po(lw);
-        ctx.fillStyle=T.dark;ctx.fillRect(fx0,fy+fh*0.42,fw*0.72,fh*0.16);
-        ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(fx0+fw*0.4,fy+fh*0.5,fh*0.17,0,7);ctx.fill();po(lw*0.6);
-        /* 작은 페넌트 (깃대 위) */
-        ctx.fillStyle=T.light;ctx.beginPath();ctx.moveTo(fx0,by-ph*0.37);ctx.lineTo(fx0+pw*0.13,by-ph*0.345);ctx.lineTo(fx0,by-ph*0.31);ctx.closePath();ctx.fill();po(lw*0.5);
-        break;
-      }
-      /* 가드/아케인: 세로로 솟은 석조 망루 (풋프린트 위로 연장) */
-      const isBase=false;
+      /* 형태: 세로 망루. 거점(기본)은 낮은 목조 망루(X 버팀대·판자 지붕·작은 깃발), 상위 변형은 높은 석조 — 2026-09-13 깃발 컨셉 철회, 원래 타워 디자인 복귀 */
+      const isBase=key==="tower";
       const shaftW=bw*0.52, sx=px+pw/2-shaftW/2;
       const topY=by+(isBase?-ph*0.16:-ph*0.28), botY=by+bh;   // 상위 타워 높이 축소 (2026-08-31)
       ctx.fillStyle=T.main;roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
