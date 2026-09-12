@@ -1021,8 +1021,10 @@ function unitUpdate(u,dt){
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
       const ordB=orderOf(u), gpB=goalPoint(u);
+      if(u.ordRef!==ordB){u.ordRef=ordB;u.arrived=false;}
+      if(ordB&&ordB.type==="move"&&!u.arrived&&Math.hypot(u.x-gpB.x,u.y-gpB.y)<=TILE*1.5)u.arrived=true;
       if(ordB&&ordB.type==="hold"){turnStep(u,dt);}   // 홀드: 제자리 (광역 시전은 자동)
-      else if(d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(ordB&&ordB.type==="move"&&Math.hypot(u.x-gpB.x,u.y-gpB.y)>TILE*1.5)){   // 공격 이동 / 이동 명령 중 적 무시
+      else if(d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(ordB&&ordB.type==="move"&&!u.arrived)){   // 공격 이동 / 이동 명령 중 적 무시 (도착 플래그로 떨림 방지)
         const hx=gpB.x, hy=gpB.y;
         if(Math.hypot(u.x-hx,u.y-hy)>TILE*0.4)locomote(u,hx,hy,dt); else turnStep(u,dt);
       } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
@@ -1033,26 +1035,36 @@ function unitUpdate(u,dt){
     const o0=orderOf(u);
     if(o0&&o0.type==="attack"&&o0.bid){const fb=bldById(o0.bid); if(fb&&fb.side!==u.side){tgt=fb;focus=true;} else o0.bid=null;}
   }
-  if(!tgt)return;
-  const tr=tgt.r!==undefined?tgt.r:Math.max(tgt.w,tgt.h)*TILE/2;
-  const reach=u.rng*TILE+u.r+tr;
-  const ty=tgt.y!==undefined?tgt.y:tgt.cy, tx=tgt.x!==undefined?tgt.x:tgt.cx;
-  const dd=Math.hypot(u.x-tx,u.y-ty);
-  /* 대기 태세 (2026-09-12, 6-4): 전역 토글이 "대기"면 자위 반경 밖의 목표는 무시하고 집결 지점(생산 위치) 근처를 지킨다 */
-  /* 공격 이동 (2026-09-13): 자위 반경(aggroR) 안의 적과만 교전하고, 아니면 목표 지점(공격 지점 또는 집결지)으로 이동해 대기.
-     복귀(공격 지점 없음) 중에는 적 "건물"은 집결지 반경 안에 있을 때만 상대한다 — 적진에서 건물을 때리느라 못 돌아오는 일 방지 */
-  const aggro=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE, ord=orderOf(u);
-  if(focus){ /* 집중 공격: 자위·집결 규칙 없이 목표 건물로 곧장 */ }
+  if(!tgt){u.eng=null;return;}
+  let tr,reach,tx,ty,dd;
+  const setG=t=>{tr=t.r!==undefined?t.r:Math.max(t.w,t.h)*TILE/2; reach=u.rng*TILE+u.r+tr; ty=t.y!==undefined?t.y:t.cy; tx=t.x!==undefined?t.x:t.cx; dd=Math.hypot(u.x-tx,u.y-ty);};
+  setG(tgt);
+  const aggro=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE, release=aggro*1.4, ord=orderOf(u);
+  if(u.ordRef!==ord){u.ordRef=ord;u.eng=null;u.arrived=false;}   // 명령이 바뀌면 교전 기억·도착 플래그 초기화
+  if(focus){u.eng=null; /* 집중 공격: 자위·집결 규칙 없이 목표 건물로 곧장 */ }
   else if(ord&&ord.type==="hold"){
-    /* 홀드 (2026-09-13, 스타크래프트식): 제자리 고정 — 이동하지 않고 사거리 안에 들어온 적만 공격 */
+    /* 홀드 (스타크래프트식): 제자리 고정 — 이동하지 않고 사거리 안에 들어온 적만 공격 */
+    u.eng=null;
     if(dd>reach){setFacing(u,tx-u.x,ty-u.y);turnStep(u,dt);return;}
   } else {
-    let engage=dd<=aggro;
-    if(ord&&ord.type==="move"){   /* 이동 명령: 목적지 근처(1.5칸)에 닿기 전엔 적을 무시하고 이동, 도착 후엔 그 자리에서 자위 대기 */
+    /* 교전 히스테리시스 (2026-09-13, 떨림 수정): 한 번 붙은 적은 aggro×1.4까지 계속 상대하고, 새 적은 aggro 안에서만 획득 —
+       경계에서 매 틱 "교전 ↔ 이동"이 뒤바뀌며 방향이 요동치던 문제 제거 */
+    let engage=false;
+    const e=u.eng;
+    if(e&&e.hp>0&&e.side!==u.side&&!(e.deploy>0)){
+      const pd=Math.hypot(u.x-(e.x!==undefined?e.x:e.cx),u.y-(e.y!==undefined?e.y:e.cy));
+      if(pd<=release){tgt=e;setG(tgt);engage=true;} else u.eng=null;
+    }
+    if(!engage){
+      engage=dd<=aggro;
       const g0=goalPoint(u);
-      if(Math.hypot(u.x-g0.x,u.y-g0.y)>TILE*1.5)engage=false;
-      else if(engage&&tgt.cx!==undefined)engage=Math.hypot(tgt.cx-ord.x,tgt.cy-ord.y)<=aggro;
-    } else if(engage&&!(ord&&ord.type==="attack")&&tgt.cx!==undefined){const g0=goalPoint(u);engage=Math.hypot(tgt.cx-g0.x,tgt.cy-g0.y)<=aggro;}
+      if(ord&&ord.type==="move"){   /* 이동 명령: 목적지에 한 번 도착하기 전엔 적을 무시, 도착 후엔 그 자리에서 자위 (도착 플래그는 유지) */
+        if(!u.arrived&&Math.hypot(u.x-g0.x,u.y-g0.y)<=TILE*1.5)u.arrived=true;
+        if(!u.arrived)engage=false;
+        else if(engage&&tgt.cx!==undefined)engage=Math.hypot(tgt.cx-ord.x,tgt.cy-ord.y)<=aggro;
+      } else if(engage&&!(ord&&ord.type==="attack")&&tgt.cx!==undefined)engage=Math.hypot(tgt.cx-g0.x,tgt.cy-g0.y)<=aggro;   // 집결 중 적 건물은 집결지 근처만
+      if(engage)u.eng=tgt;
+    }
     if(!engage){
       const gp=goalPoint(u), hx=gp.x, hy=gp.y, hd=Math.hypot(u.x-hx,u.y-hy);
       if(hd>TILE*0.4){setFacing(u,hx-u.x,hy-u.y);locomote(u,hx,hy,dt);}
