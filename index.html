@@ -753,11 +753,8 @@ function hasBarracksLine(side){return BARRACKS_LINE.some(k=>aliveB(side,k));}
 const SANCTUM_LINE=["sanctum","dragonNest","golemCradle"];   // 캐슬 조건: 생텀 또는 그 변형
 function hasSanctumLine(side){return SANCTUM_LINE.some(k=>aliveB(side,k));}
 function effTier(side){
-  const purchased=side==="player"?S.tier:S.eTier;
-  let chain=1;
-  if(hasBarracksLine(side))chain=2;        // 킵 조건: 배럭 또는 그 변형 (2026-08-30 개정)
-  if(chain===2&&hasSanctumLine(side))chain=3;
-  return Math.min(purchased,chain);
+  /* 2026-09-12 개정: 승급 조건(킵=배럭 계열, 캐슬=생텀 계열)과 실시간 강등 폐지 — 유효 티어 = 구매한 티어 */
+  return side==="player"?S.tier:S.eTier;
 }
 const TIER_NM=["","타운 홀","킵","캐슬"];
 function capFor(side){return BAL.ECON.cap[effTier(side)];}
@@ -810,8 +807,7 @@ function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
   if(cur>=3)return false;
   const need=(BAL.ECON.tierGold||[0,0,15,35])[cur+1], nt=cur+1;   // 승급 비용 = 골드 (2026-09-12 확정)
-  const ok=nt===2?hasBarracksLine(side):hasSanctumLine(side);
-  if(!ok||elixirOf(side)<need)return false;
+  if(elixirOf(side)<need)return false;   // 조건 없음 — 골드만 (2026-09-12)
   spend(side,need);
   if(side==="player")S.tier=nt; else S.eTier=nt;
   if(side===MYSIDE)toast(TIER_NM[nt]+" 승급! (💰"+need+") 골드 회복 ×"+((BAL.ECON.tierRegen||[])[nt]||1)+" · 건설 범위 "+ringFor(side)+"칸");
@@ -1501,7 +1497,7 @@ function aiUpdate(dt){
   /* 3) 킵 승급 — ★ 저축 (골드를 상한까지 채워 ★ 적립) */
   if(maxTier>=2&&S.eTier<2){
     if(doTierUp(side)){starSpent();return;}
-    if(prodCnt>=1&&hasBarracksLine(side))return;   // 킵 골드(15) 모으기 — 조건이 갖춰지면 잠깐 대기
+    if(prodCnt>=1)return;   // 킵 골드(15) 모으기 — 배럭 1채는 먼저 (조건은 아니지만 기본기)
   }
   /* 3-1) 1차 테크 — 성향에 따라 워크숍 또는 생텀 먼저 */
   const techA=st.techPref==="sanctum"?"sanctum":"workshop", techB=techA==="sanctum"?"workshop":"sanctum";
@@ -1535,7 +1531,7 @@ function aiUpdate(dt){
   /* 6) 2차 테크 → 캐슬 (★ 저축) */
   if(maxTier>=3){
     if(lineCnt(techB)<1&&buildPref([techB]))return;
-    if(S.eTier<3){if(doTierUp(side)){starSpent();return;} if(hasSanctumLine(side))return;}   // 캐슬 골드(35) 모으기
+    if(S.eTier<3){if(doTierUp(side)){starSpent();return;} if(prodAll>=(st.lvAfterProd||4))return;}   // 캐슬 골드(35) 모으기 — 넓게 지은 뒤부터
   }
   /* 7) 변형 — 성향 우선순위(tfPref) 순으로 Lv3 달성 건물부터 (★ 부족 시 저축) */
   if(st.transform||st.aviary){
@@ -1726,9 +1722,7 @@ function showStrip(b){
   if(b.key==="hall"){
     if(myTier()<3){
       const nt=myTier()+1, need=(BAL.ECON.tierGold||[0,0,15,35])[nt];   // 승급 비용 = 골드 (2026-09-12)
-      const met=nt===2?hasBarracksLine(MYSIDE):hasSanctumLine(MYSIDE);
-      const needNm=nt===2?"배럭 계열":"아케인 생텀 계열";
-      const hard=!met;
+      const hard=false;   // 승급 조건 없음 (2026-09-12) — 골드만
       html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${need}"`} ${!hard&&elixirOf(MYSIDE)<need?"disabled":""}>`
           +`${TIER_NM[nt]} 승급 (💰${need})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
@@ -1808,8 +1802,7 @@ function execUpgrade(side,b){
 function canTierUpP(){
   if(myTier()>=3)return false;
   const nt=myTier()+1;
-  const met=nt===2?hasBarracksLine(MYSIDE):hasSanctumLine(MYSIDE);
-  return met&&starsOf(MYSIDE)>=BAL.ECON.tierStars[nt];
+  return elixirOf(MYSIDE)>=(BAL.ECON.tierGold||[0,0,15,35])[nt];   // 골드만 (2026-09-12; 스타 잔재 수정)
 }
 function canUpgradeB(b){
   const d=BAL.BUILDINGS[b.key];
