@@ -225,7 +225,7 @@
     style="width:min(340px,84vw);background:var(--panel);border:1.5px solid var(--panel2);border-radius:8px;
            padding:9px 12px;color:var(--text);font-size:12.5px;">
   <button class="mode-btn" onclick="pvpConnect()"><b>🌐 실시간 매칭</b><span class="d">릴레이 서버로 다른 플레이어와 1:1 락스텝 대전</span></button>
-  <button class="mode-btn" onclick="pvpSparring()"><b>🤖 스파링</b><span class="d">AI 상대와 즉시 대전 (어려움)</span></button>
+  <button class="mode-btn" onclick="pvpSparring()"><b>🤖 스파링</b><span class="d">AI 상대와 즉시 대전 (매우 어려움 · 전략 성향 8종 랜덤)</span></button>
   <button class="back" onclick="cancelPvp()">← 로비</button>
 </div>
 <div id="toast"></div>
@@ -343,8 +343,22 @@ const BAL={
      heroUse(AI도 스타로 영웅 소환 — 비용·쿨다운 플레이어와 동등), 어려움+ 전진 배치(aggro)·판단 속도 상향 */
   easy:   {aiDelay:10, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:2, towerMax:2,  transform:0, aviary:0, defensive:0, aggro:0, towerTf:0,  atkTwMin:0, heroUse:0},
   normal: {aiDelay:5,  aiInterval:1.6, maxTier:3, maxLevel:2, gasBases:2, prodMax:4, towerMax:5,  transform:0, aviary:0, defensive:1, aggro:0, towerTf:3,  atkTwMin:2, heroUse:0},
-  hard:   {aiDelay:2,  aiInterval:0.9, maxTier:3, maxLevel:3, gasBases:3, prodMax:7, towerMax:9,  transform:1, aviary:1, defensive:1, aggro:1, towerTf:6,  atkTwMin:3, heroUse:1},
-  extreme:{aiDelay:0,  aiInterval:0.45,maxTier:3, maxLevel:3, gasBases:3, prodMax:10,towerMax:14, transform:1, aviary:1, defensive:1, aggro:0, towerTf:99, atkTwMin:4, heroUse:1},
+  hard:   {aiDelay:2,  aiInterval:0.9, maxTier:3, maxLevel:3, gasBases:3, prodMax:7, towerMax:9,  transform:1, aviary:1, defensive:1, aggro:1, towerTf:6,  atkTwMin:3, heroUse:1, spendAll:1},
+  extreme:{aiDelay:0,  aiInterval:0.45,maxTier:3, maxLevel:3, gasBases:3, prodMax:10,towerMax:14, transform:1, aviary:1, defensive:1, aggro:0, towerTf:99, atkTwMin:4, heroUse:1, spendAll:1},
+  /* spendAll(2026-09-12): 전략적 저축(승급·변형·영웅 ★) 외에는 자원을 놀리지 않음 — 소프트 캡을 넘어 레벨업·증설·타워로 계속 소비, 잉여 ★은 녹여 사용 */
+ },
+ /* AI 전략 인격 (2026-09-12): 스파링 상대 8종. DIFF(매우 어려움) 위에 덮어쓰는 오버라이드 + 선호 필드 — 스탯·자원은 여전히 동등 (가정).
+    prodW: 생산 계열 증설 가중치(높을수록 자주) / techPref: 먼저 여는 테크(workshop|sanctum) / tfPref: 변형 우선순위
+    heroMin: 전장 유지 영웅 수(저축 기준) / gasFirst·lvFirst·siegeFirst·heroFirst·towerFirst: 순서 스위치 */
+ AI_STYLES:{
+  rush:   {nm:"강습대장",   d:"초반 물량 러시",        aggro:1, gasBases:1, atkTwMin:1, towerTf:3, towerMax:8, prodMax:12, maxTier:2, maxLevel:2, heroMin:1, prodW:{barracks:3,archery:1}, techPref:"workshop", tfPref:["shieldBarracks"]},
+  cavalry:{nm:"기병대장",   d:"기병 돌격",             aggro:1, gasBases:2, atkTwMin:2, towerTf:5, heroMin:1, prodW:{assaultBarracks:3,barracks:1,archery:1}, techPref:"workshop", tfPref:["knightHall","shieldBarracks","shooterGarden"]},
+  archer: {nm:"궁수장군",   d:"원거리 물량·가드 타워", heroMin:1, prodW:{archery:3,barracks:1}, techPref:"workshop", tfPref:["shooterGarden","shieldBarracks"]},
+  siege:  {nm:"공성기술자", d:"공성 병기 철거",        siegeFirst:1, atkTwMin:1, towerTf:4, heroMin:1, prodW:{workshop:2,barracks:1,archery:1}, techPref:"workshop", tfPref:["siegeWorkshop","shieldBarracks"]},
+  arcane: {nm:"대마법사",   d:"마법 테크·아케인 타워", atkTwMin:2, heroMin:1, prodW:{sanctum:3,archery:1}, techPref:"sanctum", tfPref:["dragonNest","shooterGarden"]},
+  turtle: {nm:"요새군주",   d:"철벽 방어 후 역습",     aggro:0, towerFirst:1, atkTwMin:6, towerTf:99, towerMax:16, prodMax:6, heroMin:1, prodW:{archery:2,barracks:1}, techPref:"sanctum", tfPref:["shieldBarracks","dragonNest"]},
+  greed:  {nm:"상인왕",     d:"경제 우선·후반 폭발",   gasFirst:1, lvFirst:1, gasBases:3, atkTwMin:1, towerTf:4, prodMax:12, heroMin:1, prodW:{barracks:1,archery:1,assaultBarracks:1}, techPref:"workshop", tfPref:["knightHall","shooterGarden","shieldBarracks","dragonNest"]},
+  hero:   {nm:"영웅왕",     d:"영웅 중심 전투",        heroFirst:1, heroMin:3, atkTwMin:2, prodW:{archery:2,barracks:1,sanctum:1}, techPref:"sanctum", tfPref:["shooterGarden","dragonNest"]},
  },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
  ROAD:{x0:8, x1:10, y0:4, y1:19},
@@ -611,6 +625,8 @@ function newGame(){
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      eHeroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      occ:null, zoneDirty:true, bldSeq:0};
+  /* 스파링(AI 대전)만 전략 인격을 시드 난수로 뽑는다 — 같은 시드 = 같은 상대 (리플레이 재현). GAME_CFG.aiStyle로 강제 가능 */
+  S.aiStyle=(GAME_CFG&&GAME_CFG.mode==="pvp"&&!GAME_CFG.net)?(GAME_CFG.aiStyle||pickAiStyle()):null;
   addBuilding("hall","player",8,20);
   BAL.ENEMY_BASE.forEach(([k,x,y])=>addBuilding(k,"enemy",x,y));
   S.zoneDirty=true;
@@ -1088,40 +1104,115 @@ function findSpot(key,side,pref){
    쉬움  : 느린 판단·경제만·레벨/변형 없음·킵까지 (연습용)
    보통  : 표준 운영 — 가스 2, 생산 2, 캐슬 테크, 유닛 Lv2, 변형 1회, 방어 반응
    어려움: 공격적 — 빠른 테크, 가스 3, 생산 4, 유닛 Lv3 풀 투자, 변형 2종, 셰어리, 전진 타워 압박 */
+/* ---------- AI 전략 인격 (2026-09-12) ----------
+   난이도(DIFF) = 실행 수준(판단 주기·목표치·스위치), 성향(AI_STYLES) = "무엇을 먼저 하느냐".
+   aiCfg() = DIFF[diffKey] 위에 S.aiStyle 필드를 덮어쓴 설정. 스파링은 시드 난수(grnd)로 성향을 뽑아 리플레이가 재현된다.
+   자원 운용 원칙(2026-09-12): 전략적 저축(승급·변형·영웅 ★)을 제외하면 자원을 놀리지 않는다 —
+   잉여 ★은 영웅 소환 → 녹여서 레벨업·건설, 엘릭서는 소프트 캡을 넘어서도 레벨업·증설·타워로 계속 소비(spendAll). */
+function aiCfg(){
+  const base=diff();
+  const sty=(S&&S.aiStyle&&BAL.AI_STYLES)?BAL.AI_STYLES[S.aiStyle]:null;
+  return sty?Object.assign({},base,sty):base;
+}
+function pickAiStyle(){
+  const keys=Object.keys(BAL.AI_STYLES||{});
+  return keys.length?keys[Math.floor(grnd()*keys.length)]:null;
+}
+/* 생산 계열 = 기본 건물 + 그 변형 (증설 가중치·보유 수 계산용) / 변형 → 원본 역참조 */
+const PROD_LINE={barracks:["barracks","shieldBarracks"],archery:["archery","shooterGarden"],assaultBarracks:["assaultBarracks","knightHall"],
+  workshop:["workshop","siegeWorkshop"],sanctum:["sanctum","dragonNest","golemCradle"]};
+const TF_FROM={shieldBarracks:"barracks",knightHall:"assaultBarracks",shooterGarden:"archery",siegeWorkshop:"workshop",dragonNest:"sanctum",golemCradle:"sanctum"};
+const TF_TOP=new Set(["siegeWorkshop","dragonNest","golemCradle"]);   // aviary 스위치가 관장하는 상위 변형
 function aiUpdate(dt){
-  const st=diff();
+  const st=aiCfg();
   if(S.elapsed<st.aiDelay)return;
   S.aiT+=dt;
   if(S.aiT<st.aiInterval)return;
   S.aiT=0;
-  const side="enemy", tier=effTier(side);
+  const side="enemy", tier=effTier(side), cap=capFor(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
-  const prodCnt=cnt("barracks")+cnt("shieldBarracks")+cnt("assaultBarracks")+cnt("shooterGarden")+cnt("knightHall");
+  const lineCnt=k=>(PROD_LINE[k]||[k]).reduce((a,x)=>a+cnt(x),0);
+  const prodCnt=lineCnt("barracks")+lineCnt("archery")+lineCnt("assaultBarracks");
   const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
+  const atkTw=cnt("guardTower")+cnt("arcaneTower");
   const maxTier=st.maxTier, maxLv=Math.min(st.maxLevel,tier);
-  const tryB=(key,pref)=>{
+  const heroCost=Math.max(1,BAL.HERO_COST);
+  const fieldH=S.units.filter(u=>u.side===side&&u.hero).length;
+  const readySlot=(S.eHeroSlots||[]).find(s=>s.state==="ready");
+  const heroMin=st.heroMin!==undefined?st.heroMin:2;
+  const tfPref=st.tfPref||["shieldBarracks","knightHall","shooterGarden","siegeWorkshop","dragonNest"];
+  const canArc=(st.towerTf||0)>0&&tier>=3&&hasSanctumLine(side);
+  const canGrd=(st.towerTf||0)>0&&tier>=2&&hasPrereq(side,["workshop","siegeWorkshop"]);
+  const tfKey=canArc?"arcaneTower":(canGrd?"guardTower":null);
+  /* ★ 예약분 = 다음 승급 비용 + 대기 중인 변형(최대 1). 이보다 많은 ★은 잉여 → 영웅·녹이기로 즉시 운용 */
+  const tfWait=(()=>{
+    if((st.towerTf||0)>atkTw&&cnt("tower")>0&&tfKey)return 1;
+    for(const to of tfPref){const from=TF_FROM[to];
+      if(from&&cnt(to)<1&&S.buildings.some(x=>x.side===side&&x.hp>0&&x.key===from&&x.level>=3))return 1;}
+    return 0;})();
+  const reserve=(S.eTier<2&&maxTier>=2?BAL.ECON.tierStars[2]:(S.eTier<3&&maxTier>=3?BAL.ECON.tierStars[3]:0))+tfWait;
+  const surplus=Math.max(0,S.eStars-reserve);
+  /* 예산 = 엘릭서 + 잉여 ★×상한. spend()가 부족분만큼만 자동으로 녹인다 (예약 ★은 손대지 않음) */
+  const budget=()=>elixirOf(side)+surplus*cap;
+  /* 지출↔저축 교대 (2026-09-12): ★은 엘릭서 바를 상한까지 채워야 생기므로 "저축"은 곧 엘릭서 지출 동결이다.
+     저축 국면은 직전 ★ 지출 이후 엘릭서를 상한의 75% 이상 쓴 뒤에만 허용 → 건설·레벨업이 끊기지 않으면서 ★도 주기적으로 모인다.
+     (침입 대응 변형은 예외 — 즉시 저축) */
+  S.aiSpent=S.aiSpent||0; S.aiNonHeroStars=S.aiNonHeroStars||0;
+  const holdOK=()=>S.aiSpent>=cap*0.75;
+  const starSpent=hero=>{S.aiSpent=0; S.aiNonHeroStars=hero?0:S.aiNonHeroStars+1;};
+  const tryB=(key,pref,useStars)=>{
     if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;   // 스테이지 해금 규칙은 양측 동일
-    const d=BAL.BUILDINGS[key];
-    if(elixirOf(side)<d.cost)return false;   // AI는 건물 구매에 스타를 융해하지 않는다 — ★은 승급·변형·영웅 재원 (2026-09-07)
+    const d=BAL.BUILDINGS[key]; if(!d)return false;
+    if((useStars?budget():elixirOf(side))<d.cost)return false;   // 기본은 순수 엘릭서 — ★은 승급·변형·영웅 재원 (잉여분만 예외)
     if(d.tier>tier)return false;
     if(!hasPrereq(side,d.prereq))return false;
-    const spot=findSpot(key,side,pref);
-    if(!spot)return false;
-    spend(side,d.cost);
+    const spot=findSpot(key,side,pref); if(!spot)return false;
+    spend(side,d.cost); S.aiSpent+=d.cost;
     const b=addBuilding(key,side,spot.tx,spot.ty);
     burst(b.cx,b.cy,"205,195,165",10,110);
     return true;
   };
+  const doLevel=b=>{const c=upCostFor(b);spend(side,c);S.aiSpent+=c;b.level++;
+    S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"255,170,170"});
+    burst(b.cx,b.cy,"140,220,255",8,100);};
+  const nextUp=lim=>S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<lim);
+  const summonHero=()=>{
+    if(!readySlot)return false;
+    const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
+    const intr=hall&&S.units.find(u=>u.side==="player"&&u.hp>0&&tileDist(u.x/TILE,u.y/TILE,hall.cx/TILE,hall.cy/TILE)<=10);
+    let fx,fy;
+    if(intr){fx=intr.x;fy=Math.max(TILE,intr.y-TILE*1.5);}
+    else{let fb=null;S.buildings.forEach(b=>{if(b.side===side&&b.hp>0&&(!fb||b.cy>fb.cy))fb=b;});
+      if(fb){fx=fb.cx;fy=Math.min(H-TILE,fb.cy+TILE*1.5);}}
+    if(fx===undefined)return false;
+    S.eStars-=heroCost; readySlot.state="field"; readySlot.unit=spawnUnit(readySlot.key,side,fx,fy,true);
+    burst(fx,fy,"255,210,90",14,150);SND.play("hero");starSpent(true);return true;
+  };
+  /* 생산 증설 후보: 성향 가중치(prodW) 대비 보유 수가 가장 적은 계열부터 (해금·티어·전제는 tryB가 거른다) */
+  const prodW=st.prodW||{barracks:1,archery:1};
+  const prodOrder=()=>Object.keys(prodW).filter(k=>BAL.BUILDINGS[k]).sort((a,b)=>(lineCnt(a)+0.01)/prodW[a]-(lineCnt(b)+0.01)/prodW[b]);
+  const prodPref=st.aggro?"fwd":null;   // 공격형: 생산 건물도 전방 배치
   const gasNeed=st.gasBases;
+  /* 구조적 건설 가능 여부(해금·티어·전제) — 비용은 제외 */
+  const canB=key=>{if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;
+    const d=BAL.BUILDINGS[key];return !!d&&d.tier<=tier&&hasPrereq(side,d.prereq);};
+  /* 선호 순서 건설: 구조적으로 불가면 다음 후보, 비용만 부족하면 기다린다(true) — 싼 대체재로 자원이 새어 성향이 뭉개지는 것을 막는다 (2026-09-12) */
+  const buildPref=(order,pref,useStars)=>{
+    for(const k of order){
+      if(!canB(k))continue;
+      if((useStars?budget():elixirOf(side))<BAL.BUILDINGS[k].cost)return true;   // 대기
+      if(tryB(k,pref,useStars))return true;   // 자리 없음 → 다음 후보
+    }
+    return false;
+  };
 
   /* 0) 방어 반응 — 침입 방향의 기본 타워를 즉시 공격형으로 변형, 없으면 거점 타워 건설 */
   if(st.defensive){
     const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
     if(hall){
-      /* 침입 판정: 유닛뿐 아니라 전진 건설된 적 건물(타워 크리핑)도 위협으로 간주 (2026-09-04) */
       let intruder=S.units.find(u=>u.side==="player"&&u.hp>0&&tileDist(u.x/TILE,u.y/TILE,hall.cx/TILE,hall.cy/TILE)<=10);
       let creepOnly=false;
-      if(!intruder){
+      if(!intruder){   // 전진 건설(타워 크리핑)도 위협으로 간주
         let pb=null,pbd=1e9;
         S.buildings.forEach(b=>{if(b.side!=="player"||b.hp<=0)return;
           const dd=tileDist(b.cx/TILE,b.cy/TILE,hall.cx/TILE,hall.cy/TILE);
@@ -1129,159 +1220,100 @@ function aiUpdate(dt){
         if(pb){intruder={x:pb.cx,y:pb.cy};creepOnly=true;}
       }
       if(intruder){
-        const canArc=(st.towerTf||0)>0&&tier>=3&&hasSanctumLine(side);
-        const canGrd=(st.towerTf||0)>0&&tier>=2&&hasPrereq(side,["workshop","siegeWorkshop"]);
-        /* 변형 가능한 기본 타워가 위협 근처에 있으면 — 변형 비용을 저축해서라도 즉시 공격형으로 (신규 타워 남발 금지) */
-        if(canArc||canGrd){
+        if(tfKey){
           let bt=null,btd=1e9;
           S.buildings.forEach(x=>{if(x.side===side&&x.hp>0&&x.key==="tower"){
             const dd=Math.hypot(x.cx-intruder.x,x.cy-intruder.y);if(dd<btd&&dd<=8*TILE){btd=dd;bt=x;}}});
           if(bt){
-            const tk=canArc?"arcaneTower":"guardTower";
-            if(starsOf(side)>=transformStarsFor(bt.key,tk)){transformBuilding(bt,tk);return;}
-            return;   // 스타 적립 대기 (지출 보류 → 상한 도달 → ★) — 기본 타워 남발 금지
+            if(starsOf(side)>=transformStarsFor(bt.key,tfKey)){transformBuilding(bt,tfKey);starSpent();return;}
+            return;   // ★ 적립 대기 — 침입 대응은 교대 규칙 예외 (즉시 저축)
           }
         }
-        /* 신규 방어 타워 건설: 유닛 침입은 즉시. 건물 크리핑은 변형 능력이 생긴 뒤에만 (그 전엔 테크 우선) */
-        if((!creepOnly||canArc||canGrd)&&towerCnt<st.towerMax&&tryB("tower",{def:{x:intruder.x,y:intruder.y}}))return;
+        if((!creepOnly||tfKey)&&towerCnt<st.towerMax&&tryB("tower",{def:{x:intruder.x,y:intruder.y}}))return;
       }
     }
   }
-  /* 0-1) 영웅 소환 (어려움 이상) — 규칙은 플레이어와 동등: 비용 = 스타, 사망 시 쿨다운.
-     침입자가 있으면 요격 위치에, 없으면 가장 전진한 아군 건물 앞에 투입.
-     단, 킵 이전에는 금지 — 킵 비용(12)이 티어1 상한(10)을 넘어 스타가 승급 재원이기 때문 (2026-09-04) */
-  if(st.heroUse&&S.eTier>=2&&S.eStars>=Math.max(1,BAL.HERO_COST)
-     &&(cnt("guardTower")+cnt("arcaneTower"))>=(st.atkTwMin||0)){   // 스타는 방어 타워 확보가 먼저 (2026-09-07)
-    const slot=(S.eHeroSlots||[]).find(s=>s.state==="ready");
-    if(slot){
-      const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
-      const intr=hall&&S.units.find(u=>u.side==="player"&&u.hp>0&&tileDist(u.x/TILE,u.y/TILE,hall.cx/TILE,hall.cy/TILE)<=10);
-      let fx,fy;
-      if(intr){fx=intr.x;fy=Math.max(TILE,intr.y-TILE*1.5);}
-      else{
-        let fb=null;S.buildings.forEach(b=>{if(b.side===side&&b.hp>0&&(!fb||b.cy>fb.cy))fb=b;});
-        if(fb){fx=fb.cx;fy=Math.min(H-TILE,fb.cy+TILE*1.5);}
-      }
-      if(fx!==undefined){
-        S.eStars-=Math.max(1,BAL.HERO_COST);
-        slot.state="field"; slot.unit=spawnUnit(slot.key,side,fx,fy,true);
-        burst(fx,fy,"255,210,90",14,150);SND.play("hero");
-        return;
-      }
-    }
+  /* 0-1) 영웅 소환: 잉여 ★이 있으면 항상. 아니면 킵 이후·최소 공격 타워 확보 후 유지 수(heroMin)까지 (영웅왕은 킵 이후 즉시) */
+  if(st.heroUse&&readySlot&&S.eStars>=heroCost){
+    const heroTurn=fieldH<heroMin&&S.eTier>=2&&S.aiNonHeroStars>=(st.heroFirst?1:2);   // ★ 배분: 다른 용도 2회(영웅왕 1회)마다 영웅 차례
+    if(surplus>=heroCost||heroTurn||(st.heroFirst&&S.eTier>=2)||(S.eTier>=2&&atkTw>=(st.atkTwMin||0)&&fieldH<heroMin)){if(summonHero())return;}
   }
-  /* 1) 경제 우선 — 가스가 영역 밖이면 타워를 이어 확장.
-     단, 최소 공격 타워(atkTwMin) 확보 전에는 가스 확장을 2까지만 (방어 테크 우선) */
-  const tfNow=cnt("guardTower")+cnt("arcaneTower");
-  const gasNow=((st.atkTwMin||0)>0&&tfNow<st.atkTwMin)?Math.min(gasNeed,2):gasNeed;
+  /* 1) 경제 — 가스. 경제 성향(gasFirst)은 목표치 전부 우선, 아니면 최소 공격 타워 확보 전엔 2까지 */
+  const gasNow=(!st.gasFirst&&(st.atkTwMin||0)>0&&atkTw<st.atkTwMin)?Math.min(gasNeed,2):gasNeed;
   if(cnt("elixirBase")<gasNow){
     if(tryB("elixirBase"))return;
-    /* 가스가 영역 밖이면 타워로 확장 (공격형은 생산 라인을 먼저 갖춘 뒤에만) */
-    if(towerCnt<st.towerMax&&(!st.aggro||prodCnt>=2)&&tryB("tower","gas"))return;
+    if(towerCnt<st.towerMax&&(!st.aggro||prodCnt>=2)&&tryB("tower","gas"))return;   // 가스가 영역 밖이면 타워로 확장
   }
-  const prodPref=st.aggro?"fwd":null;   // 공격형: 생산 건물도 전방 배치
   /* 2) 최소 생산 라인 (킵 승급 조건 = 배럭 계열) */
   if(prodCnt<1&&tryB("barracks",prodPref))return;
-  /* 3) 테크: 킵 승급 → 워크숍(킵 필요).
-     킵도 캐슬처럼 저축 규칙 적용 — 승급 조건(배럭 계열)이 갖춰지면 저비용 지출로 새지 않게 비용을 모은다 */
-  if(maxTier>=2){
-    if(S.eTier<2){
-      if(doTierUp(side))return;
-      if(prodCnt>=1)return;   // 킵 비용 저축
+  /* 3) 킵 승급 — ★ 저축 (엘릭서를 상한까지 채워 ★ 적립) */
+  if(maxTier>=2&&S.eTier<2){
+    if(doTierUp(side)){starSpent();return;}
+    if(prodCnt>=1&&holdOK())return;   // 저축 국면 (지출 사이클을 한 번 돈 뒤에만)
+  }
+  /* 3-1) 1차 테크 — 성향에 따라 워크숍 또는 생텀 먼저 */
+  const techA=st.techPref==="sanctum"?"sanctum":"workshop", techB=techA==="sanctum"?"workshop":"sanctum";
+  if(maxTier>=2&&lineCnt(techA)<1&&buildPref([techA]))return;
+  /* 3-2) 최소 공격 타워 조기 확보 (atkTwMin) — 기본 타워는 비무장이므로 방어 1순위 */
+  if((st.atkTwMin||0)>0&&tier>=2&&atkTw<st.atkTwMin){
+    const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
+    if(!base){if(towerCnt<st.towerMax&&tryB("tower","fwd"))return;}
+    else if(tfKey){if(starsOf(side)>=transformStarsFor("tower",tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}
+  }
+  /* 3-3) 공성 성향: 워크숍 Lv3 → 시즈 워크숍을 다른 선택 지출보다 먼저 */
+  if(st.siegeFirst&&tier>=2&&cnt("siegeWorkshop")<1){
+    const ws=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="workshop");
+    if(ws){
+      if(ws.level<3){if(elixirOf(side)>=upCostFor(ws)){doLevel(ws);return;} return;}
+      if(starsOf(side)>=transformStarsFor("workshop","siegeWorkshop")){transformBuilding(ws,"siegeWorkshop");starSpent();return;}
+      if(holdOK())return;
     }
-    if(cnt("workshop")<1&&cnt("siegeWorkshop")<1&&tryB("workshop"))return;
   }
-  /* 3-1) 최소 공격 타워 조기 확보 (atkTwMin) — 기본 타워는 비무장이므로 방어의 1순위.
-     기본 타워가 없으면 짓고, 있으면 변형 비용까지 저축(return)해서라도 즉시 변형 */
-  if((st.atkTwMin||0)>0&&tier>=2){
-    const tfCnt=cnt("guardTower")+cnt("arcaneTower");
-    if(tfCnt<st.atkTwMin){
-      const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
-      if(!base){
-        if(towerCnt<st.towerMax&&tryB("tower","fwd"))return;
-      } else if(hasPrereq(side,["workshop","siegeWorkshop"])||(tier>=3&&hasSanctumLine(side))){
-        const tk=(tier>=3&&hasSanctumLine(side))?"arcaneTower":"guardTower";
-        if(starsOf(side)>=transformStarsFor("tower",tk)){transformBuilding(base,tk);return;}
-        return;   // 스타 적립 대기 — 아래 선택 지출 보류 (엘릭서 상한 도달 → ★)
-      }
-    }
-  }
-  /* 3-2) 영웅 저축 (heroUse) — 스타는 엘릭서 상한 도달로만 적립되므로,
-     전장 영웅이 부족하면 선택 지출을 멈추고 상한까지 저축한다 (기본 방어·경제 단계는 위에서 이미 처리) */
-  if(st.heroUse&&tier>=2&&prodCnt>=2&&S.eStars<Math.max(1,BAL.HERO_COST)){
-    const fieldH=S.units.filter(u=>u.side===side&&u.hero).length;
-    if(fieldH<2&&(S.eHeroSlots||[]).some(s=>s.state==="ready"))return;
-  }
-  /* 4) 원거리 생산 라인 확보 (아처리) */
-  if(cnt("archery")<1&&cnt("shooterGarden")<1&&prodCnt>=1&&tryB("archery",prodPref))return;
-  /* 4-1) 기병 라인 (킵 이후) */
-  if(tier>=2&&st.transform&&cnt("assaultBarracks")<1&&cnt("knightHall")<1&&prodCnt>=2&&tryB("assaultBarracks",prodPref))return;
-  /* 5) 방어선 확보 (공격형은 생산을 우선하므로 최소 1기만) */
-  if(towerCnt<Math.min(st.aggro?1:2,st.towerMax)&&tryB("tower","fwd"))return;
-  /* 5-1) 공격형: 초반 생산 라인 3채까지는 테크보다 먼저 (그 이상은 테크·레벨 이후) */
-  if(st.aggro&&prodCnt<Math.min(3,st.prodMax)&&tryB(cnt("archery")+cnt("shooterGarden")<2?"archery":"barracks","fwd"))return;
-  /* 6) 테크: 생텀 → 캐슬. 승급 조건이 갖춰지면 자원을 모은다 (선택적 지출 보류) */
+  /* 3-4) 영웅 저축 — 전장 영웅이 유지 수 미만이고 슬롯이 비었으면 선택 지출을 멈춘다 */
+  if(st.heroUse&&tier>=2&&prodCnt>=2&&S.eStars<heroCost&&fieldH<heroMin&&readySlot&&holdOK())return;
+  /* 4) 원거리 라인·기병 라인 (성향 가중치에 없는 계열은 건너뜀) */
+  if(prodW.archery&&lineCnt("archery")<1&&prodCnt>=1&&buildPref(["archery"],prodPref))return;
+  if(tier>=2&&st.transform&&prodW.assaultBarracks&&lineCnt("assaultBarracks")<1&&prodCnt>=2&&buildPref(["assaultBarracks"],prodPref))return;
+  /* 4-1) 경제 성향: 레벨업을 방어선보다 먼저 */
+  if(st.lvFirst&&maxLv>1){const up=nextUp(maxLv);if(up){if(elixirOf(side)>=upCostFor(up)){doLevel(up);return;} return;}}
+  /* 5) 방어선 (공격형은 최소 1기, 요새형(towerFirst)은 공격 타워 목표+2기를 먼저) */
+  if(towerCnt<Math.min(st.towerFirst?(st.atkTwMin||0)+2:(st.aggro?1:2),st.towerMax)&&buildPref(["tower"],"fwd"))return;
+  /* 5-1) 공격형: 초반 3채까지는 생산 먼저 */
+  if(st.aggro&&prodCnt<Math.min(3,st.prodMax)&&buildPref(prodOrder(),"fwd"))return;
+  /* 6) 2차 테크 → 캐슬 (★ 저축) */
   if(maxTier>=3){
-    if(cnt("sanctum")<1&&tryB("sanctum"))return;
-    if(S.eTier<3){
-      if(doTierUp(side))return;
-      if(aliveB(side,"sanctum"))return;   // 캐슬 비용 저축 — 아래 선택적 지출 건너뜀
+    if(lineCnt(techB)<1&&buildPref([techB]))return;
+    if(S.eTier<3){if(doTierUp(side)){starSpent();return;} if(hasSanctumLine(side)&&holdOK())return;}
+  }
+  /* 7) 변형 — 성향 우선순위(tfPref) 순으로 Lv3 달성 건물부터 (★ 부족 시 저축) */
+  if(st.transform||st.aviary){
+    for(const to of tfPref){
+      const from=TF_FROM[to]; if(!from||cnt(to)>=1)continue;
+      if(TF_TOP.has(to)?!st.aviary:!st.transform)continue;
+      const bb=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key===from&&x.level>=3); if(!bb)continue;
+      if(starsOf(side)>=transformStarsFor(from,to)){transformBuilding(bb,to);starSpent();return;}
+      if(holdOK())return;
+      break;   // 지출 국면 — 아래 엘릭서 지출로 진행
     }
   }
-  /* 7) 상위 변형 — Lv3 달성 건물만 대상 (레벨 투자가 선행되어야 함) */
-  if(st.transform){
-    /* 스타 부족 시에도 return — 지출을 멈춰 스타를 적립 (변형 = ★ 재화, 2026-09-07) */
-    const tryTf=(fromKey,toKey)=>{
-      const bb=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key===fromKey&&x.level>=3);
-      if(!bb)return false;
-      if(starsOf(side)>=transformStarsFor(fromKey,toKey))transformBuilding(bb,toKey);
-      return true;
-    };
-    if(cnt("shieldBarracks")<1&&tryTf("barracks","shieldBarracks"))return;
-    if(cnt("knightHall")<1&&tryTf("assaultBarracks","knightHall"))return;
-    if(cnt("shooterGarden")<1&&tryTf("archery","shooterGarden"))return;
+  /* 8) 생산 증설 (성향 가중치, 소프트 캡까지) */
+  if(prodCnt<st.prodMax&&buildPref(prodOrder(),prodPref))return;
+  /* 9) 레벨 투자 (순수 엘릭서, ★ 보호) */
+  if(maxLv>1){const up=nextUp(maxLv);if(up){if(elixirOf(side)>=upCostFor(up)+2){doLevel(up);return;} return;}}
+  /* 9-1) 타워 화력 확보 (towerTf) */
+  if((st.towerTf||0)>atkTw&&tfKey){const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
+    if(base){if(starsOf(side)>=transformStarsFor("tower",tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}}
+  /* 10) 여유 자원 → 전진 타워 압박 */
+  if(elixirOf(side)>=cap-2&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
+  /* 11) 잉여 자원 상시 운용 (spendAll) — 여기까지 왔다면 전략적 저축 사유가 없다.
+     소프트 캡(prodMax·towerMax)을 넘어서도 레벨업 → 증설 → 타워 → 가스로 계속 쓰고, 잉여 ★은 녹여 쓴다 (예약 ★ 보호) */
+  if(st.spendAll){
+    const up=nextUp(tier);   // 레벨 상한 = 티어
+    if(up&&budget()>=upCostFor(up)){doLevel(up);return;}
+    if(unitCount(side)<BAL.UNIT_CAP*0.9&&buildPref(prodOrder(),prodPref,true))return;
+    if(tryB("tower","fwd",true))return;
+    if(tryB("elixirBase",null,true))return;
   }
-  /* 상위 변형: Lv3 달성 건물만 대상 (워크숍→시즈 워크숍, 생텀→드래곤 네스트) */
-  if(st.aviary){
-    const tryTf2=(fromKey,toKey)=>{
-      const bb=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key===fromKey&&x.level>=3);
-      if(!bb)return false;
-      if(starsOf(side)>=transformStarsFor(fromKey,toKey))transformBuilding(bb,toKey);
-      return true;
-    };
-    if(cnt("siegeWorkshop")<1&&tryTf2("workshop","siegeWorkshop"))return;
-    if(cnt("dragonNest")<1&&tryTf2("sanctum","dragonNest"))return;
-  }
-  /* 8) 생산 증설 (공격형은 전방으로) */
-  if(prodCnt<st.prodMax&&tryB(cnt("archery")+cnt("shooterGarden")<2?"archery":"barracks",prodPref))return;
-  /* 9) 유닛 레벨 투자 — 변형 예정 건물은 제외 (레벨 낭비 방지) */
-  if(maxLv>1){
-    /* 모든 상위 변형이 Lv3 조건이므로 레벨 투자가 곧 변형 준비 — 제외 없음 */
-    const up=S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<maxLv);
-    if(up){const c=upCostFor(up);
-      if(elixirOf(side)>=c+2){spend(side,c);up.level++;   // 스타 융해 없이 순수 엘릭서로만 (★ 보호)
-        S.effects.push({tp:"ftext",x:up.cx,y:up.ty*TILE-4,text:"Lv"+up.level,t:0.9,t0:0.9,col:"255,170,170"});
-        burst(up.cx,up.cy,"140,220,255",8,100);return;}
-      if(up)return;   // 레벨업 대상이 남았으면 저축 (유닛 질 우선)
-    }
-  }
-  /* 9-1) 타워 화력 확보: 기본 타워 → 가드/아케인 변형 (towerTf 목표까지 — 기본 타워는 비무장이므로 필수 방어 수단) */
-  if((st.towerTf||0)>0){
-    const tfCnt=cnt("guardTower")+cnt("arcaneTower");
-    if(tfCnt<st.towerTf){
-      const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
-      if(base){
-        const tk=(tier>=3&&hasSanctumLine(side))?"arcaneTower":
-                 (tier>=2&&hasPrereq(side,["workshop","siegeWorkshop"]))?"guardTower":null;
-        if(tk){
-          if(starsOf(side)>=transformStarsFor("tower",tk)){transformBuilding(base,tk);return;}
-          return;   // 스타 적립 대기
-        }
-      }
-    }
-  }
-  /* 10) 여유 자원 → 전진 타워 압박 (공격형은 여유 기준을 낮춰 더 자주 전진) */
-  if(elixirOf(side)>=capFor(side)-2&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
 }
 
 /* ---------- 조작: 패널 & 드래그 ---------- */
@@ -3212,7 +3244,9 @@ const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"�
   towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"상위 변형 사용(0/1)",defensive:"방어 반응(0/1)",towerTf:"타워 변형 목표",
   extreme:"매우 어려움",aggro:"전진 배치(0/1)",atkTwMin:"최소 공격 타워",heroUse:"영웅 사용(0/1)",
   rangedResist:"원거리 물리 경감(비율)",pierceVsMelee:"근접 관통 추가피해(+)",rangedWeak:"원거리 피해 취약(+)",
-  TOWER_VS_BLDG:"타워 대건물 피해 배율",HERO_VS_BLDG:"영웅 대건물 피해 배율"};
+  TOWER_VS_BLDG:"타워 대건물 피해 배율",HERO_VS_BLDG:"영웅 대건물 피해 배율",
+  spendAll:"잉여 자원 상시 운용(0/1)",heroMin:"유지 영웅 수",prodW:"생산 가중치",gasFirst:"가스 우선(0/1)",lvFirst:"레벨업 우선(0/1)",
+  siegeFirst:"공성 우선(0/1)",heroFirst:"영웅 우선(0/1)",towerFirst:"타워 우선(0/1)",barracks:"배럭",archery:"아처리",assaultBarracks:"어썰트 배럭",workshop:"워크숍",sanctum:"생텀"};
 const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
   "air","antiair","melee","unit","test","label","key"]);
 function edWalk(obj,basePath,prefix){
@@ -3230,7 +3264,7 @@ function edWalk(obj,basePath,prefix){
 let edTab="rules";
 function buildEditorUI(){
   /* 탭 바 */
-  let h=`<div class="ed-tabs">`+[["rules","경제·규칙"],["BUILDINGS","건물"],["UNITS","유닛"],["HEROES","영웅"]]
+  let h=`<div class="ed-tabs">`+[["rules","경제·규칙"],["BUILDINGS","건물"],["UNITS","유닛"],["HEROES","영웅"],["AI_STYLES","AI 성향"]]
     .map(([id,nm])=>`<button class="ed-tab${edTab===id?" on":""}" onclick="edTab='${id}';buildEditorUI()">${nm}</button>`).join("")
     +`</div>`;
   if(edTab==="rules"){
@@ -3287,7 +3321,7 @@ function edExport(){
   const ta=document.getElementById("ed-export");
   const out={ECON:BAL.ECON,EXCLUDE_R:BAL.EXCLUDE_R,HALL_ZONE:BAL.HALL_ZONE,TOWER_ZONE:BAL.TOWER_ZONE,
     AURA_R:BAL.AURA_R,AURA_PWR:BAL.AURA_PWR,UPG_PWR:BAL.UPG_PWR,UNIT_CAP:BAL.UNIT_CAP,
-    HERO_COST:BAL.HERO_COST,HERO_CD:BAL.HERO_CD,AI:BAL.AI,
+    HERO_COST:BAL.HERO_COST,HERO_CD:BAL.HERO_CD,DIFF:BAL.DIFF,AI_STYLES:BAL.AI_STYLES,
     BUILDINGS:BAL.BUILDINGS,UNITS:BAL.UNITS,HEROES:BAL.HEROES};
   ta.value="window.BALANCE = "+JSON.stringify(out,null,1)+";";
   ta.style.display=ta.style.display==="block"?"none":"block";
@@ -3481,7 +3515,9 @@ function startGame(cfg){
   const db=document.getElementById("diff-btn");
   if(cfg.mode==="practice"){db.disabled=false;syncDiffUI();}
   else{db.disabled=true;db.textContent=MODE_NM[cfg.mode]+"·"+(DIFF_NM[diffKey]||diffKey);}
-  if(cfg.tip)toast(cfg.tip);
+  const sty=(S.aiStyle&&BAL.AI_STYLES)?BAL.AI_STYLES[S.aiStyle]:null;
+  if(sty)db.textContent="대전·"+sty.nm;
+  if(cfg.tip)toast(cfg.tip+(sty?" · 상대: "+sty.nm+" ("+sty.d+")":""));
 }
 function startPractice(){startGame({mode:"practice",map:"plain",tip:"연습 모드 — 난이도·⚙ 에디터 자유 조정"});}
 function startTutorial(){startGame({mode:"tutorial",diff:"easy",map:"plain",tip:"튜토리얼 — 상단 안내를 따라가세요"});}
@@ -3516,7 +3552,7 @@ function showPvp(){
   else pvpStatus("대전 방식을 선택하세요",false);
 }
 function pvpSparring(){
-  startGame({mode:"pvp",diff:"hard",map:"plain",tip:"⚔ 스파링 (AI 상대) — 본진을 파괴하세요"});
+  startGame({mode:"pvp",diff:"extreme",map:"plain",tip:"⚔ 스파링 — 본진을 파괴하세요"});   // 2026-09-12: 매우 어려움 + 전략 인격 랜덤
 }
 function pvpConnect(){
   const u=(document.getElementById("pvp-url").value||"").trim();

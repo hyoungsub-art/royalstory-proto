@@ -83,8 +83,24 @@ window.BALANCE = {
   DIFF: {
     easy:    { aiDelay: 10, aiInterval: 3.0,  maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2,  towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0,  atkTwMin: 0, heroUse: 0 },
     normal:  { aiDelay: 5,  aiInterval: 1.6,  maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 4,  towerMax: 5,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 3,  atkTwMin: 2, heroUse: 0 },
-    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 7,  towerMax: 9,  transform: 1, aviary: 1, defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1 },
-    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 10, towerMax: 14, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1 },
+    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 7,  towerMax: 9,  transform: 1, aviary: 1, defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1, spendAll: 1 },
+    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 10, towerMax: 14, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1, spendAll: 1 },
+    /* spendAll (2026-09-12): 전략적 저축(승급·변형·영웅 ★) 외에는 자원을 놀리지 않음 — 소프트 캡을 넘어 레벨업·증설·타워로 계속 소비, 잉여 ★은 녹여 사용 */
+  },
+
+  /* AI 전략 인격 (2026-09-12, 가정): 스파링 상대 8종 — 매우 어려움(DIFF.extreme) 위에 덮어쓰는 오버라이드 + 선호 필드.
+     스탯·자원은 여전히 플레이어와 동등. 스파링 시작 시 시드 난수로 무작위 선택 (같은 시드 = 같은 상대).
+     prodW: 생산 계열 증설 가중치(높을수록 자주) / techPref: 먼저 여는 테크(workshop|sanctum) / tfPref: 변형 우선순위
+     heroMin: 전장 유지 영웅 수 / gasFirst·lvFirst·siegeFirst·heroFirst·towerFirst: 빌드 순서 스위치 */
+  AI_STYLES: {
+    rush:    { nm: "강습대장",   d: "초반 물량 러시",        aggro: 1, gasBases: 1, atkTwMin: 1, towerTf: 3, towerMax: 8, prodMax: 12, maxTier: 2, maxLevel: 2, heroMin: 1, prodW: { barracks: 3, archery: 1 }, techPref: "workshop", tfPref: ["shieldBarracks"] },
+    cavalry: { nm: "기병대장",   d: "기병 돌격",             aggro: 1, gasBases: 2, atkTwMin: 2, towerTf: 5, heroMin: 1, prodW: { assaultBarracks: 3, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["knightHall", "shieldBarracks", "shooterGarden"] },
+    archer:  { nm: "궁수장군",   d: "원거리 물량·가드 타워", heroMin: 1, prodW: { archery: 3, barracks: 1 }, techPref: "workshop", tfPref: ["shooterGarden", "shieldBarracks"] },
+    siege:   { nm: "공성기술자", d: "공성 병기 철거",        siegeFirst: 1, atkTwMin: 1, towerTf: 4, heroMin: 1, prodW: { workshop: 2, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["siegeWorkshop", "shieldBarracks"] },
+    arcane:  { nm: "대마법사",   d: "마법 테크·아케인 타워", atkTwMin: 2, heroMin: 1, prodW: { sanctum: 3, archery: 1 }, techPref: "sanctum", tfPref: ["dragonNest", "shooterGarden"] },
+    turtle:  { nm: "요새군주",   d: "철벽 방어 후 역습",     aggro: 0, towerFirst: 1, atkTwMin: 6, towerTf: 99, towerMax: 16, prodMax: 6, heroMin: 1, prodW: { archery: 2, barracks: 1 }, techPref: "sanctum", tfPref: ["shieldBarracks", "dragonNest"] },
+    greed:   { nm: "상인왕",     d: "경제 우선·후반 폭발",   gasFirst: 1, lvFirst: 1, gasBases: 3, atkTwMin: 1, towerTf: 4, prodMax: 12, heroMin: 1, prodW: { barracks: 1, archery: 1, assaultBarracks: 1 }, techPref: "workshop", tfPref: ["knightHall", "shooterGarden", "shieldBarracks", "dragonNest"] },
+    hero:    { nm: "영웅왕",     d: "영웅 중심 전투",        heroFirst: 1, heroMin: 3, atkTwMin: 2, prodW: { archery: 2, barracks: 1, sanctum: 1 }, techPref: "sanctum", tfPref: ["shooterGarden", "dragonNest"] },
   },
 
   /* 영웅 (5인 고정 덱, 비용 = 엘릭서 스타). 스탯은 최상위 유닛(드래곤 2400/320) 초과로 상향 (2026-09-04) */
