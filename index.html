@@ -311,7 +311,7 @@ const BAL={
  /* 지형 보정 (2026-09-12, 6-9, 가정): 다리(길∩강) 위 지상 이속 배율 / 성벽 인접 타워 사거리 보너스(타일) — 병목 지형에서 지상·방어 보상 */
  TERRAIN:{bridgeSpd:1.15, wallRng:0.5},
  /* 전역 태세 (2026-09-12, 6-4, 가정): 대기 시 집결 반경(타일) / 대기 중 자위 반응 반경(타일) */
- STANCE:{holdR:2, aggroR:6},
+ STANCE:{holdR:2, aggroR:6, leash:4},   // leash(2026-09-13): 추격 시작 지점에서 이 칸수 넘게 끌려가면 교전 해제 (끝없이 따라가기 방지, 가정)
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
@@ -997,6 +997,7 @@ function dealDamage(att,tgt,amount){
 }
 function unitUpdate(u,dt){
   u.swing=Math.max(0,u.swing-dt); u.flash=Math.max(0,u.flash-dt);
+  u.leashT=Math.max(0,(u.leashT||0)-dt);   // 추격 해제 후 재획득 제한 시간
   u.moving=false;
   if(u.deploy>0){u.deploy-=dt;if(u.deploy<=0)burst(u.x,u.y+u.r*0.6,"205,195,165",6,80);return;}
   u.animT+=dt*7;
@@ -1032,8 +1033,11 @@ function unitUpdate(u,dt){
       const ordB=orderOf(u), gpB=goalPoint(u);
       if(u.ordRef!==ordB){u.ordRef=ordB;u.arrived=false;}
       if(ordB&&ordB.type==="move"&&!u.arrived&&Math.hypot(u.x-gpB.x,u.y-gpB.y)<=TILE*1.5)u.arrived=true;
+      const leashB=((BAL.STANCE&&BAL.STANCE.leash)||4)*TILE;
+      if(d<=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){ if(!u.engFrom)u.engFrom={x:u.x,y:u.y}; } else u.engFrom=null;
+      const overLeash=u.engFrom&&Math.hypot(u.x-u.engFrom.x,u.y-u.engFrom.y)>leashB;
       if(ordB&&ordB.type==="hold"){turnStep(u,dt);}   // 홀드: 제자리 (광역 시전은 자동)
-      else if(d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(ordB&&ordB.type==="move"&&!u.arrived)){   // 공격 이동 / 이동 명령 중 적 무시 (도착 플래그로 떨림 방지)
+      else if(overLeash||d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(ordB&&ordB.type==="move"&&!u.arrived)){   // 리시 초과 시 목표 지점으로   // 공격 이동 / 이동 명령 중 적 무시 (도착 플래그로 떨림 방지)
         const hx=gpB.x, hy=gpB.y;
         if(Math.hypot(u.x-hx,u.y-hy)>TILE*0.4)locomote(u,hx,hy,dt); else turnStep(u,dt);
       } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
@@ -1054,19 +1058,22 @@ function unitUpdate(u,dt){
     /* 교전 히스테리시스 (2026-09-13, 떨림 수정): 한 번 붙은 적은 aggro×1.4까지 계속 상대하고, 새 적은 aggro 안에서만 획득 —
        경계에서 매 틱 "교전 ↔ 이동"이 뒤바뀌며 방향이 요동치던 문제 제거 */
     let engage=false;
-    const e=u.eng;
+    const e=u.eng, leash=((BAL.STANCE&&BAL.STANCE.leash)||4)*TILE;
     if(e&&e.hp>0&&e.side!==u.side&&!(e.deploy>0)){
       const pd=Math.hypot(u.x-(e.x!==undefined?e.x:e.cx),u.y-(e.y!==undefined?e.y:e.cy));
-      if(pd<=release){tgt=e;setG(tgt);engage=true;} else u.eng=null;
+      const chased=u.engFrom?Math.hypot(u.x-u.engFrom.x,u.y-u.engFrom.y):0;
+      if(pd<=release&&chased<=leash){tgt=e;setG(tgt);engage=true;}
+      else {u.eng=null; if(chased>leash)u.leashT=3;}   // 추격 리시 초과 (2026-09-13): 끌려가기 중단, 3초간 원위치 근처 적만 재획득
     }
     if(!engage){
       engage=dd<=aggro;
       const g0=goalPoint(u);
+      if(engage&&u.leashT>0)engage=Math.hypot(tx-g0.x,ty-g0.y)<=aggro;   // 리시 직후엔 목표 지점 근처의 적만
       if(ord&&ord.type==="move"){   /* 이동 명령: 목적지에 한 번 도착하기 전엔 적을 무시, 도착 후엔 건물·유닛 구분 없이 aggro 안 가장 가까운 적 공격 (2026-09-13) */
         if(!u.arrived&&Math.hypot(u.x-g0.x,u.y-g0.y)<=TILE*1.5)u.arrived=true;
         if(!u.arrived)engage=false;
       } else if(engage&&!(ord&&ord.type==="attack")&&tgt.cx!==undefined)engage=Math.hypot(tgt.cx-g0.x,tgt.cy-g0.y)<=aggro;   // 집결 중 적 건물은 집결지 근처만
-      if(engage)u.eng=tgt;
+      if(engage){u.eng=tgt;u.engFrom={x:u.x,y:u.y};}   // 추격 시작 지점 기록
     }
     if(!engage){
       const gp=goalPoint(u), hx=gp.x, hy=gp.y, hd=Math.hypot(u.x-hx,u.y-hy);
