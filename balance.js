@@ -60,35 +60,23 @@ window.BALANCE = {
                      /* 본진 방어: 티어별 받는 피해 배율 — 킵 -20% / 캐슬 -35% (가정) */
                      hDef: [0, 1, 0.8, 0.65] },
     elixirBase:    { hp: 1800, cost: 4 },
-    barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },   // Lv3 → 쉴드 배럭
-    shieldBarracks:{ hp: 2800,          prod: { unit: "shieldman",     period: 9  } },   // 배럭 Lv3 변형
-    assaultBarracks:{hp: 2700, cost: 7, prod: { unit: "cavalry",       period: 10 } },   // 킵 필요, Lv3 → 기사단 회당
-    archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },   // Lv3 → 슈터 가든 변형
-    shooterGarden: { hp: 2600,          prod: { unit: "rifleman",      period: 9  } },
-    knightHall:    { hp: 2800,          prod: { unit: "knight",        period: 11 } },
-    workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 13 } },   // 공성추 생산, Lv3 → 시즈 워크숍
+    barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
+    assaultBarracks:{hp: 2700, cost: 7, prod: { unit: "cavalry",       period: 10 } },   // 킵 필요
+    archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },
+    workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 13 } },   // 공성추 생산
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
     tower:         { hp: 3200, cost: 5 },   // 비무장 거점 전용 (2026-09-04) — 공격은 가드/아케인 변형만
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 4.5 } }, // 2026-09-13 사거리 6→4.5 — 흔적선 간격 6칸 안, 거점끼리 교전 방지 (가정)
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.4, rng: 4, splash: 2.0 } },   // 2026-09-13 사거리 5→4 — 거점 간 교전 방지, 근거리 광역 카운터 (가정)
-    siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 20 } },   // 워크숍 Lv3 변형
-    dragonNest:    { hp: 3200,          prod: { unit: "dragon",        period: 16 } },   // 생텀 Lv3 변형
-    golemCradle:   { hp: 3400,          prod: { unit: "golem",         period: 16 } },   // 생텀 Lv3 변형 (택일)
   },
 
   /* 유닛: cat = 업그레이드 분류 (gp 지상물리 / ap 공중물리 / gm 지상마법 / am 공중마법) */
   UNITS: {
     footman:       { hp: 883,  dmg: 101, hs: 1.2, rng: 0.8, spd: 1.0 },   // 공·방 절반 (2026-08-30)
-    shieldman:     { hp: 1600, dmg: 90,  hs: 1.4, rng: 0.8, spd: 0.9, rangedResist: 0.6 },   // 원거리 물리 60% 경감
     cavalry:       { hp: 1200, dmg: 220, hs: 1.3, rng: 0.9, spd: 1.9, pierceVsMelee: 0.5, rangedWeak: 0.5 },   // 창 관통/원거리 취약
     archer:        { hp: 310,  dmg: 55,  hs: 1.3, rng: 3.2, spd: 1.0 },   // 기본 원거리 (아처리) — 공·방·사거리 하향
-    rifleman:      { hp: 720,  dmg: 150, hs: 1.6, rng: 4.5, spd: 1.0 },   // 공속·공격력 하향
-    knight:        { hp: 2300, dmg: 330, hs: 1.5, rng: 0.9, spd: 1.6, pierceVsMelee: 0.5, rangedWeak: 0.5 },   // 철갑 기병 — 창 관통/원거리 취약
     ram:           { hp: 1500, dmg: 450, hs: 2.4, rng: 0.9, spd: 0.32 },  // 공성추 — 건물만 공격 (근접·초저속). 2026-09-08 HP 2600→1500(전차와 동일), 이속·공속 하향 (가정)
-    siegeTank:     { hp: 1500, dmg: 620, hs: 4.0, rng: 4.0, spd: 0.24 },  // 공성 전차 — 공격 타워(5~6)에 아웃레인지. 2026-09-08 이속·공속 하향 (가정)
     mage:          { hp: 620,  dmg: 190, hs: 1.4, rng: 3.5, spd: 1.0, splash: 1.8 },   // 사거리 < 라이플맨, 광역 강화
-    dragon:        { hp: 2400, dmg: 320, hs: 1.6, rng: 3.0, spd: 1.2, splash: 1.2 },   // 최상위 공중 마법 (광역 브레스)
-    golem:         { hp: 3000, dmg: 300, hs: 1.8, rng: 0.9, spd: 0.55 },   // 최상위 지상 물리 탱커 (골렘 요람) — 저속
   },
 
   /* 난이도 = AI 전략 수준만 조정. 스탯·자원 규칙은 플레이어와 동등 (0/1은 사용 여부) */
@@ -96,27 +84,27 @@ window.BALANCE = {
      atkTwMin: 레벨업 저축보다 우선하는 최소 공격 타워 수 / heroUse: AI 영웅 소환(비용·쿨다운 동등)
      매우 어려움 = 어려움 전략의 강화판 — 양(건물 수)과 질(레벨·변형)을 끝까지 최대화 */
   DIFF: {
-    easy:    { aiDelay: 10, aiInterval: 3.0,  maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2,  towerMax: 2,  transform: 0, aviary: 0, defensive: 0, aggro: 0, towerTf: 0,  atkTwMin: 0, heroUse: 0, lvAfterProd: 2 },
-    normal:  { aiDelay: 5,  aiInterval: 1.6,  maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 4,  towerMax: 5,  transform: 0, aviary: 0, defensive: 1, aggro: 0, towerTf: 3,  atkTwMin: 2, heroUse: 0, lvAfterProd: 3 },
-    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 7,  towerMax: 9,  transform: 1, aviary: 1, defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
-    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 10, towerMax: 14, transform: 1, aviary: 1, defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
+    easy:    { aiDelay: 10, aiInterval: 3.0,  maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2,  towerMax: 2,  defensive: 0, aggro: 0, towerTf: 0,  atkTwMin: 0, heroUse: 0, lvAfterProd: 2 },
+    normal:  { aiDelay: 5,  aiInterval: 1.6,  maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 4,  towerMax: 5,  defensive: 1, aggro: 0, towerTf: 3,  atkTwMin: 2, heroUse: 0, lvAfterProd: 3 },
+    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 7,  towerMax: 9,  defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
+    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 10, towerMax: 14,  defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
     /* lvAfterProd (2026-09-12, 기본기): 생산 건물이 이 수에 이르기 전에는 레벨업 금지 — 초반은 넓게 짓고 업그레이드는 그 다음 */
     /* spendAll (2026-09-12): 전략적 저축(승급·변형·영웅 ★) 외에는 자원을 놀리지 않음 — 소프트 캡을 넘어 레벨업·증설·타워로 계속 소비, 잉여 ★은 녹여 사용 */
   },
 
   /* AI 전략 인격 (2026-09-12, 가정): 스파링 상대 8종 — 매우 어려움(DIFF.extreme) 위에 덮어쓰는 오버라이드 + 선호 필드.
      스탯·자원은 여전히 플레이어와 동등. 스파링 시작 시 시드 난수로 무작위 선택 (같은 시드 = 같은 상대).
-     prodW: 생산 계열 증설 가중치(높을수록 자주) / techPref: 먼저 여는 테크(workshop|sanctum) / tfPref: 변형 우선순위
+     prodW: 생산 계열 증설 가중치(높을수록 자주) / techPref: 먼저 여는 테크(workshop|sanctum)
      heroMin: 전장 유지 영웅 수 / gasFirst·lvFirst·siegeFirst·heroFirst·towerFirst: 빌드 순서 스위치 */
   AI_STYLES: {
-    rush:    { nm: "강습대장",   d: "초반 물량 러시",        wave: 7, aggro: 1, gasBases: 1, atkTwMin: 1, towerTf: 3, towerMax: 8, prodMax: 12, maxTier: 2, maxLevel: 2, heroMin: 1, prodW: { barracks: 3, archery: 1 }, techPref: "workshop", tfPref: ["shieldBarracks"] },
-    cavalry: { nm: "기병대장",   d: "기병 돌격",             wave: 6, aggro: 1, gasBases: 2, atkTwMin: 2, towerTf: 5, heroMin: 1, prodW: { assaultBarracks: 3, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["knightHall", "shieldBarracks", "shooterGarden"] },
-    archer:  { nm: "궁수장군",   d: "원거리 물량·가드 타워", heroMin: 1, prodW: { archery: 3, barracks: 1 }, techPref: "workshop", tfPref: ["shooterGarden", "shieldBarracks"] },
-    siege:   { nm: "공성기술자", d: "공성 병기 철거",        siegeFirst: 1, atkTwMin: 1, towerTf: 4, heroMin: 1, prodW: { workshop: 2, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["siegeWorkshop", "shieldBarracks"] },
-    arcane:  { nm: "대마법사",   d: "마법 테크·아케인 타워", atkTwMin: 2, heroMin: 1, prodW: { sanctum: 3, archery: 1 }, techPref: "sanctum", tfPref: ["dragonNest", "shooterGarden"] },
-    turtle:  { nm: "요새군주",   d: "철벽 방어 후 역습",     aggro: 0, towerFirst: 1, atkTwMin: 6, towerTf: 99, towerMax: 16, prodMax: 6, heroMin: 1, prodW: { archery: 2, barracks: 1 }, techPref: "sanctum", tfPref: ["shieldBarracks", "dragonNest"] },
-    greed:   { nm: "상인왕",     d: "경제 우선·후반 폭발",   gasFirst: 1, lvFirst: 1, gasBases: 3, atkTwMin: 1, towerTf: 4, prodMax: 12, heroMin: 1, prodW: { barracks: 1, archery: 1, assaultBarracks: 1 }, techPref: "workshop", tfPref: ["knightHall", "shooterGarden", "shieldBarracks", "dragonNest"] },
-    hero:    { nm: "영웅왕",     d: "영웅 중심 전투",        heroFirst: 1, heroMin: 3, atkTwMin: 2, prodW: { archery: 2, barracks: 1, sanctum: 1 }, techPref: "sanctum", tfPref: ["shooterGarden", "dragonNest"] },
+    rush:    { nm: "강습대장",   d: "초반 물량 러시",        wave: 7, aggro: 1, gasBases: 1, atkTwMin: 1, towerTf: 3, towerMax: 8, prodMax: 12, maxTier: 2, maxLevel: 2, heroMin: 1, prodW: { barracks: 3, archery: 1 }, techPref: "workshop" },
+    cavalry: { nm: "기병대장",   d: "기병 돌격",             wave: 6, aggro: 1, gasBases: 2, atkTwMin: 2, towerTf: 5, heroMin: 1, prodW: { assaultBarracks: 3, barracks: 1, archery: 1 }, techPref: "workshop" },
+    archer:  { nm: "궁수장군",   d: "원거리 물량·가드 타워", heroMin: 1, prodW: { archery: 3, barracks: 1 }, techPref: "workshop" },
+    siege:   { nm: "공성기술자", d: "공성 병기 철거",        siegeFirst: 1, atkTwMin: 1, towerTf: 4, heroMin: 1, prodW: { workshop: 2, barracks: 1, archery: 1 }, techPref: "workshop" },
+    arcane:  { nm: "대마법사",   d: "마법 테크·아케인 타워", atkTwMin: 2, heroMin: 1, prodW: { sanctum: 3, archery: 1 }, techPref: "sanctum" },
+    turtle:  { nm: "요새군주",   d: "철벽 방어 후 역습",     aggro: 0, towerFirst: 1, atkTwMin: 6, towerTf: 99, towerMax: 16, prodMax: 6, heroMin: 1, prodW: { archery: 2, barracks: 1 }, techPref: "sanctum" },
+    greed:   { nm: "상인왕",     d: "경제 우선·후반 폭발",   gasFirst: 1, lvFirst: 1, gasBases: 3, atkTwMin: 1, towerTf: 4, prodMax: 12, heroMin: 1, prodW: { barracks: 1, archery: 1, assaultBarracks: 1 }, techPref: "workshop" },
+    hero:    { nm: "영웅왕",     d: "영웅 중심 전투",        heroFirst: 1, heroMin: 3, atkTwMin: 2, prodW: { archery: 2, barracks: 1, sanctum: 1 }, techPref: "sanctum" },
   },
 
   /* 영웅 (5인 고정 덱, 비용 = 블러드 스타). 스탯은 최상위 유닛(드래곤 2400/320) 초과로 상향 (2026-09-04) */
