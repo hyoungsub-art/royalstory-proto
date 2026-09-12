@@ -192,7 +192,7 @@
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
-      <button id="stance-btn" onclick="toggleStance()" title="총공격/대기 전환 — 대기 중엔 유닛이 생산 위치에 모여 지키고, 총공격을 누르면 일제히 진군">⚔<br>총공격</button>
+      <button id="stance-btn" onclick="toggleStance()" title="총공격/대기 전환 — 대기 중엔 유닛이 가까운 거점 앞에 집결해 지키고, 총공격을 누르면 일제히 진군">⚔<br>총공격</button>
       <div id="panel"></div>
     </div>
   </div>
@@ -315,7 +315,7 @@ const BAL={
                  transforms:[{key:"dragonNest",minLevel:3},{key:"golemCradle",minLevel:3}]},   // 생텀 Lv3 → 드래곤 네스트 / 골렘 요람 택일
   dragonNest:   {nm:"드래곤 네스트",w:2,h:2, hp:3200, cost:0, tier:1, panel:false, prod:{unit:"dragon",period:16}},
   golemCradle:  {nm:"골렘 요람",   w:2,h:2, hp:3400, cost:0, tier:1, panel:false, prod:{unit:"golem",period:16}},   // 생텀 Lv3 변형 (2026-09-04)
-  tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true,   // 2026-09-04: 비무장 거점 전용 (공격은 변형 타워만)
+  tower:        {nm:"거점",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true,   // 2026-09-12 개명 "타워"→"거점": 비무장 영역 확장·집결 깃발 (공격은 가드/아케인 변형만)
                  transforms:[{key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},   // 워크숍 계열
                              {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest","golemCradle"]}]},   // 생텀 계열
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:6}},   // 2026-09-08 사거리 5→6 (아케인과 교환) — 장사거리 단일 대상
@@ -729,7 +729,7 @@ function buildBlockReason(key,tx,ty,side){
     if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 본진 영역";
   }
   /* 영역 판정 (2026-09-12 확정): 건물의 모든 타일이 본진·타워 주변 2칸 띠 안에 있어야 함 */
-  if(!rectInZone(tx,ty,d.w,d.h,side))return"본진·타워 주변 2칸 밖";
+  if(!rectInZone(tx,ty,d.w,d.h,side))return"본진·거점 주변 2칸 밖";
   return null;
 }
 /* 영웅 배치 판정 (side 인식 — PvP 게스트는 위 진영) */
@@ -984,7 +984,7 @@ function unitUpdate(u,dt){
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
       if(S.stance&&S.stance[u.side]==="hold"&&d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){   // 대기 태세 (6-4)
-        const hx=u.home?u.home.x:u.x, hy=u.home?u.home.y:u.y;
+        const rp=rallyPoint(u), hx=rp.x, hy=rp.y;
         if(Math.hypot(u.x-hx,u.y-hy)>((BAL.STANCE&&BAL.STANCE.holdR)||2)*TILE)locomote(u,hx,hy,dt); else turnStep(u,dt);
       } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
     return;
@@ -997,7 +997,7 @@ function unitUpdate(u,dt){
   const dd=Math.hypot(u.x-tx,u.y-ty);
   /* 대기 태세 (2026-09-12, 6-4): 전역 토글이 "대기"면 자위 반경 밖의 목표는 무시하고 집결 지점(생산 위치) 근처를 지킨다 */
   if(S.stance&&S.stance[u.side]==="hold"&&dd>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){
-    const hx=u.home?u.home.x:u.x, hy=u.home?u.home.y:u.y, hd=Math.hypot(u.x-hx,u.y-hy);
+    const rp=rallyPoint(u), hx=rp.x, hy=rp.y, hd=Math.hypot(u.x-hx,u.y-hy);   // 가까운 거점 앞으로 집결
     if(hd>((BAL.STANCE&&BAL.STANCE.holdR)||2)*TILE){setFacing(u,hx-u.x,hy-u.y);locomote(u,hx,hy,dt);}
     else turnStep(u,dt);
     return;
@@ -1021,6 +1021,20 @@ function unitUpdate(u,dt){
     return;
   }
   locomote(u,tx,ty,dt);
+}
+/* 대기 집결 지점 (2026-09-12): 가장 가까운 아군 거점(거점·가드·아케인) 앞 1.2칸, 없으면 본진 앞, 그것도 없으면 생산 위치 */
+function rallyPoint(u){
+  let best=null,bd=1e9;
+  S.buildings.forEach(b=>{
+    if(b.side!==u.side||b.hp<=0)return;
+    const isOut=(b.key==="tower"||b.key==="guardTower"||b.key==="arcaneTower");
+    if(!isOut&&b.key!=="hall")return;
+    const d=Math.hypot(b.cx-u.x,b.cy-u.y)+(isOut?0:1e4);   // 거점 우선, 본진은 폴백
+    if(d<bd){bd=d;best=b;}
+  });
+  if(!best)return u.home||{x:u.x,y:u.y};
+  const fwd=u.side==="player"?-1:1;
+  return {x:best.cx,y:best.cy+fwd*(best.h/2+1.2)*TILE};
 }
 function moveToward(u,tx,ty,step){const d=Math.hypot(tx-u.x,ty-u.y);if(d<1)return;
   u.x+=(tx-u.x)/d*step;u.y+=(ty-u.y)/d*step;
@@ -1848,7 +1862,7 @@ function execCmd(c){
     case "hero": execHero(sd,c.slot,c.x,c.y); break;
     case "stance": {   // 전역 태세 전환 (6-4) — 커맨드라 리플레이·PvP 결정론 유지
       if(!S.stance)break; S.stance[sd]=c.v==="hold"?"hold":"attack";
-      if(sd===MYSIDE){syncStanceUI();toast(c.v==="hold"?"🛡 대기 — 유닛이 집결 지점을 지킵니다":"⚔ 총공격!");SND.play("click");}
+      if(sd===MYSIDE){syncStanceUI();toast(c.v==="hold"?"🛡 대기 — 유닛이 가까운 거점 앞에 집결합니다":"⚔ 총공격!");SND.play("click");}
       break;
     }
   }
@@ -3007,9 +3021,30 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillRect(cx0-bw*0.11,by+bh*0.74,bw*0.22,bh*0.26);
       break;}
     case "tower": case "guardTower": case "arcaneTower":{
-      /* 세로로 솟은 망루 (풋프린트 위로 연장) */
-      /* 형태: 세로 망루. 기본은 낮은 목조 망루, 상위 변형은 높은 석조 */
-      const isBase=key==="tower";
+      if(key==="tower"){
+        /* 거점 (2026-09-12): 돌무더기 받침 + 깃대 + 펄럭이는 진영 깃발 — 망루 실루엣 없음 (변형 타워와 확실히 구분) */
+        const cx0=px+pw/2;
+        ctx.fillStyle="#9a927e";   // 돌무더기
+        ctx.beginPath();ctx.moveTo(bx+bw*0.08,by+bh*0.98);ctx.lineTo(bx+bw*0.2,by+bh*0.62);ctx.lineTo(bx+bw*0.45,by+bh*0.46);
+        ctx.lineTo(bx+bw*0.76,by+bh*0.56);ctx.lineTo(bx+bw*0.92,by+bh*0.98);ctx.closePath();ctx.fill();po(lw);
+        ctx.fillStyle="#b3ab98";ctx.beginPath();ctx.moveTo(bx+bw*0.3,by+bh*0.92);ctx.lineTo(bx+bw*0.38,by+bh*0.64);
+        ctx.lineTo(bx+bw*0.55,by+bh*0.56);ctx.lineTo(bx+bw*0.62,by+bh*0.92);ctx.closePath();ctx.fill();
+        /* 깃대 + 머리 장식 */
+        ctx.fillStyle="#6b4a26";roundRectPath(cx0-pw*0.03,by-ph*0.55,pw*0.06,bh*1.0+ph*0.55,2);ctx.fill();po(lw*0.8);
+        ctx.fillStyle=GOLD;ctx.beginPath();ctx.arc(cx0,by-ph*0.58,pw*0.05,0,7);ctx.fill();po(lw*0.6);
+        /* 깃발 (오른쪽으로 펄럭임) + 가로 띠 + 문장 */
+        const fy=by-ph*0.5, fw=pw*0.52, fh=ph*0.38, fx0=cx0+pw*0.03;
+        ctx.fillStyle=T.main;
+        ctx.beginPath();ctx.moveTo(fx0,fy);ctx.quadraticCurveTo(fx0+fw*0.5,fy-fh*0.14,fx0+fw,fy+fh*0.05);
+        ctx.lineTo(fx0+fw*0.78,fy+fh*0.5);ctx.lineTo(fx0+fw,fy+fh*0.95);ctx.quadraticCurveTo(fx0+fw*0.5,fy+fh*1.12,fx0,fy+fh);ctx.closePath();ctx.fill();po(lw);
+        ctx.fillStyle=T.dark;ctx.fillRect(fx0,fy+fh*0.42,fw*0.72,fh*0.16);
+        ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(fx0+fw*0.4,fy+fh*0.5,fh*0.17,0,7);ctx.fill();po(lw*0.6);
+        /* 작은 페넌트 (깃대 위) */
+        ctx.fillStyle=T.light;ctx.beginPath();ctx.moveTo(fx0,by-ph*0.56);ctx.lineTo(fx0+pw*0.2,by-ph*0.52);ctx.lineTo(fx0,by-ph*0.47);ctx.closePath();ctx.fill();po(lw*0.5);
+        break;
+      }
+      /* 가드/아케인: 세로로 솟은 석조 망루 (풋프린트 위로 연장) */
+      const isBase=false;
       const shaftW=bw*0.52, sx=px+pw/2-shaftW/2;
       const topY=by+(isBase?-ph*0.16:-ph*0.28), botY=by+bh;   // 상위 타워 높이 축소 (2026-08-31)
       ctx.fillStyle=T.main;roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
@@ -3567,7 +3602,7 @@ function buildEditorUI(){
      ["ECON.tierGold.2","킵 승급 비용 (골드)"],["ECON.tierGold.3","캐슬 승급 비용 (골드)"],
      ["ECON.transformGold","건물 변형 비용 (골드, 일괄)"],
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
-     ["EXCLUDE_R","적 건물 배제 반경"],["BUILD_RING","건설 범위 (본진·타워 주변 칸수)"],
+     ["EXCLUDE_R","적 건물 배제 반경"],["BUILD_RING","건설 범위 (본진·거점 주변 칸수)"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HERO_CD","영웅 재소환 쿨다운"],
      ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
@@ -3998,7 +4033,7 @@ const TUT=(()=>{
   /* 순서 = 실제 게임 흐름: 배럭 → 타워로 영역 확장 → (영역에 들어온) 가스 점유 → 성장 → 영웅 → 공략 */
   const steps=[
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
-    {t:"② <b>타워</b>를 좌우 <b>◆ 금광 지대</b> 방향에 건설하세요 — 타워 주변이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
+    {t:"② <b>거점</b>을 좌우 <b>◆ 금광 지대</b> 방향에 건설하세요 — 거점 주변 2칸이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ 영역에 들어온 <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
     {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열립니다",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
