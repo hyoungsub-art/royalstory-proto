@@ -1011,7 +1011,11 @@ function unitUpdate(u,dt){
       } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
     return;
   }
-  const tgt=nearestTarget(u);
+  let tgt=nearestTarget(u), focus=false;
+  { /* 건물 집중 공격 (2026-09-13): 명령에 목표 건물이 있고 살아 있으면 그 건물만 노린다. 파괴되면 지점 공격 이동으로 전환 */
+    const o0=orderOf(u);
+    if(o0&&o0.type==="attack"&&o0.bid){const fb=bldById(o0.bid); if(fb&&fb.side!==u.side){tgt=fb;focus=true;} else o0.bid=null;}
+  }
   if(!tgt)return;
   const tr=tgt.r!==undefined?tgt.r:Math.max(tgt.w,tgt.h)*TILE/2;
   const reach=u.rng*TILE+u.r+tr;
@@ -1021,7 +1025,8 @@ function unitUpdate(u,dt){
   /* 공격 이동 (2026-09-13): 자위 반경(aggroR) 안의 적과만 교전하고, 아니면 목표 지점(공격 지점 또는 집결지)으로 이동해 대기.
      복귀(공격 지점 없음) 중에는 적 "건물"은 집결지 반경 안에 있을 때만 상대한다 — 적진에서 건물을 때리느라 못 돌아오는 일 방지 */
   const aggro=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE, ord=orderOf(u);
-  if(ord&&ord.type==="hold"){
+  if(focus){ /* 집중 공격: 자위·집결 규칙 없이 목표 건물로 곧장 */ }
+  else if(ord&&ord.type==="hold"){
     /* 홀드 (2026-09-13, 스타크래프트식): 제자리 고정 — 이동하지 않고 사거리 안에 들어온 적만 공격 */
     if(dd>reach){setFacing(u,tx-u.x,ty-u.y);turnStep(u,dt);return;}
   } else {
@@ -1795,7 +1800,10 @@ cv.addEventListener("click",e=>{
   const rect=cv.getBoundingClientRect();
   const sx=(e.clientX-rect.left)*(cv.width/rect.width), sy=(e.clientY-rect.top)*(cv.height/rect.height);
   const {x,y}=unflipPt(sx,sy);   // 게스트 화면 반전 보정 → 시뮬 좌표
-  if(pickMode){ const k=pickMode; pickMode=null; issueCmd({type:k.kind,x,y,grp:k.grp,side:MYSIDE}); syncAttackUI(); return; }   // 공격/이동 지점 지정 탭 (전군 또는 그룹)
+  if(pickMode){ const k=pickMode; pickMode=null;
+    const tb=occGrid()[Math.floor(y/TILE)]&&occGrid()[Math.floor(y/TILE)][Math.floor(x/TILE)];
+    const tgtB=(k.kind==="attack"&&tb&&tb.side!==MYSIDE&&tb.hp>0)?tb:null;   // 적 건물 탭 → 집중 공격
+    issueCmd({type:k.kind,x:tgtB?tgtB.cx:x,y:tgtB?tgtB.cy:y,grp:k.grp,bid:tgtB?tgtB.id:undefined,side:MYSIDE}); syncAttackUI(); return; }
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
   if(b&&b.side===MYSIDE&&b.hp>0){
@@ -1961,8 +1969,9 @@ function execCmd(c){
     case "hero": execHero(sd,c.slot,c.x,c.y); break;
     case "attack": case "move": {   // 공격/이동 지점 (2026-09-13): grp 없으면 전군, 있으면 해당 병종 그룹만. 커맨드라 리플레이·PvP 결정론 유지
       if(!S.orders)break;
-      setOrder(sd,c.grp||null,{type:c.type,x:Math.max(0,Math.min(W,+c.x||0)),y:Math.max(0,Math.min(H,+c.y||0))});
-      if(sd===MYSIDE){syncAttackUI();toast((c.type==="attack"?"⚔ 공격 지점":"➜ 이동 지점")+" — "+(c.grp?grpNm(c.grp):"전군"));SND.play("click");}
+      const fb=(c.type==="attack"&&c.bid)?bldById(c.bid):null;   // 건물 집중 공격 (2026-09-13): 적 건물을 탭하면 그 건물이 목표
+      setOrder(sd,c.grp||null,{type:c.type,x:Math.max(0,Math.min(W,+c.x||0)),y:Math.max(0,Math.min(H,+c.y||0)),bid:(fb&&fb.side!==sd)?fb.id:null});
+      if(sd===MYSIDE){syncAttackUI();toast((c.type==="attack"?(fb?"⚔ 공격 목표: "+BAL.BUILDINGS[fb.key].nm:"⚔ 공격 지점"):"➜ 이동 지점")+" — "+(c.grp?grpNm(c.grp):"전군"));SND.play("click");}
       break;
     }
     case "hold": {   // 홀드: 제자리 사수 (스타크래프트식)
@@ -3556,6 +3565,7 @@ function draw(){
   {const os=S.orders&&S.orders[MYSIDE]; if(os){const seen=new Set(); const pl=1+Math.sin(S.elapsed*5)*0.12;
     ORDER_GROUPS.forEach(g=>{const o=os[g]; if(!o||o.type==="hold")return; const k=o.type+"|"+Math.round(o.x)+"|"+Math.round(o.y); if(seen.has(k))return; seen.add(k);
       const atk=o.type==="attack";
+      if(atk&&o.bid){const fb=bldById(o.bid); if(fb){ctx.strokeStyle="rgba(255,80,60,.95)";ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.strokeRect(fb.tx*TILE+2,fb.ty*TILE+2,fb.w*TILE-4,fb.h*TILE-4);ctx.setLineDash([]);}}   // 목표 건물 테두리
       ctx.strokeStyle=atk?"rgba(255,80,60,.9)":"rgba(90,220,140,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(o.x,o.y,TILE*0.9*pl,0,7);ctx.stroke();
       if(atk){ctx.strokeStyle="rgba(255,80,60,.5)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(o.x,o.y,TILE*1.6,S.elapsed*2,S.elapsed*2+4.5);ctx.stroke();}
       upr(o.x,o.y,()=>{ctx.fillStyle="#fff";ctx.font="bold 16px sans-serif";ctx.textAlign="center";
