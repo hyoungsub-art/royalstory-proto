@@ -57,10 +57,10 @@
   #atk-btn.picking{background:linear-gradient(180deg,#b3452a,#8a2f18)!important;border-color:#ff9a70!important;animation:pulse .8s ease-in-out infinite alternate;}
   #mov-btn.picking{background:linear-gradient(180deg,#2f8a5a,#1e6a42)!important;border-color:#7fe0a8!important;animation:pulse .8s ease-in-out infinite alternate;}
   /* 건물별 병종 명령 미니 버튼 (2026-09-13) */
-  .p-item .p-ord{display:flex;width:calc(100% + 4px);margin:3px -2px -3px;z-index:2;}
-  .p-item .p-ord button{flex:1;height:36px;border:0;border-top:1.5px solid #5a6ea6;border-right:1px solid rgba(255,255,255,.25);background:#3b4a75;color:#fff;font-size:18px;line-height:1;padding:0;cursor:pointer;}
-  .p-item .p-ord button:first-child{border-radius:0 0 0 7px;}
-  .p-item .p-ord button:last-child{border-radius:0 0 7px 0;border-right:0;}
+  /* 세로 정렬 (2026-09-13 사용자 결정): 버튼 폭 = 건물 버튼 전체, 글자 라벨 포함 */
+  .p-item .p-ord{display:flex;flex-direction:column;width:calc(100% + 4px);margin:3px -2px -3px;z-index:2;}
+  .p-item .p-ord button{height:30px;border:0;border-top:1.5px solid #5a6ea6;background:#3b4a75;color:#fff;font-size:12px;font-weight:bold;line-height:1;padding:0 2px;cursor:pointer;white-space:nowrap;}
+  .p-item .p-ord button:last-child{border-radius:0 0 7px 7px;}
   .p-item .p-ord button.on[data-k="attack"]{background:#d8363a;}
   .p-item .p-ord button.on[data-k="move"]{background:#2f8a5a;}
   .p-item .p-ord button.on[data-k="hold"]{background:#b8860b;}
@@ -70,11 +70,11 @@
   #cv.picking{cursor:crosshair;}
   #swap-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
-  #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:112px;}
+  #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:166px;}
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
     padding:3px 2px;text-align:center;cursor:grab;user-select:none;position:relative;touch-action:none;min-width:0;
     box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .p-item img{width:64%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .p-item img{width:70%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
   .p-item .p-nm{font-size:9px;font-weight:bold;color:#2c3a5e;white-space:nowrap;overflow:hidden;max-width:100%;}
   .p-item .p-cost{position:absolute;top:-7px;left:-5px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;font-size:11px;font-weight:bold;line-height:20px;color:#4a2f00;
     background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd24d 55%,#c8901a);border:1.5px solid #fff;border-radius:11px;
@@ -1683,7 +1683,7 @@ function renderPanel(){
       div.className="p-item"+(lock?" locked":(effElixir(MYSIDE)<d.cost?" dim":""));
       div.innerHTML=`<div class="p-cost">${d.cost}</div><img draggable="false" src="${ICONS[key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(lock?`<div class="p-lock">🔒\n${lock}</div>`:"")
-        +(d.prod?`<div class="p-ord" data-grp="${key}"><button data-k="attack" title="${d.nm} 병종 공격 지점">⚔</button><button data-k="move" title="${d.nm} 병종 이동 지점">➜</button><button data-k="hold" title="${d.nm} 병종 홀드 (제자리 사수)">✋</button></div>`:"");
+        +(d.prod?`<div class="p-ord" data-grp="${key}"><button data-k="attack" title="${d.nm} 병종 공격 지점">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 지점">➜ 이동</button><button data-k="hold" title="${d.nm} 병종 홀드 (제자리 사수) — 다시 누르면 집결 복귀">✋ 홀드</button></div>`:"");
       if(!lock)attachDrag(div,{type:"build",key});
       if(d.prod)wireOrderStrip(div,key);
       p.appendChild(div);
