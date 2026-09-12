@@ -294,7 +294,7 @@ const BAL={
  /* 2026-09-12 (2차 확정): 블러드 스타 폐지 — 모든 비용은 골드. 승급 tierGold, 변형 transformGold, 영웅은 무료(HERO_COST 0, 쿨다운만). starBy:"none" (regen/blood 코드는 실험용 보존) */
  ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierRegen:[0,1,1.25,1.5], pushGold:15,
        starBy:"none", bloodPer:30, bloodDiv:100, starPer:1.0,
-       tierGold:[0,0,15,35], transformGold:8,   // (가정) 킵 15 / 캐슬 35 / 변형 일괄 8
+       tierGold:[0,0,40,100], transformGold:8,   // (가정) 킵 40 / 캐슬 100 (2026-09-13 대폭 인상: 15/35→40/100) / 변형 일괄 8
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
  /* 무너진 성벽 흔적 (2026-09-13 확정): 각 진영 본진 앞 off칸 떨어진 곳부터 h칸 두께로 맵을 가로지르는 성벽선. 거점은 이 위에서만 건설 (길·지형·금광 칸은 비움) */
  RUIN_LINE:{off:4, h:2},   // off 4 (2026-09-13): 본진 앞 4칸 간격 — 플레이어 y14-15 / 적 y8-9 (금광 지대와 겹치지 않음)
@@ -835,7 +835,7 @@ function spendStars(side,n){
 function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
   if(cur>=3)return false;
-  const need=(BAL.ECON.tierGold||[0,0,15,35])[cur+1], nt=cur+1;   // 승급 비용 = 골드 (2026-09-12 확정)
+  const need=(BAL.ECON.tierGold||[0,0,40,100])[cur+1], nt=cur+1;   // 승급 비용 = 골드 (2026-09-12 확정)
   if(elixirOf(side)<need)return false;   // 조건 없음 — 골드만 (2026-09-12)
   spend(side,need);
   if(side==="player")S.tier=nt; else S.eTier=nt;
@@ -1859,7 +1859,7 @@ function showStrip(b){
   }
   if(b.key==="hall"){
     if(myTier()<3){
-      const nt=myTier()+1, need=(BAL.ECON.tierGold||[0,0,15,35])[nt];   // 승급 비용 = 골드 (2026-09-12)
+      const nt=myTier()+1, need=(BAL.ECON.tierGold||[0,0,40,100])[nt];   // 승급 비용 = 골드 (2026-09-12)
       const hard=false;   // 승급 조건 없음 (2026-09-12) — 골드만
       html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${need}"`} ${!hard&&elixirOf(MYSIDE)<need?"disabled":""}>`
           +`${TIER_NM[nt]} 승급 (💰${need})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
@@ -1939,7 +1939,7 @@ function execUpgrade(side,b){
 function canTierUpP(){
   if(myTier()>=3)return false;
   const nt=myTier()+1;
-  return elixirOf(MYSIDE)>=(BAL.ECON.tierGold||[0,0,15,35])[nt];   // 골드만 (2026-09-12; 스타 잔재 수정)
+  return elixirOf(MYSIDE)>=(BAL.ECON.tierGold||[0,0,40,100])[nt];   // 골드만 (2026-09-12; 스타 잔재 수정)
 }
 function canUpgradeB(b){
   const d=BAL.BUILDINGS[b.key];
@@ -4214,7 +4214,7 @@ const TUT=(()=>{
   const CIRC="①②③④⑤⑥⑦⑧⑨";
   const rawSteps=[
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
-    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 지역이 앞으로 4행 넓어져</b> 성벽 흔적선·금광에 닿습니다",ok:()=>S.tier>=2},
+    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰"+((BAL.ECON.tierGold||[0,0,40,100])[2])+")</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 지역이 앞으로 4행 넓어져</b> 성벽 흔적선·금광에 닿습니다",ok:()=>S.tier>=2},
     {t:"② <b>거점</b>을 <b>무너진 성벽 흔적</b>(회색 석축선) 위에 세우세요 — 킵 승급으로 넓어진 지역 안에서만, 그 위에서만 지을 수 있고 유닛 집결지가 됩니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ 지역 안의 <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이미 나온 유닛까지 그 건물 병종의 레벨이 함께 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
