@@ -286,7 +286,8 @@ const BAL={
  EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2, 강등 시 축소). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
- UNIT_CAP:60, HERO_COST:0, HERO_CD:12,   // 영웅 무료 소환 (2026-09-12 확정) — 사망 시 쿨다운만
+ UNIT_CAP:60, HERO_COST:0, HERO_CD:12,   // 영웅 무료 소환 — 사망 시 쿨다운만
+ HEROES_ON:0,   // 영웅 시스템 스위치 (2026-09-12 사용자 결정: 일단 제거, 추후 재검토) — 0이면 영웅 탭·AI 소환·튜토리얼 단계·협곡 영웅 스테이지 문구 비활성
  /* 이동 감각 (2026-09-08, 가정): accel = 최고 속도 도달 빠르기(1/초, 9 ≈ 0.25초), turnRate = 선회 속도(rad/초, 11 ≈ 180°에 0.29초),
     turnSlow = 큰 각도 선회 중 최소 속도 비율(뒤돌아설 때 제자리 선회 느낌). 결정론 시뮬 내부 값 — 양측 동일 적용 */
  MOVE:{accel:9, turnRate:11, turnSlow:0.3},
@@ -1264,7 +1265,8 @@ const LEARN=(()=>{
   /* 가중 무작위 선택 — 가중치 = (승+1)/(패+1) [0.5~4], 모방자 ×2 */
   function pick(){
     const d=load();
-    const pool=Object.keys(BAL.AI_STYLES||{}).map(k=>({k,c:false})).concat(d.copies.filter(c=>c).map(c=>({k:c.key,c:true})));
+    const pool=Object.keys(BAL.AI_STYLES||{}).filter(k=>heroesOn()||!BAL.AI_STYLES[k].heroFirst)   // 영웅 비활성 시 영웅왕 제외
+      .map(k=>({k,c:false})).concat(d.copies.filter(c=>c).map(c=>({k:c.key,c:true})));
     if(!pool.length)return null;
     const ws=pool.map(p=>{const r=recOf(p.k);return clamp((r.w+1)/(r.l+1),0.5,4)*(p.c?2:1);});
     let t=grnd()*ws.reduce((a,b)=>a+b,0);
@@ -1485,7 +1487,7 @@ function aiUpdate(dt){
     }
   }
   /* 0-1) 영웅 소환: 잉여 ★이 있으면 항상. 아니면 킵 이후·최소 공격 타워 확보 후 유지 수(heroMin)까지 (영웅왕은 킵 이후 즉시) */
-  if(st.heroUse&&readySlot&&(S.eTier>=2||st.heroFirst)){   // 영웅 무료 (2026-09-12): 킵 이후(영웅왕은 즉시) 슬롯이 비면 소환
+  if(heroesOn()&&st.heroUse&&readySlot&&(S.eTier>=2||st.heroFirst)){   // 영웅 무료: 킵 이후(영웅왕은 즉시) 슬롯이 비면 소환 (HEROES_ON일 때만)
     if(summonHero())return;
   }
   /* 1) 경제 — 가스. 경제 성향(gasFirst)은 목표치 전부 우선, 아니면 최소 공격 타워 확보 전엔 2까지 */
@@ -1578,7 +1580,9 @@ function syncStanceUI(){
   const b=document.getElementById("stance-btn"); if(!b||!S||!S.stance)return;
   const h=S.stance[MYSIDE]==="hold"; b.innerHTML=h?"🛡<br>대기":"⚔<br>총공격"; b.classList.toggle("hold",h);
 }
+function heroesOn(){return !!BAL.HEROES_ON;}
 function swapMode(){
+  if(!heroesOn())return;   // 영웅 비활성 (2026-09-12)
   S.mode=S.mode==="build"?"hero":"build";
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
   hideStrip(); renderPanel();
@@ -3035,17 +3039,17 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         ctx.fillStyle="#b3ab98";ctx.beginPath();ctx.moveTo(bx+bw*0.3,by+bh*0.92);ctx.lineTo(bx+bw*0.38,by+bh*0.64);
         ctx.lineTo(bx+bw*0.55,by+bh*0.56);ctx.lineTo(bx+bw*0.62,by+bh*0.92);ctx.closePath();ctx.fill();
         /* 깃대 + 머리 장식 */
-        ctx.fillStyle="#6b4a26";roundRectPath(cx0-pw*0.03,by-ph*0.55,pw*0.06,bh*1.0+ph*0.55,2);ctx.fill();po(lw*0.8);
-        ctx.fillStyle=GOLD;ctx.beginPath();ctx.arc(cx0,by-ph*0.58,pw*0.05,0,7);ctx.fill();po(lw*0.6);
-        /* 깃발 (오른쪽으로 펄럭임) + 가로 띠 + 문장 */
-        const fy=by-ph*0.5, fw=pw*0.52, fh=ph*0.38, fx0=cx0+pw*0.03;
+        ctx.fillStyle="#6b4a26";roundRectPath(cx0-pw*0.025,by-ph*0.36,pw*0.05,bh*1.0+ph*0.36,2);ctx.fill();po(lw*0.8);
+        ctx.fillStyle=GOLD;ctx.beginPath();ctx.arc(cx0,by-ph*0.385,pw*0.04,0,7);ctx.fill();po(lw*0.6);
+        /* 깃발 (오른쪽으로 펄럭임) + 가로 띠 + 문장 — 2026-09-12 축소 */
+        const fy=by-ph*0.33, fw=pw*0.34, fh=ph*0.24, fx0=cx0+pw*0.025;
         ctx.fillStyle=T.main;
         ctx.beginPath();ctx.moveTo(fx0,fy);ctx.quadraticCurveTo(fx0+fw*0.5,fy-fh*0.14,fx0+fw,fy+fh*0.05);
         ctx.lineTo(fx0+fw*0.78,fy+fh*0.5);ctx.lineTo(fx0+fw,fy+fh*0.95);ctx.quadraticCurveTo(fx0+fw*0.5,fy+fh*1.12,fx0,fy+fh);ctx.closePath();ctx.fill();po(lw);
         ctx.fillStyle=T.dark;ctx.fillRect(fx0,fy+fh*0.42,fw*0.72,fh*0.16);
         ctx.fillStyle=CREAM;ctx.beginPath();ctx.arc(fx0+fw*0.4,fy+fh*0.5,fh*0.17,0,7);ctx.fill();po(lw*0.6);
         /* 작은 페넌트 (깃대 위) */
-        ctx.fillStyle=T.light;ctx.beginPath();ctx.moveTo(fx0,by-ph*0.56);ctx.lineTo(fx0+pw*0.2,by-ph*0.52);ctx.lineTo(fx0,by-ph*0.47);ctx.closePath();ctx.fill();po(lw*0.5);
+        ctx.fillStyle=T.light;ctx.beginPath();ctx.moveTo(fx0,by-ph*0.37);ctx.lineTo(fx0+pw*0.13,by-ph*0.345);ctx.lineTo(fx0,by-ph*0.31);ctx.closePath();ctx.fill();po(lw*0.5);
         break;
       }
       /* 가드/아케인: 세로로 솟은 석조 망루 (풋프린트 위로 연장) */
@@ -3609,7 +3613,7 @@ function buildEditorUI(){
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
      ["EXCLUDE_R","적 건물 배제 반경"],["BUILD_RING.1","건설 범위 타운홀 (칸)"],["BUILD_RING.2","건설 범위 킵 (칸)"],["BUILD_RING.3","건설 범위 캐슬 (칸)"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
-     ["UNIT_CAP","유닛 상한"],["HERO_CD","영웅 재소환 쿨다운"],
+     ["UNIT_CAP","유닛 상한"],["HEROES_ON","영웅 사용(0/1, 새 판부터)"],["HERO_CD","영웅 재소환 쿨다운"],
      ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
      ["MOVE.accel","이동 가속 (1/초)"],["MOVE.turnRate","선회 속도 (rad/초)"],["MOVE.turnSlow","선회 중 최소 속도 비율"],
      ["TERRAIN.bridgeSpd","다리 위 지상 이속 배율"],["TERRAIN.wallRng","성벽 인접 타워 사거리(+타일)"],
@@ -3769,13 +3773,20 @@ const KINGDOMS=[
     {nm:"7단계 · 마법",d:"생텀 해금 — 마법은 쉴드맨 저항을 관통",diff:"normal"},
     {nm:"8단계 · 총력전",d:"모든 건물 해금 — 왕국 수복전",diff:"normal"},
   ]},
-  {id:"k2",nm:"⛰ 협곡 왕국",desc:"두 갈래 협곡 지형 — 단계마다 영웅을 하나씩 익힙니다",map:"canyon",heroes:true,stages:[
+  {id:"k2",nm:"⛰ 협곡 왕국",desc:(BAL.HEROES_ON?"두 갈래 협곡 지형 — 단계마다 영웅을 하나씩 익힙니다":"두 갈래 협곡 지형 — 단계마다 강·바위·성벽·숲이 달라집니다"),map:"canyon",heroes:true,
+   stages:BAL.HEROES_ON?[
     {nm:"1단계 · 대마법사",d:"아크메이지 — 원거리 딜러 영웅",diff:"normal"},
     {nm:"2단계 · 마운틴 킹",d:"마운틴 킹 추가 — 근접 탱커",diff:"normal"},
     {nm:"3단계 · 팔라딘",d:"팔라딘 추가 — 주변 아군 회복 오라",diff:"normal"},
     {nm:"4단계 · 블러드 메이지",d:"블러드 메이지 추가 — 광역 마법",diff:"hard"},
     {nm:"5단계 · 스카이 메이지",d:"영웅 5인 총출동 — 협곡 결전",diff:"hard"},
-  ]},
+   ]:[   /* 영웅 비활성 (2026-09-12): 지형 학습 커리큘럼 문구 */
+    {nm:"1단계 · 협곡 입구",d:"두 갈래 길 — 양쪽 길을 모두 살피세요",diff:"normal"},
+    {nm:"2단계 · 바위 협로",d:"바위·성벽이 길을 막습니다 — 우회로 확보",diff:"normal"},
+    {nm:"3단계 · 여울과 다리",d:"강은 판자 다리로만 건넙니다 — 병목을 지키세요",diff:"normal"},
+    {nm:"4단계 · 숲의 매복",d:"숲에서는 이속이 떨어집니다 — 진입 타이밍",diff:"hard"},
+    {nm:"5단계 · 협곡 결전",d:"모든 지형 요소 총집합",diff:"hard"},
+   ]},
   {id:"k3",nm:"❄ ??? 왕국",desc:"추후 오픈 예정",locked:true,map:"plain",stages:[]},
 ];
 /* --- 화면 전환 --- */
@@ -3847,6 +3858,8 @@ function startGame(cfg){
   newGame();
   showScr(null); closeOv();
   gameSpeed=1; syncPauseUI(); syncStanceUI();
+  const sb=document.getElementById("swap-btn"); if(sb)sb.style.display=heroesOn()?"":"none";   // 영웅 비활성 시 탭 전환 숨김
+  if(!heroesOn()&&S.mode!=="build"){S.mode="build";renderPanel();}
   TUT.stop(); if(cfg.mode==="tutorial")TUT.start();
   const db=document.getElementById("diff-btn");
   if(cfg.mode==="practice"){db.disabled=false;syncDiffUI();}
@@ -4036,15 +4049,18 @@ const TUT=(()=>{
   const bar=()=>document.getElementById("tut-bar");
   const cntP=k=>S.buildings.filter(b=>b.side==="player"&&b.hp>0&&b.key===k).length;
   /* 순서 = 실제 게임 흐름: 배럭 → 타워로 영역 확장 → (영역에 들어온) 가스 점유 → 성장 → 영웅 → 공략 */
-  const steps=[
+  const CIRC="①②③④⑤⑥⑦⑧⑨";
+  const rawSteps=[
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
     {t:"② <b>거점</b>을 <b>◆ 금광 지대</b> 옆에 세우세요 — 거점은 어디든 지을 수 있고, 그 주변(타운홀 2칸, 승급마다 +2)이 아군 영역이 됩니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ 영역에 들어온 <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
     {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 범위가 2칸 넓어집니다</b>",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
-    {t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 영웅은 <b>무료</b>, 쓰러지면 쿨다운 후 재소환",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
+    {hero:1,t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 영웅은 <b>무료</b>, 쓰러지면 쿨다운 후 재소환",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
     {t:"⑦ 마지막! 병력을 이끌고 <b>적 본진</b>을 파괴하세요",ok:()=>false},
   ];
+  /* 영웅 비활성(HEROES_ON=0)이면 영웅 단계를 빼고 번호를 다시 매긴다 */
+  const steps=rawSteps.filter(s=>heroesOn()||!s.hero).map((s,i)=>Object.assign({},s,{t:CIRC[i]+s.t.slice(1)}));
   function start(){active=true;idx=0;bonusGiven=false;render();}
   function stop(){active=false;const b=bar();if(b)b.style.display="none";}
   function render(){const b=bar();if(!b)return;b.style.display=active?"block":"none";if(active)b.innerHTML=steps[idx].t;}
