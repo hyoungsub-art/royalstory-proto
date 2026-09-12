@@ -41,14 +41,13 @@
   /* 하단 패널 */
   #bottom{background:linear-gradient(180deg,#2c3a5e,#22304f);border:2px solid #16203a;border-radius:12px;margin-top:4px;
     padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
-  #elixir-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  #elixir-row{display:none;}   /* 2026-09-13: 골드는 상단 HUD 칩으로 이동 — 하단 데드 스페이스 제거 */
   #elixir-bar,#star-chip{display:none!important;}   /* 2026-09-12: 블러드 스타 폐지 — 골드만 표시 */
   #elixir-bar{flex:1;height:18px;background:#171b28;border-radius:9px;overflow:hidden;position:relative;border:1px solid #0d1120;}
   #elixir-fill{height:100%;background:linear-gradient(180deg,#ff9a9a 0%,#d8363a 45%,#8a1c1c 100%);border-radius:9px;width:0%;transition:width .1s linear;position:relative;}
   #elixir-fill::after{content:"";position:absolute;top:2px;left:4px;right:4px;height:40%;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);border-radius:7px;}
-  #elixir-num{font-weight:bold;color:#ffd24d;flex:1;height:34px;text-align:left;font-size:15px;line-height:34px;padding:0 14px;
-    background:linear-gradient(180deg,#6a4a1c 0%,#3f2c10 100%);border:1.5px solid #e2b64a;
-    border-radius:17px;text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
+  #elixir-num{display:inline-block;font-weight:bold;color:#ffd24d;height:22px;line-height:22px;font-size:12px;padding:0 9px;margin-left:8px;
+    background:linear-gradient(180deg,#6a4a1c 0%,#3f2c10 100%);border:1.5px solid #e2b64a;border-radius:11px;text-shadow:0 1px 2px rgba(0,0,0,.6);vertical-align:middle;}
   /* 블러드 스타 칩 (표시 전용 — 골드와 동일한 보라 계열) */
   #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;
     background:radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418);border:2px solid #fff;color:#fff;
@@ -188,7 +187,7 @@
       <button onclick="restart()">↺</button>
       <button onclick="cycleDiff()" id="diff-btn" title="난이도 (연습 모드, 변경 시 재시작)">보통</button>
     </div>
-    <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
+    <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span> <span id="elixir-num" title="골드 (상한 없음)">💰0</span></div>
     <div style="display:flex;gap:4px;">
       <button onclick="SND.toggle()" id="snd-btn" title="사운드 켜기/끄기">🔊</button>
       <button onclick="toggleEditor()" title="밸런스 에디터">⚙</button>
@@ -199,7 +198,6 @@
   <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas><div id="bubble"></div><div id="tut-bar"></div></div>
   <div id="bottom">
     <div id="elixir-row">
-      <div id="elixir-num">0/10</div>
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
       <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 붉은 게이지를 채우면 적립" style="display:flex;align-items:center;justify-content:center;">★0</div>
     </div>
