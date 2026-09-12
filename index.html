@@ -53,7 +53,8 @@
     background:radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418);border:2px solid #fff;color:#fff;
     text-shadow:0 1px 2px rgba(90,10,10,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
   #mode-row{display:flex;gap:6px;align-items:stretch;}
-  #swap-btn{flex:none;width:58px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
+  #stance-btn.hold{background:linear-gradient(180deg,#8a5a2a,#6a4218)!important;border-color:#b07a3a!important;}
+  #swap-btn,#stance-btn{flex:none;width:58px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
   #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:76px;}
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
@@ -188,6 +189,7 @@
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
+      <button id="stance-btn" onclick="toggleStance()" title="총공격/대기 전환 — 대기 중엔 유닛이 생산 위치에 모여 지키고, 총공격을 누르면 일제히 진군">⚔<br>총공격</button>
       <div id="panel"></div>
     </div>
   </div>
@@ -283,6 +285,10 @@ const BAL={
  /* 이동 감각 (2026-09-08, 가정): accel = 최고 속도 도달 빠르기(1/초, 9 ≈ 0.25초), turnRate = 선회 속도(rad/초, 11 ≈ 180°에 0.29초),
     turnSlow = 큰 각도 선회 중 최소 속도 비율(뒤돌아설 때 제자리 선회 느낌). 결정론 시뮬 내부 값 — 양측 동일 적용 */
  MOVE:{accel:9, turnRate:11, turnSlow:0.3},
+ /* 지형 보정 (2026-09-12, 6-9, 가정): 다리(길∩강) 위 지상 이속 배율 / 성벽 인접 타워 사거리 보너스(타일) — 병목 지형에서 지상·방어 보상 */
+ TERRAIN:{bridgeSpd:1.15, wallRng:0.5},
+ /* 전역 태세 (2026-09-12, 6-4, 가정): 대기 시 집결 반경(타일) / 대기 중 자위 반응 반경(타일) */
+ STANCE:{holdR:2, aggroR:6},
  /* 건물 HP ×2, 타워 공격력 ×2 (2026-08-30 밸런스 조정) */
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
@@ -305,10 +311,13 @@ const BAL={
   dragonNest:   {nm:"드래곤 네스트",w:2,h:2, hp:3200, cost:0, tier:1, panel:false, prod:{unit:"dragon",period:16}},
   golemCradle:  {nm:"골렘 요람",   w:2,h:2, hp:3400, cost:0, tier:1, panel:false, prod:{unit:"golem",period:16}},   // 생텀 Lv3 변형 (2026-09-04)
   tower:        {nm:"타워",        w:2,h:2, hp:3200, cost:5, tier:1, panel:true,   // 2026-09-04: 비무장 거점 전용 (공격은 변형 타워만)
-                 transforms:[{key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},   // 워크숍 계열
+                 transforms:[{key:"palisade",tier:1},   // 2026-09-12 (6-5): 타운홀 티어 저가 방어
+                             {key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},   // 워크숍 계열
                              {key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest","golemCradle"]}]},   // 생텀 계열
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:6}},   // 2026-09-08 사거리 5→6 (아케인과 교환) — 장사거리 단일 대상
   arcaneTower:  {nm:"아케인 타워", w:2,h:2, hp:3400, cost:0, tier:3, panel:false, atk:{dmg:270,hs:1.4,rng:5,splash:2.0,magic:true}},   // 2026-09-08 사거리 6→5, 공속 1.0→1.4 — 근거리 광역·마법 (쉴드맨 저항 무시)
+  palisade:     {nm:"목책 타워",   w:2,h:2, hp:3000, cost:0, tier:1, panel:false, atk:{dmg:120,hs:1.0,rng:3.0},   // 2026-09-12 (6-5): 타운홀 티어 저가 방어 변형 — 가드 DPS의 27%, 가드/아케인으로 재변형 가능 (가정)
+                 transforms:[{key:"guardTower",tier:2,prereq:["workshop","siegeWorkshop"]},{key:"arcaneTower",tier:3,prereq:["sanctum","dragonNest","golemCradle"]}]},
   siegeWorkshop:{nm:"시즈 워크숍", w:3,h:2, hp:3000, cost:0, tier:1, panel:false, prod:{unit:"siegeTank",period:20}},   // 워크숍 Lv3 변형 (셰어리 폐기 대체)
  },
  /* 유닛: cat=업그레이드 분류(gp/ap/gm/am), melee/ranged, air, antiair */
@@ -361,8 +370,8 @@ const BAL={
     prodW: 생산 계열 증설 가중치(높을수록 자주) / techPref: 먼저 여는 테크(workshop|sanctum) / tfPref: 변형 우선순위
     heroMin: 전장 유지 영웅 수(저축 기준) / gasFirst·lvFirst·siegeFirst·heroFirst·towerFirst: 순서 스위치 */
  AI_STYLES:{
-  rush:   {nm:"강습대장",   d:"초반 물량 러시",        aggro:1, gasBases:1, atkTwMin:1, towerTf:3, towerMax:8, prodMax:12, maxTier:2, maxLevel:2, heroMin:1, prodW:{barracks:3,archery:1}, techPref:"workshop", tfPref:["shieldBarracks"]},
-  cavalry:{nm:"기병대장",   d:"기병 돌격",             aggro:1, gasBases:2, atkTwMin:2, towerTf:5, heroMin:1, prodW:{assaultBarracks:3,barracks:1,archery:1}, techPref:"workshop", tfPref:["knightHall","shieldBarracks","shooterGarden"]},
+  rush:   {nm:"강습대장",   d:"초반 물량 러시",        wave:7, aggro:1, gasBases:1, atkTwMin:1, towerTf:3, towerMax:8, prodMax:12, maxTier:2, maxLevel:2, heroMin:1, prodW:{barracks:3,archery:1}, techPref:"workshop", tfPref:["shieldBarracks"]},
+  cavalry:{nm:"기병대장",   d:"기병 돌격",             wave:6, aggro:1, gasBases:2, atkTwMin:2, towerTf:5, heroMin:1, prodW:{assaultBarracks:3,barracks:1,archery:1}, techPref:"workshop", tfPref:["knightHall","shieldBarracks","shooterGarden"]},
   archer: {nm:"궁수장군",   d:"원거리 물량·가드 타워", heroMin:1, prodW:{archery:3,barracks:1}, techPref:"workshop", tfPref:["shooterGarden","shieldBarracks"]},
   siege:  {nm:"공성기술자", d:"공성 병기 철거",        siegeFirst:1, atkTwMin:1, towerTf:4, heroMin:1, prodW:{workshop:2,barracks:1,archery:1}, techPref:"workshop", tfPref:["siegeWorkshop","shieldBarracks"]},
   arcane: {nm:"대마법사",   d:"마법 테크·아케인 타워", atkTwMin:2, heroMin:1, prodW:{sanctum:3,archery:1}, techPref:"sanctum", tfPref:["dragonNest","shooterGarden"]},
@@ -449,7 +458,8 @@ function makeTiles(){
   /* 길: 건설 불가, 유닛 이동·배치 가능 — 맵에 따라 여러 갈래 지원 (2026-09-04) */
   (BAL.ROADS||[BAL.ROAD]).forEach(rd=>{
     for(let y=rd.y0;y<=rd.y1;y++)for(let x=rd.x0;x<=rd.x1;x++)
-      if(tiles[y]&&tiles[y][x]){tiles[y][x].road=true;tiles[y][x].build=false;tiles[y][x].terr=null;tiles[y][x].deploy=true;}
+      if(tiles[y]&&tiles[y][x]){const tt=tiles[y][x]; if(tt.terr==="river")tt.bridge=true;   // 길∩강 = 다리 (이속 보정용)
+        tt.road=true;tt.build=false;tt.terr=null;tt.deploy=true;}
   });
   return tiles;
 }
@@ -458,6 +468,7 @@ function terrSpd(u){
   if(u.air)return 1;
   const tx=Math.floor(u.x/TILE),ty=Math.floor(u.y/TILE);
   const t=S.tiles[ty]&&S.tiles[ty][tx];
+  if(t&&t.bridge)return (BAL.TERRAIN&&BAL.TERRAIN.bridgeSpd)||1;   // 다리 위 지상 이속 (6-9)
   return (t&&t.terr)?(TERR[t.terr].spd||1):1;
 }
 /* ---------- 지상 경로 탐색 (2026-09-07): 강·성벽 이동 불가화 ----------
@@ -630,13 +641,13 @@ document.addEventListener("click",e=>{if(e.target.closest("button"))SND.play("cl
 /* ---------- 초기화 ---------- */
 function newGame(){
   S={tiles:makeTiles(), buildings:[], units:[], effects:[], particles:[], shake:0,
-     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, starG:0, eStarG:0, blood:0, eBlood:0, aiT:0, elapsed:0, over:false,
+     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, starG:0, eStarG:0, blood:0, eBlood:0, stance:{player:"attack",enemy:"attack"}, aiT:0, elapsed:0, over:false,
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      eHeroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      occ:null, zoneDirty:true, bldSeq:0};
   /* 스파링(AI 대전)만 전략 인격을 시드 난수로 뽑는다 — 같은 시드 = 같은 상대 (리플레이 재현). GAME_CFG.aiStyle로 강제 가능 */
-  S.stats={pBuild:[],pHero:[],pTf:[],pTier:[],hallDmg:{}};   // 학습용 기록 (플레이어 커맨드·AI 본진 피해 주체)
+  S.stats={pBuild:[],pHero:[],pTf:[],pTier:[],pHold:0,pUnits:{},hallDmg:{}};   // 학습용 기록 (플레이어 커맨드·유닛 구성·AI 본진 피해 주체)
   S.aiStyle=null; S.aiStyleObj=null;
   if(GAME_CFG&&GAME_CFG.mode==="pvp"&&!GAME_CFG.net){
     if(GAME_CFG.aiStyleObj){S.aiStyleObj=GAME_CFG.aiStyleObj;S.aiStyle=S.aiStyleObj.key||GAME_CFG.aiStyle||null;}   // 리플레이: 저장된 성향 그대로
@@ -749,6 +760,14 @@ function hallAtkRng(){
   for(const k in BAL.BUILDINGS){const a=BAL.BUILDINGS[k].atk;if(a&&a.rng>r)r=a.rng;}
   return r;
 }
+/* 성벽 인접 타워 사거리 보너스 (2026-09-12, 6-9): 풋프린트 주변 1칸에 성벽 타일이 있으면 +TERRAIN.wallRng (지형은 고정이라 건물별 캐시) */
+function wallAdj(b){
+  if(b.wallAdj!==undefined)return b.wallAdj;
+  let f=false;
+  for(let y=b.ty-1;y<=b.ty+b.h&&!f;y++)for(let x=b.tx-1;x<=b.tx+b.w&&!f;x++){const t=S.tiles[y]&&S.tiles[y][x];if(t&&t.terr==="wall")f=true;}
+  b.wallAdj=f; return f;
+}
+function atkRngOf(b){const a=BAL.BUILDINGS[b.key].atk; if(!a)return 0; return a.rng+((wallAdj(b)&&BAL.TERRAIN)?(BAL.TERRAIN.wallRng||0):0);}
 function elixirCap(){return capFor("player");}
 function elixirOf(side){return side==="player"?S.elixir:S.eElixir;}
 function starsOf(side){return side==="player"?S.stars:S.eStars;}
@@ -869,6 +888,8 @@ function spawnUnit(key,side,x,y,hero,level){
   u.face=side==="player"?-Math.PI/2:Math.PI/2;
   u.dir8=side==="player"?6:2;
   u.head=u.face; u.vel=0; u.gait=0;   // 이동 감각 상태 (선회·관성·걷기 위상)
+  u.home={x,y};   // 집결 지점 = 생산/배치 위치 (대기 태세용, 6-4)
+  if(side==="player"&&S.stats&&!hero)S.stats.pUnits[key]=(S.stats.pUnits[key]||0)+1;   // 학습: 플레이어 유닛 구성 (6-7)
   /* 유닛 레벨: 생산 건물 레벨을 그대로 계승 — 스탯에 즉시 반영 (영웅은 레벨 1) */
   u.level=hero?1:(level||1);
   if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;}
@@ -952,7 +973,10 @@ function unitUpdate(u,dt){
       const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
-      if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
+      if(S.stance&&S.stance[u.side]==="hold"&&d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){   // 대기 태세 (6-4)
+        const hx=u.home?u.home.x:u.x, hy=u.home?u.home.y:u.y;
+        if(Math.hypot(u.x-hx,u.y-hy)>((BAL.STANCE&&BAL.STANCE.holdR)||2)*TILE)locomote(u,hx,hy,dt); else turnStep(u,dt);
+      } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
     return;
   }
   const tgt=nearestTarget(u);
@@ -961,6 +985,13 @@ function unitUpdate(u,dt){
   const reach=u.rng*TILE+u.r+tr;
   const ty=tgt.y!==undefined?tgt.y:tgt.cy, tx=tgt.x!==undefined?tgt.x:tgt.cx;
   const dd=Math.hypot(u.x-tx,u.y-ty);
+  /* 대기 태세 (2026-09-12, 6-4): 전역 토글이 "대기"면 자위 반경 밖의 목표는 무시하고 집결 지점(생산 위치) 근처를 지킨다 */
+  if(S.stance&&S.stance[u.side]==="hold"&&dd>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){
+    const hx=u.home?u.home.x:u.x, hy=u.home?u.home.y:u.y, hd=Math.hypot(u.x-hx,u.y-hy);
+    if(hd>((BAL.STANCE&&BAL.STANCE.holdR)||2)*TILE){setFacing(u,hx-u.x,hy-u.y);locomote(u,hx,hy,dt);}
+    else turnStep(u,dt);
+    return;
+  }
   setFacing(u,tx-u.x,ty-u.y);   // 이동·교전 공통: 목표 방향 갱신 (몸은 turnStep이 선회 속도로 따라감)
   if(dd<=reach){
     turnStep(u,dt);   // 교전 중에도 제자리 선회
@@ -1058,7 +1089,7 @@ function buildingUpdate(b,dt){
       const foe=b.side==="player"?"enemy":"player";
       let best=null,bd=1e9;
       S.units.forEach(e=>{if(e.side!==foe||e.hp<=0||e.deploy>0)return;
-        const dd=Math.hypot(b.cx-e.x,b.cy-e.y);if(dd<bd&&dd<=d.atk.rng*TILE){bd=dd;best=e;}});
+        const dd=Math.hypot(b.cx-e.x,b.cy-e.y);if(dd<bd&&dd<=atkRngOf(b)*TILE){bd=dd;best=e;}});
       if(best){
         const tdm=d.atk.dmg;
         /* 타워 투사체는 물리 (아케인 타워는 magic — 쉴드맨 저항 무시) */
@@ -1073,7 +1104,7 @@ function buildingUpdate(b,dt){
         let bb=null,bbd=1e9;
         S.buildings.forEach(e=>{if(e.side!==foe||e.hp<=0)return;
           const dd=Math.hypot(b.cx-e.cx,b.cy-e.cy)-Math.max(e.w,e.h)*TILE/2;
-          if(dd<bbd&&dd<=d.atk.rng*TILE){bbd=dd;bb=e;}});
+          if(dd<bbd&&dd<=atkRngOf(b)*TILE){bbd=dd;bb=e;}});
         if(bb){
           bb.hp-=d.atk.dmg*(BAL.TOWER_VS_BLDG||1)*bldgDefMult(bb); bb.flash=0.12; b.cd=d.atk.hs;   // 대건물 감쇄 + 본진 티어 방어
           S.effects.push({tp:"bullet",x1:b.cx,y1:b.cy-b.h*TILE/2,x2:bb.cx,y2:bb.cy,t:0.12,t0:0.12});
@@ -1114,6 +1145,7 @@ function findSpot(key,side,pref){
     else if(pref==="gas") score=gasTargets.length? -Math.min(...gasTargets.map(([gx,gy])=>tileDist(cx,cy,gx,gy))) : -1e9;
     else if(pref&&pref.def) score=-tileDist(cx,cy,pref.def.x/TILE,pref.def.y/TILE);   // 위협 방향 방어 타워
     else score=-tileDist(cx,cy,hall.cx/TILE,hall.cy/TILE);
+    if(side==="enemy"&&AI_LAT)score-=Math.abs(cx-(COLS/2+AI_LAT*COLS*0.3))*0.12;   // 성향 배치 편향 (6-7 모방자)
     if(score>bestScore){bestScore=score;best={tx,ty};}
   }
   return best;
@@ -1130,7 +1162,9 @@ function findSpot(key,side,pref){
 function aiCfg(){
   const base=diff();
   const sty=S&&(S.aiStyleObj||(S.aiStyle&&BAL.AI_STYLES?BAL.AI_STYLES[S.aiStyle]:null));
-  return sty?Object.assign({},base,sty):base;
+  const cfg=sty?Object.assign({},base,sty):Object.assign({},base);
+  if(S&&S.aiCounter)LEARN.applyOverlay(cfg,S.aiCounter);   // 실시간 카운터 층 (6-7)
+  return cfg;
 }
 function pickAiStyle(){
   const keys=Object.keys(BAL.AI_STYLES||{});
@@ -1156,7 +1190,7 @@ const LEARN=(()=>{
   function resolve(key){
     const d=load();
     const cp=d.copies.find(c=>c&&c.key===key);
-    if(cp)return JSON.parse(JSON.stringify(cp));
+    if(cp){const o=JSON.parse(JSON.stringify(cp)); if(d.comp)applyOverlay(o,counterFor(d.comp,0.5)); return o;}
     const base=BAL.AI_STYLES&&BAL.AI_STYLES[key]; if(!base)return null;
     const o=JSON.parse(JSON.stringify(base)); o.key=key;
     const a=d.adj[key];
@@ -1168,9 +1202,36 @@ const LEARN=(()=>{
       if(a.tfFirst)o.tfPref=[a.tfFirst].concat((o.tfPref||[]).filter(x=>x!==a.tfFirst));
       o.adjN=a.n||0;
     }
+    if(d.comp)applyOverlay(o,counterFor(d.comp,0.5));   // 누적 카운터 층: 최근 판들의 플레이어 유닛 구성 (6-7)
     return o;
   }
   function recOf(key){return load().rec[key]||{w:0,l:0};}
+  /* 유닛 구성 → 계열 비중 (air/cav/siege/ranged/melee) */
+  function shares(counts){
+    let air=0,cav=0,siege=0,ranged=0,melee=0,tot=0;
+    for(const k in counts){const d=BAL.UNITS[k]; if(!d)continue; const n=counts[k]; tot+=n;
+      if(d.air)air+=n; else if(d.bldgOnly)siege+=n; else if(k==="cavalry"||k==="knight")cav+=n; else if(d.melee)melee+=n; else ranged+=n;}
+    if(!tot)return null;
+    return {air:air/tot,cav:cav/tot,siege:siege/tot,ranged:ranged/tot,melee:melee/tot,tot};
+  }
+  /* 상성 카운터 오버레이 (6-7): k = 강도 (실시간 1 / 누적 0.5) */
+  function counterFor(sh,k){
+    const o={prodW:{},tags:[]}; const addW=(key,v)=>{o.prodW[key]=(o.prodW[key]||0)+v*k;};
+    if(sh.air>=0.3){o.tags.push("대공");addW("archery",2);addW("sanctum",1);}
+    if(sh.cav>=0.3){o.tags.push("대기병");o.tfFirst="shieldBarracks";addW("archery",1);}
+    if(sh.siege>=0.25){o.tags.push("대공성");o.atkTwMin=Math.round(k);o.towerFirst=1;}
+    if(sh.ranged>=0.5){o.tags.push("대원거리");addW("assaultBarracks",2);if(!o.tfFirst)o.tfFirst="shieldBarracks";}
+    if(sh.melee>=0.5){o.tags.push("대근접");addW("archery",1);addW("sanctum",1);}
+    return o.tags.length?o:null;
+  }
+  function applyOverlay(cfg,ov){
+    if(!ov)return cfg;
+    if(ov.prodW){cfg.prodW=Object.assign({},cfg.prodW||{barracks:1,archery:1});for(const key in ov.prodW)cfg.prodW[key]=(cfg.prodW[key]||0)+ov.prodW[key];}
+    if(ov.atkTwMin)cfg.atkTwMin=(cfg.atkTwMin||0)+ov.atkTwMin;
+    if(ov.towerFirst)cfg.towerFirst=1;
+    if(ov.tfFirst){const base=cfg.tfPref||["shieldBarracks","knightHall","shooterGarden","siegeWorkshop","dragonNest"];cfg.tfPref=[ov.tfFirst].concat(base.filter(x=>x!==ov.tfFirst));}
+    return cfg;
+  }
   /* 가중 무작위 선택 — 가중치 = (승+1)/(패+1) [0.5~4], 모방자 ×2 */
   function pick(){
     const d=load();
@@ -1184,8 +1245,9 @@ const LEARN=(()=>{
   /* 플레이어 커맨드 기록 */
   function rec(c){
     const st=S&&S.stats; if(!st)return; const t=+S.elapsed.toFixed(1);
-    if(c.type==="build")st.pBuild.push({t,key:c.key,ty:c.ty});
+    if(c.type==="build")st.pBuild.push({t,key:c.key,tx:c.tx,ty:c.ty});
     else if(c.type==="hero")st.pHero.push(t);
+    else if(c.type==="stance"&&c.v==="hold")st.pHold=(st.pHold||0)+1;
     else if(c.type==="transform")st.pTf.push(c.toKey);
     else if(c.type==="tier")st.pTier.push(t);
   }
@@ -1199,13 +1261,15 @@ const LEARN=(()=>{
     workshop:"workshop",siegeWorkshop:"workshop",sanctum:"sanctum",dragonNest:"sanctum",golemCradle:"sanctum"};
   /* 플레이어 빌드 → 모방자 성향 (생산 건물 3채 미만이면 카피하지 않음) */
   function copyFrom(st){
-    const prodW={}; let n=0,tySum=0,gas=0,tech=null,atk=0;
-    st.pBuild.forEach(b=>{const ln=LINE_OF[b.key]; if(ln){prodW[ln]=(prodW[ln]||0)+1;n++;tySum+=b.ty;}
+    const prodW={}; let n=0,tySum=0,txSum=0,gas=0,tech=null,atk=0;
+    st.pBuild.forEach(b=>{const ln=LINE_OF[b.key]; if(ln){prodW[ln]=(prodW[ln]||0)+1;n++;tySum+=b.ty;txSum+=(b.tx||0)+1;}
       if(b.key==="elixirBase")gas++; if(!tech&&(b.key==="workshop"||b.key==="sanctum"))tech=b.key;});
     if(n<3)return null;
-    st.pTf.forEach(k=>{if(k==="guardTower"||k==="arcaneTower")atk++;});
+    st.pTf.forEach(k=>{if(k==="guardTower"||k==="arcaneTower"||k==="palisade")atk++;});
     const tfPref=[...new Set(st.pTf.filter(k=>TF_FROM[k]))];
+    const lat=clamp((txSum/n-COLS/2)/(COLS/2),-1,1);   // 배치 좌우 편향 (6-7)
     return {d:"당신의 빌드를 모방",prodW,techPref:tech||"workshop",gasBases:clamp(gas,1,3),aggro:(tySum/n)<13?1:0,
+      lat:Math.abs(lat)>=0.15?+lat.toFixed(2):0, wave:(st.pHold||0)>=2?6:undefined,
       heroMin:clamp(st.pHero.length,1,3),atkTwMin:clamp(atk,1,6),towerTf:clamp(atk+2,2,99),
       tfPref:tfPref.length?tfPref:["shieldBarracks","shooterGarden","knightHall","siegeWorkshop","dragonNest"]};
   }
@@ -1228,6 +1292,9 @@ const LEARN=(()=>{
   function onResult(win){
     const key=S&&S.aiStyle; if(!key||!S.stats)return;
     const d=load(); const r=d.rec[key]||(d.rec[key]={w:0,l:0}); if(win)r.l++; else r.w++;
+    /* 누적 카운터: 플레이어 유닛 구성 EMA (승패 무관) */
+    const sh=shares(S.stats.pUnits||{});
+    if(sh&&sh.tot>=6){const a=0.5; d.comp=d.comp?{air:d.comp.air*(1-a)+sh.air*a,cav:d.comp.cav*(1-a)+sh.cav*a,siege:d.comp.siege*(1-a)+sh.siege*a,ranged:d.comp.ranged*(1-a)+sh.ranged*a,melee:d.comp.melee*(1-a)+sh.melee*a,tot:sh.tot}:sh;}
     let msg=null;
     if(win){
       const an=analyze(S.stats);
@@ -1252,21 +1319,34 @@ const LEARN=(()=>{
     return "🧠 학습 상태 — 모방자 "+d.copies.filter(c=>c).length+"개 · 보강된 성향 "+Object.keys(d.adj).length+"종 · AI 전적 "+g.w+"승 "+g.l+"패";
   }
   function reset(){D={v:1,rec:{},adj:{},copies:[]};save();}
-  return {resolve,pick,rec,hallHit,onResult,summary,reset,recOf,load};
+  return {resolve,pick,rec,hallHit,onResult,summary,reset,recOf,load,shares,counterFor,applyOverlay};
 })();
+let AI_LAT=0;   // 현재 AI 성향의 배치 좌우 편향 (findSpot 참조, 6-7 모방)
 function aiUpdate(dt){
-  const st=aiCfg();
+  let st=aiCfg();
   if(S.elapsed<st.aiDelay)return;
   S.aiT+=dt;
   if(S.aiT<st.aiInterval)return;
   S.aiT=0;
+  /* 실시간 카운터 빌드 (2026-09-12, 6-7): 30초마다 상대 유닛 구성을 스캔해 생산 가중치·방어 목표를 즉시 조정 */
+  if(S.elapsed-(S.aiScanT!==undefined?S.aiScanT:-99)>=(BAL.AI_SCAN||30)){
+    S.aiScanT=S.elapsed;
+    const counts={}; S.units.forEach(u=>{if(u.side==="player"&&u.hp>0&&!u.hero)counts[u.key]=(counts[u.key]||0)+1;});
+    const sh=LEARN.shares(counts);
+    const ov=(sh&&sh.tot>=4)?LEARN.counterFor(sh,1):null;
+    const tags=ov?ov.tags.join("·"):"";
+    if(tags!==(S.aiCounterTags||"")&&tags&&MYSIDE==="player"&&GAME_CFG&&GAME_CFG.mode==="pvp")toast("🧠 상대 AI 대응 빌드 전환: "+tags);
+    S.aiCounter=ov; S.aiCounterTags=tags; st=aiCfg();
+  }
+  AI_LAT=st.lat||0;
   const side="enemy", tier=effTier(side), cap=capFor(side);
   const cnt=k=>S.buildings.filter(b=>b.side===side&&b.hp>0&&b.key===k).length;
   const lineCnt=k=>(PROD_LINE[k]||[k]).reduce((a,x)=>a+cnt(x),0);
   const prodCnt=lineCnt("barracks")+lineCnt("archery")+lineCnt("assaultBarracks");   // 병영 계열 (킵 조건·초반 라인 판정용)
   const prodAll=prodCnt+lineCnt("workshop")+lineCnt("sanctum");   // 전 생산 계열 — 소프트 캡(prodMax)·레벨업 시작(lvAfterProd) 기준 (2026-09-12: 생텀·워크숍 누락 수정)
-  const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower");
-  const atkTw=cnt("guardTower")+cnt("arcaneTower");
+  const towerCnt=cnt("tower")+cnt("guardTower")+cnt("arcaneTower")+cnt("palisade");
+  const atkTw=cnt("guardTower")+cnt("arcaneTower")+cnt("palisade");   // 목책 포함 (초반 방어 카운트)
+  const atkStrong=cnt("guardTower")+cnt("arcaneTower");                // 상위 공격 타워 (목책 승격 목표)
   const maxTier=st.maxTier, maxLv=Math.min(st.maxLevel,tier);
   const heroCost=Math.max(1,BAL.HERO_COST);
   const fieldH=S.units.filter(u=>u.side===side&&u.hero).length;
@@ -1275,7 +1355,10 @@ function aiUpdate(dt){
   const tfPref=st.tfPref||["shieldBarracks","knightHall","shooterGarden","siegeWorkshop","dragonNest"];
   const canArc=(st.towerTf||0)>0&&tier>=3&&hasSanctumLine(side);
   const canGrd=(st.towerTf||0)>0&&tier>=2&&hasPrereq(side,["workshop","siegeWorkshop"]);
-  const tfKey=canArc?"arcaneTower":(canGrd?"guardTower":null);
+  const tfKey=canArc?"arcaneTower":(canGrd?"guardTower":(((st.towerTf||0)>0)?"palisade":null));   // 워크숍 전엔 목책 (6-5)
+  /* 변형 대상 타워: 기본 타워 우선, 상위 변형이 가능하면 목책도 승격 대상 */
+  const tfBase=()=>{let b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
+    if(!b&&tfKey&&tfKey!=="palisade")b=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="palisade"); return b||null;};
   /* ★ 예약분 = 다음 승급 비용 + 대기 중인 변형(최대 1). 이보다 많은 ★은 잉여 → 영웅·녹이기로 즉시 운용 */
   const tfWait=(()=>{
     if((st.towerTf||0)>atkTw&&cnt("tower")>0&&tfKey)return 1;
@@ -1329,6 +1412,13 @@ function aiUpdate(dt){
   const prodOrder=()=>Object.keys(prodW).filter(k=>BAL.BUILDINGS[k]).sort((a,b)=>(lineCnt(a)+0.01)/prodW[a]-(lineCnt(b)+0.01)/prodW[b]);
   const prodPref=st.aggro?"fwd":null;   // 공격형: 생산 건물도 전방 배치
   const gasNeed=st.gasBases;
+  /* 웨이브 태세 (2026-09-12, 6-4): wave 설정 성향은 유닛을 모았다가(대기) 규모가 차면 일제히 진군, 1/3 이하로 줄면 다시 집결 */
+  if(S.stance){
+    if(st.wave){const n=unitCount(side);
+      if(S.stance[side]!=="hold"&&n<Math.ceil(st.wave/3))S.stance[side]="hold";
+      else if(S.stance[side]==="hold"&&n>=st.wave)S.stance[side]="attack";}
+    else if(S.stance[side]==="hold")S.stance[side]="attack";
+  }
   /* 구조적 건설 가능 여부(해금·티어·전제) — 비용은 제외 */
   const canB=key=>{if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;
     const d=BAL.BUILDINGS[key];return !!d&&d.tier<=tier&&hasPrereq(side,d.prereq);};
@@ -1358,7 +1448,7 @@ function aiUpdate(dt){
       if(intruder){
         if(tfKey){
           let bt=null,btd=1e9;
-          S.buildings.forEach(x=>{if(x.side===side&&x.hp>0&&x.key==="tower"){
+          S.buildings.forEach(x=>{if(x.side===side&&x.hp>0&&(x.key==="tower"||(x.key==="palisade"&&tfKey!=="palisade"))){
             const dd=Math.hypot(x.cx-intruder.x,x.cy-intruder.y);if(dd<btd&&dd<=8*TILE){btd=dd;bt=x;}}});
           if(bt){
             if(starsOf(side)>=transformStarsFor(bt.key,tfKey)){transformBuilding(bt,tfKey);starSpent();return;}
@@ -1391,10 +1481,10 @@ function aiUpdate(dt){
   const techA=st.techPref==="sanctum"?"sanctum":"workshop", techB=techA==="sanctum"?"workshop":"sanctum";
   if(maxTier>=2&&lineCnt(techA)<1&&buildPref([techA]))return;
   /* 3-2) 최소 공격 타워 조기 확보 (atkTwMin) — 기본 타워는 비무장이므로 방어 1순위 */
-  if((st.atkTwMin||0)>0&&tier>=2&&atkTw<st.atkTwMin){
-    const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
+  if((st.atkTwMin||0)>0&&atkTw<st.atkTwMin){   // 타운홀 티어에서도 목책으로 확보 (6-5)
+    const base=tfBase();
     if(!base){if(towerCnt<st.towerMax&&tryB("tower","fwd"))return;}
-    else if(tfKey){if(starsOf(side)>=transformStarsFor("tower",tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}
+    else if(tfKey){if(starsOf(side)>=transformStarsFor(base.key,tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}
   }
   /* 3-3) 공성 성향: 워크숍 Lv3 → 시즈 워크숍을 다른 선택 지출보다 먼저 */
   if(st.siegeFirst&&tier>=2&&cnt("siegeWorkshop")<1&&lvOK){
@@ -1437,8 +1527,9 @@ function aiUpdate(dt){
   /* 9) 레벨 투자 (순수 골드, ★ 보호) — 생산 건물 lvAfterProd채 이후 */
   if(maxLv>1&&lvOK){const up=nextUp(maxLv);if(up){if(elixirOf(side)>=upCostFor(up)+2){doLevel(up);return;} return;}}
   /* 9-1) 타워 화력 확보 (towerTf) */
-  if((st.towerTf||0)>atkTw&&tfKey){const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
-    if(base){if(starsOf(side)>=transformStarsFor("tower",tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}}
+  if(tfKey&&(st.towerTf||0)>(tfKey==="palisade"?atkTw:atkStrong)){   // 목책은 상위 변형이 열리면 승격 대상
+    const base=tfBase();
+    if(base){if(starsOf(side)>=transformStarsFor(base.key,tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}}
   /* 10) 여유 자원 → 전진 타워 압박 */
   if(elixirOf(side)>=(BAL.ECON.pushGold||15)&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
   /* 11) 잉여 자원 상시 운용 (spendAll) — 여기까지 왔다면 전략적 저축 사유가 없다.
@@ -1453,6 +1544,16 @@ function aiUpdate(dt){
 }
 
 /* ---------- 조작: 패널 & 드래그 ---------- */
+/* 전역 태세 토글 (2026-09-12, 6-4) */
+function toggleStance(){
+  if(!S||S.over||!S.stance)return;
+  const v=S.stance[MYSIDE]==="hold"?"attack":"hold";
+  issueCmd({type:"stance",v,side:MYSIDE});
+}
+function syncStanceUI(){
+  const b=document.getElementById("stance-btn"); if(!b||!S||!S.stance)return;
+  const h=S.stance[MYSIDE]==="hold"; b.innerHTML=h?"🛡<br>대기":"⚔<br>총공격"; b.classList.toggle("hold",h);
+}
 function swapMode(){
   S.mode=S.mode==="build"?"hero":"build";
   document.getElementById("swap-btn").innerHTML="⇄<br>"+(S.mode==="build"?"건설":"영웅");
@@ -1745,6 +1846,11 @@ function execCmd(c){
       break;
     }
     case "hero": execHero(sd,c.slot,c.x,c.y); break;
+    case "stance": {   // 전역 태세 전환 (6-4) — 커맨드라 리플레이·PvP 결정론 유지
+      if(!S.stance)break; S.stance[sd]=c.v==="hold"?"hold":"attack";
+      if(sd===MYSIDE){syncStanceUI();toast(c.v==="hold"?"🛡 대기 — 유닛이 집결 지점을 지킵니다":"⚔ 총공격!");SND.play("click");}
+      break;
+    }
   }
 }
 /* 블러드 (2026-09-12 자원 재편): 적 유닛 처치 시 maxHp/bloodDiv 만큼 적립, bloodPer마다 블러드 스타 1개 */
@@ -2891,10 +2997,10 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.beginPath();ctx.arc(cx0,by+bh*0.74,bw*0.11,Math.PI,0);ctx.fill();
       ctx.fillRect(cx0-bw*0.11,by+bh*0.74,bw*0.22,bh*0.26);
       break;}
-    case "tower": case "guardTower": case "arcaneTower":{
+    case "tower": case "guardTower": case "arcaneTower": case "palisade":{
       /* 세로로 솟은 망루 (풋프린트 위로 연장) */
-      /* 형태: 세로 망루. 기본은 낮은 목조 망루, 상위 변형은 높은 석조 */
-      const isBase=key==="tower";
+      /* 형태: 세로 망루. 기본은 낮은 목조 망루, 상위 변형은 높은 석조. 목책 = 기본 망루 + 말뚝 울타리 + 활 구멍 */
+      const isBase=key==="tower"||key==="palisade", isPal=key==="palisade";
       const shaftW=bw*0.52, sx=px+pw/2-shaftW/2;
       const topY=by+(isBase?-ph*0.16:-ph*0.28), botY=by+bh;   // 상위 타워 높이 축소 (2026-08-31)
       ctx.fillStyle=T.main;roundRectPath(sx,topY,shaftW,botY-topY,4);ctx.fill();po(lw);
@@ -2904,6 +3010,12 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
         ctx.strokeStyle=OUTLINE;ctx.lineWidth=lw*0.8;
         ctx.beginPath();ctx.moveTo(sx+2,botY-ph*0.02);ctx.lineTo(sx+shaftW-2,topY+(botY-topY)*0.45);ctx.stroke();
         ctx.beginPath();ctx.moveTo(sx+shaftW-2,botY-ph*0.02);ctx.lineTo(sx+2,topY+(botY-topY)*0.45);ctx.stroke();
+        if(isPal){   /* 목책 (2026-09-12): 뾰족 말뚝 울타리 + 활 구멍 */
+          ctx.fillStyle="#8a5a28";
+          for(let i=0;i<6;i++){const stx=px+pw*(0.06+i*0.176), sw=pw*0.11, syTop=by+bh*0.5, syBot=by+bh*1.0;
+            ctx.beginPath();ctx.moveTo(stx,syBot);ctx.lineTo(stx,syTop+pw*0.06);ctx.lineTo(stx+sw/2,syTop);ctx.lineTo(stx+sw,syTop+pw*0.06);ctx.lineTo(stx+sw,syBot);ctx.closePath();ctx.fill();po(lw*0.7);}
+          ctx.fillStyle=DARKGRAY;roundRectPath(px+pw/2-2.5,topY+ph*0.2,5,ph*0.14,2);ctx.fill();po(lw*0.5);   // 활 구멍
+        }
       } else {
         ctx.fillStyle=CREAM;   // 석재 밴드 (상위 변형)
         roundRectPath(sx-2,topY+(botY-topY)*0.45,shaftW+4,ph*0.1,2);ctx.fill();po(lw*0.7);
@@ -3204,7 +3316,7 @@ function draw(){
     if(S.selBld===b){ctx.strokeStyle="rgba(255,210,80,.95)";ctx.lineWidth=2.5;ctx.setLineDash([6,4]);
       ctx.strokeRect(px+1,py+1,pw-2,ph-2);ctx.setLineDash([]);
       const d=BAL.BUILDINGS[b.key];
-      const atkRng=d.atk?d.atk.rng:(d.hAtk?hallAtkRng():0);
+      const atkRng=d.atk?atkRngOf(b):(d.hAtk?hallAtkRng():0);
       if(atkRng){ctx.strokeStyle="rgba(255,120,80,.5)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(b.cx,b.cy,atkRng*TILE,0,7);ctx.stroke();}
     }
     if(b.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(0.7,b.flash*5).toFixed(2)+")";
@@ -3419,7 +3531,7 @@ const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"�
   rangedResist:"원거리 물리 경감(비율)",pierceVsMelee:"근접 관통 추가피해(+)",rangedWeak:"원거리 피해 취약(+)",
   TOWER_VS_BLDG:"타워 대건물 피해 배율",HERO_VS_BLDG:"영웅 대건물 피해 배율",
   spendAll:"잉여 자원 상시 운용(0/1)",heroMin:"유지 영웅 수",prodW:"생산 가중치",gasFirst:"가스 우선(0/1)",lvFirst:"레벨업 우선(0/1)",
-  siegeFirst:"공성 우선(0/1)",heroFirst:"영웅 우선(0/1)",towerFirst:"타워 우선(0/1)",lvAfterProd:"레벨업 시작 생산 수",holdPct:"저축 문턱(상한 비율)",barracks:"배럭",archery:"아처리",assaultBarracks:"어썰트 배럭",workshop:"워크숍",sanctum:"생텀"};
+  siegeFirst:"공성 우선(0/1)",heroFirst:"영웅 우선(0/1)",towerFirst:"타워 우선(0/1)",lvAfterProd:"레벨업 시작 생산 수",holdPct:"저축 문턱(상한 비율)",wave:"웨이브 규모(유닛 수)",lat:"배치 좌우 편향(-1~1)",barracks:"배럭",archery:"아처리",assaultBarracks:"어썰트 배럭",workshop:"워크숍",sanctum:"생텀"};
 const ED_SKIP=new Set(["nm","w","h","panel","gas","r","prereq","transforms","aura","upgCat","cat",
   "air","antiair","melee","unit","test","label","key"]);
 function edWalk(obj,basePath,prefix){
@@ -3451,7 +3563,9 @@ function buildEditorUI(){
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HERO_COST","영웅 코스트"],["HERO_CD","영웅 재소환 쿨다운"],
      ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
-     ["MOVE.accel","이동 가속 (1/초)"],["MOVE.turnRate","선회 속도 (rad/초)"],["MOVE.turnSlow","선회 중 최소 속도 비율"]]
+     ["MOVE.accel","이동 가속 (1/초)"],["MOVE.turnRate","선회 속도 (rad/초)"],["MOVE.turnSlow","선회 중 최소 속도 비율"],
+     ["TERRAIN.bridgeSpd","다리 위 지상 이속 배율"],["TERRAIN.wallRng","성벽 인접 타워 사거리(+타일)"],
+     ["STANCE.holdR","대기 집결 반경(타일)"],["STANCE.aggroR","대기 중 자위 반경(타일)"]]
      .forEach(([p,l])=>h+=edRow(p,l));
     h+=`<div class="ed-sec">난이도 = AI 전략 수준 (현재: ${DIFF_NM[diffKey]})</div>`
       +`<div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;">스탯·자원 규칙은 양측 동일 — 전략 차이로만 난이도가 갈립니다</div>`
@@ -3684,7 +3798,7 @@ function startGame(cfg){
   PENDING=REPLAY?cfg.replayCmds.map(c=>({...c})):[];
   newGame();
   showScr(null); closeOv();
-  gameSpeed=1; syncPauseUI();
+  gameSpeed=1; syncPauseUI(); syncStanceUI();
   TUT.stop(); if(cfg.mode==="tutorial")TUT.start();
   const db=document.getElementById("diff-btn");
   if(cfg.mode==="practice"){db.disabled=false;syncDiffUI();}

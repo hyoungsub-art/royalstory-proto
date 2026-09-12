@@ -43,6 +43,11 @@ window.BALANCE = {
      turnSlow: 큰 각도 선회 중 최소 속도 비율 (0.3 = 뒤돌아설 때 30% 속도로 제자리 선회) */
   MOVE: { accel: 9, turnRate: 11, turnSlow: 0.3 },
 
+  /* 지형 보정 (2026-09-12, 6-9, 가정): 다리(길∩강) 위 지상 유닛 이속 배율 / 성벽 인접 타워 사거리 보너스(타일) */
+  TERRAIN: { bridgeSpd: 1.15, wallRng: 0.5 },
+  /* 전역 태세 (2026-09-12, 6-4, 가정): 대기 시 집결 반경(타일) / 대기 중 자위 반응 반경(타일) */
+  STANCE: { holdR: 2, aggroR: 6 },
+
   /* 건물: hp/cost/생산 주기 등 — 키·구조는 index.html 기본값과 동일해야 함
      2026-08-30 조정: 전 건물 HP ×2, 타워류 공격력 ×2 */
   BUILDINGS: {
@@ -63,6 +68,7 @@ window.BALANCE = {
     tower:         { hp: 3200, cost: 5 },   // 비무장 거점 전용 (2026-09-04) — 공격은 가드/아케인 변형만
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 6 } },   // 2026-09-08 사거리 5→6 (아케인과 교환, 가정)
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.4, rng: 5, splash: 2.0 } },   // 2026-09-08 사거리 6→5, 공속 1.0→1.4 — 근거리 광역 카운터 (가정)
+    palisade:      { hp: 3000,          atk: { dmg: 120, hs: 1.0, rng: 3.0 } },   // 2026-09-12 (6-5) 목책 타워 — 타운홀 티어 기본 타워 변형(★1), 가드 DPS의 27% (가정)
     siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 20 } },   // 워크숍 Lv3 변형
     dragonNest:    { hp: 3200,          prod: { unit: "dragon",        period: 16 } },   // 생텀 Lv3 변형
     golemCradle:   { hp: 3400,          prod: { unit: "golem",         period: 16 } },   // 생텀 Lv3 변형 (택일)
@@ -101,8 +107,8 @@ window.BALANCE = {
      prodW: 생산 계열 증설 가중치(높을수록 자주) / techPref: 먼저 여는 테크(workshop|sanctum) / tfPref: 변형 우선순위
      heroMin: 전장 유지 영웅 수 / gasFirst·lvFirst·siegeFirst·heroFirst·towerFirst: 빌드 순서 스위치 */
   AI_STYLES: {
-    rush:    { nm: "강습대장",   d: "초반 물량 러시",        aggro: 1, gasBases: 1, atkTwMin: 1, towerTf: 3, towerMax: 8, prodMax: 12, maxTier: 2, maxLevel: 2, heroMin: 1, prodW: { barracks: 3, archery: 1 }, techPref: "workshop", tfPref: ["shieldBarracks"] },
-    cavalry: { nm: "기병대장",   d: "기병 돌격",             aggro: 1, gasBases: 2, atkTwMin: 2, towerTf: 5, heroMin: 1, prodW: { assaultBarracks: 3, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["knightHall", "shieldBarracks", "shooterGarden"] },
+    rush:    { nm: "강습대장",   d: "초반 물량 러시",        wave: 7, aggro: 1, gasBases: 1, atkTwMin: 1, towerTf: 3, towerMax: 8, prodMax: 12, maxTier: 2, maxLevel: 2, heroMin: 1, prodW: { barracks: 3, archery: 1 }, techPref: "workshop", tfPref: ["shieldBarracks"] },
+    cavalry: { nm: "기병대장",   d: "기병 돌격",             wave: 6, aggro: 1, gasBases: 2, atkTwMin: 2, towerTf: 5, heroMin: 1, prodW: { assaultBarracks: 3, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["knightHall", "shieldBarracks", "shooterGarden"] },
     archer:  { nm: "궁수장군",   d: "원거리 물량·가드 타워", heroMin: 1, prodW: { archery: 3, barracks: 1 }, techPref: "workshop", tfPref: ["shooterGarden", "shieldBarracks"] },
     siege:   { nm: "공성기술자", d: "공성 병기 철거",        siegeFirst: 1, atkTwMin: 1, towerTf: 4, heroMin: 1, prodW: { workshop: 2, barracks: 1, archery: 1 }, techPref: "workshop", tfPref: ["siegeWorkshop", "shieldBarracks"] },
     arcane:  { nm: "대마법사",   d: "마법 테크·아케인 타워", atkTwMin: 2, heroMin: 1, prodW: { sanctum: 3, archery: 1 }, techPref: "sanctum", tfPref: ["dragonNest", "shooterGarden"] },
