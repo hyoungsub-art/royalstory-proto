@@ -295,7 +295,7 @@ const BAL={
        tierGold:[0,0,15,35], transformGold:8,   // (가정) 킵 15 / 캐슬 35 / 변형 일괄 8
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
  /* 무너진 성벽 흔적 (2026-09-13 확정): 각 진영 본진 앞 off칸 떨어진 곳부터 h칸 두께로 맵을 가로지르는 성벽선. 거점은 이 위에서만 건설 (길·지형·금광 칸은 비움) */
- RUIN_LINE:{off:3, h:2},   // off 3 (2026-09-13): 금광 지대(본진 앞 2~3칸)와 겹치지 않게 한 칸 상대 쪽으로
+ RUIN_LINE:{off:4, h:2},   // off 4 (2026-09-13): 본진 앞 4칸 간격 — 플레이어 y14-15 / 적 y8-9 (금광 지대와 겹치지 않음)
  EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -926,6 +926,23 @@ function spawnUnit(key,side,x,y,hero,level){
   S.units.push(u);
   return u;
 }
+/* 생산 건물의 레벨업·변형을 이미 나온 유닛에 반영 (2026-09-13 확정) — HP는 비율 유지 */
+function applyUnitLevel(u,lv){
+  if(u.hero||lv===u.level)return;
+  const d=BAL.UNITS[u.key]; if(!d)return;
+  const ratio=u.maxHp>0?u.hp/u.maxHp:1, lm=lvMult(lv);
+  u.level=lv; u.maxHp=d.hp*lm; u.hp=u.maxHp*ratio; u.dmg=d.dmg*lm;
+  S.effects.push({tp:"ftext",x:u.x,y:u.y-u.r-8,text:"Lv"+lv,t:0.8,t0:0.8,col:u.side===MYSIDE?"140,220,255":"255,170,170"});
+}
+function morphUnit(u,newKey){
+  const d=BAL.UNITS[newKey]; if(!d||u.key===newKey||u.hero)return;
+  const ratio=u.maxHp>0?u.hp/u.maxHp:1;
+  Object.assign(u,{key:newKey,nm:d.nm,dmg:d.dmg,hs:d.hs,rng:d.rng,spd:d.spd*TILE,r:d.r,cat:d.cat||null,air:!!d.air,antiair:!!d.antiair,melee:!!d.melee,
+    splash:d.splash||0,bldgOnly:!!d.bldgOnly,rangedResist:d.rangedResist||0,prefRanged:!!d.prefRanged,pierceVsMelee:d.pierceVsMelee||0,rangedWeak:d.rangedWeak||0,
+    aura:d.aura||null,heal:d.heal||0,aoe:d.aoe?{...d.aoe,t:0}:null});
+  u.level=1; u.maxHp=d.hp; u.hp=d.hp*ratio; u.path=null; u.cd=Math.min(u.cd,d.hs);
+  burst(u.x,u.y,"255,220,120",10,120);
+}
 function unitCount(side){return S.units.filter(u=>u.side===side&&!u.hero).length;}
 function canHit(att,tgt){return tgt.air?!!att.antiair:true;}
 
@@ -1141,8 +1158,9 @@ function buildingUpdate(b,dt){
       b.prodT=0;
       const dir=b.side==="player"?-1:1;
       /* 생산 건물의 레벨이 곧 유닛 레벨 (티어 상한 적용) */
-      spawnUnit(d.prod.unit,b.side,b.cx+(grnd()-0.5)*TILE,b.cy+dir*(d.h/2+0.7)*TILE,false,
+      const nu=spawnUnit(d.prod.unit,b.side,b.cx+(grnd()-0.5)*TILE,b.cy+dir*(d.h/2+0.7)*TILE,false,
                 Math.min(b.level,effTier(b.side)));   // 스폰 오프셋 = 시드 난수 (결정론)
+      nu.src=b.id;   // 출처 건물 — 이후 레벨업·변형이 이 유닛에도 반영된다 (2026-09-13)
       SND.play("spawn");
     }
   }
@@ -1209,6 +1227,7 @@ function transformBuilding(b,newKey){
   /* 변형 시 레벨 초기화 (확정 규칙): 업그레이드한 건물을 변형하면 새 건물 Lv1부터 시작 */
   const lostLv=b.level;
   b.key=newKey; b.maxHp=nd.hp; b.hp=Math.round(nd.hp*ratio); b.prodT=0; b.level=1;
+  if(nd.prod)S.units.forEach(u=>{if(u.src===b.id&&u.hp>0)morphUnit(u,nd.prod.unit);});   // 이미 나온 유닛도 새 병종으로 (2026-09-13)
   if(lostLv>1&&b.side===MYSIDE)toast(nd.nm+"(으)로 변형 — 레벨 Lv"+lostLv+" → Lv1 초기화");
   S.occ=null; burst(b.cx,b.cy,"255,220,120",14,140);
   if(b.side===MYSIDE){SND.play("transform");renderPanel(); hideStrip();}   // 실행 후 말풍선 닫기
@@ -2085,6 +2104,10 @@ function stepSim(dt){
     recomputeAuras();
     S.units.forEach(u=>{unitUpdate(u,dt); if(!u.moving)u.vel=(u.vel||0)*Math.max(0,1-dt*12);});   // 정지 시 감속 → 기울기·발걸음이 자연스럽게 잦아든다
     S.buildings.forEach(b=>buildingUpdate(b,dt));
+    /* 생산 건물 레벨 동기화 (2026-09-13): 건물이 레벨업하면 이미 나온 유닛도 같은 레벨로 (상한 = 티어) */
+    {const byId={}; S.buildings.forEach(b=>{if(b.hp>0)byId[b.id]=b;});
+     S.units.forEach(u=>{if(u.hero||!u.src)return; const b=byId[u.src]; if(!b||!BAL.BUILDINGS[b.key].prod)return;
+       const lv=Math.min(b.level,effTier(b.side)); if(lv!==u.level)applyUnitLevel(u,lv);});}
     /* 사망 처리 */
     S.units.forEach(u=>{if(u.hp<=0){deathFx(u);
       if(u.lastHit&&u.lastHit!==u.side)addBlood(u.lastHit,Math.max(1,Math.round(u.maxHp/(BAL.ECON.bloodDiv||100))),u.x,u.y);   // 처치 → 블러드
@@ -3462,6 +3485,18 @@ function draw(){
     }
   }
   /* 건물 (y 정렬 — 아래쪽 건물이 위쪽 건물의 솟은 부분을 가리도록) */
+  /* 인접 거점 연결 성벽 (2026-09-13, 연출): 같은 줄에 붙여 세운 거점·가드·아케인은 석축 성벽으로 이어진다 (이동 차단은 없음) */
+  {const outs=S.buildings.filter(b=>b.hp>0&&ZONE_KEYS.has(b.key)&&b.key!=="hall");
+   outs.forEach(a=>{const b=outs.find(o=>o!==a&&o.side===a.side&&o.ty===a.ty&&o.tx===a.tx+a.w); if(!b)return;
+     const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"], x0=a.cx, x1=b.cx, y0=a.ty*TILE+TILE*0.62, h=TILE*1.15, w=x1-x0;
+     ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
+     ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
+     for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();}
+     for(let xx=x0+8;xx<x1;xx+=15){ctx.beginPath();ctx.moveTo(xx,y0+3);ctx.lineTo(xx,y0+h-3);ctx.stroke();}
+     ctx.fillStyle=T.dark;   // 총안 + 진영색 띠
+     for(let xx=x0+4;xx<x1-8;xx+=12)ctx.fillRect(xx,y0-6,7,7);
+     ctx.fillRect(x0,y0+h*0.45,w,4);
+     ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0,y0+h-5,w,5);});}
   [...S.buildings].sort((a,b)=>(a.ty+a.h)-(b.ty+b.h)).forEach(b=>{
     const px=b.tx*TILE,py=b.ty*TILE,pw=b.w*TILE,ph=b.h*TILE;
     if(b.hp<=0){ /* 잔해 — 6초에 걸쳐 페이드 아웃 후 제거 */
@@ -4171,7 +4206,7 @@ const TUT=(()=>{
     {t:"② <b>거점</b>을 본진 앞 <b>무너진 성벽 흔적</b>(회색 석축선) 위에 세우세요 — 거점은 그 위에서만 지을 수 있고, 주변(타운홀 2칸, 승급마다 +2)이 아군 영역이 됩니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 금광 지대는 영역 밖이어도 지을 수 있고, 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
     {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 범위가 2칸 넓어집니다</b>",ok:()=>S.tier>=2},
-    {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
+    {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이미 나온 유닛까지 그 건물 병종의 레벨이 함께 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
     {hero:1,t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 영웅은 <b>무료</b>, 쓰러지면 쿨다운 후 재소환",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
     {t:"⑦ 마지막! 배럭 버튼 아래 <b>⚔</b>를 누른 뒤 <b>적 본진</b>을 탭하세요 — 그 병종이 진격합니다 (➜ = 교전 없이 이동, ✋ = 제자리 사수, ✋ 다시 = 집결 복귀)",ok:()=>false},
   ];
