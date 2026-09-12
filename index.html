@@ -55,25 +55,26 @@
   #mode-row{display:flex;gap:6px;align-items:stretch;}
   #atk-btn.picking{background:linear-gradient(180deg,#b3452a,#8a2f18)!important;border-color:#ff9a70!important;animation:pulse .8s ease-in-out infinite alternate;}
   #mov-btn.picking{background:linear-gradient(180deg,#2f8a5a,#1e6a42)!important;border-color:#7fe0a8!important;animation:pulse .8s ease-in-out infinite alternate;}
-  /* 건물별 병종 명령 미니 버튼 (2026-09-13) */
-  /* 세로 정렬 (2026-09-13 사용자 결정): 버튼 폭 = 건물 버튼 전체, 글자 라벨 포함 */
-  .p-item .p-ord{display:flex;flex-direction:column;width:calc(100% + 4px);margin:3px -2px -3px;z-index:2;}
-  .p-item .p-ord button{height:30px;border:0;border-top:1.5px solid #5a6ea6;background:#3b4a75;color:#fff;font-size:12px;font-weight:bold;line-height:1;padding:0 2px;cursor:pointer;white-space:nowrap;}
-  .p-item .p-ord button:last-child{border-radius:0 0 7px 7px;}
-  .p-item .p-ord button.on[data-k="attack"]{background:#d8363a;}
-  .p-item .p-ord button.on[data-k="move"]{background:#2f8a5a;}
-  .p-item .p-ord button.on[data-k="hold"]{background:#b8860b;}
-  .p-item .p-ord button.picking{animation:pulse .5s ease-in-out infinite alternate;border-color:#ffd24d;}
+
   @keyframes pulse{from{filter:brightness(1);}to{filter:brightness(1.35);}}
   #ret-btn:disabled{opacity:.4;cursor:default;}
   #cv.picking{cursor:crosshair;}
   #swap-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
-  #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:166px;}
+  #panel-wrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+  #panel{display:flex;gap:5px;align-items:stretch;min-height:76px;}
+  /* 건물별 명령 줄 (2026-09-13): 건물 버튼과 분리된 독립 버튼, 같은 열 폭으로 아래에 정렬 */
+  #ord-row{display:flex;gap:5px;}
+  .p-ocell{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .p-ocell button{height:26px;border-radius:7px;border:1.5px solid #5a6ea6;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;font-size:12px;font-weight:bold;cursor:pointer;padding:0 2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .p-ocell button.on[data-k="attack"]{background:linear-gradient(180deg,#e0524a,#b3302a);border-color:#ff9a8a;}
+  .p-ocell button.on[data-k="move"]{background:linear-gradient(180deg,#3aa86e,#247a4c);border-color:#8fe6b4;}
+  .p-ocell button.on[data-k="hold"]{background:linear-gradient(180deg,#d1a12a,#9c7412);border-color:#ffe08a;}
+  .p-ocell button.picking{animation:pulse .5s ease-in-out infinite alternate;border-color:#ffd24d;}
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
     padding:3px 2px;text-align:center;cursor:grab;user-select:none;position:relative;touch-action:none;min-width:0;
     box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .p-item img{width:70%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .p-item img{width:80%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
   .p-item .p-nm{font-size:9px;font-weight:bold;color:#2c3a5e;white-space:nowrap;overflow:hidden;max-width:100%;}
   .p-item .p-cost{position:absolute;top:-7px;left:-5px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;font-size:11px;font-weight:bold;line-height:20px;color:#4a2f00;
     background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd24d 55%,#c8901a);border:1.5px solid #fff;border-radius:11px;
@@ -203,7 +204,7 @@
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
-      <div id="panel"></div>
+      <div id="panel-wrap"><div id="panel"></div><div id="ord-row"></div></div>
     </div>
   </div>
 </div>
@@ -1634,7 +1635,7 @@ function syncAttackUI(){
   if(c)c.classList.toggle("picking",!!pickMode);
   if(r)r.disabled=!ORDER_GROUPS.some(g=>os[g]);
   /* 건물별 미니 버튼: 현재 명령 강조 + 지정 모드 표시 */
-  document.querySelectorAll("#panel .p-ord").forEach(strip=>{
+  document.querySelectorAll("#ord-row .p-ord").forEach(strip=>{
     const g=strip.dataset.grp, o=os[g];
     strip.querySelectorAll("button").forEach(b=>{
       b.classList.toggle("on",!!o&&o.type===b.dataset.k);
@@ -1644,7 +1645,7 @@ function syncAttackUI(){
 }
 /* 건물 버튼의 병종 명령 미니 버튼 — 드래그 시작을 막고 그룹 명령 발행 */
 function wireOrderStrip(div,grp){
-  const strip=div.querySelector(".p-ord"); if(!strip)return;
+  const strip=div.classList&&div.classList.contains("p-ord")?div:div.querySelector(".p-ord"); if(!strip)return;
   strip.querySelectorAll("button").forEach(b=>{
     b.addEventListener("pointerdown",e=>{e.stopPropagation();e.preventDefault();});
     b.addEventListener("click",e=>{e.stopPropagation();e.preventDefault(); const k=b.dataset.k;
@@ -1674,16 +1675,24 @@ function renderPanel(){
      (건물 파괴·영웅 쿨다운 등으로 renderPanel이 호출되던 문제. 드래그 종료 후 일괄 갱신) */
   if(dragState){panelDirty=true;return;}
   const p=document.getElementById("panel"); p.innerHTML="";
+  const orow=document.getElementById("ord-row"); if(orow)orow.innerHTML="";
   if(S.mode==="build"){
+    /* 건물 버튼 아래 같은 열에 병종 명령 버튼 (생산 건물만) — 2026-09-13 */
+    if(orow)PANEL_BUILDS.forEach(key=>{
+      const d=BAL.BUILDINGS[key], cell=document.createElement("div"); cell.className="p-ocell";
+      if(d.prod){cell.classList.add("p-ord"); cell.dataset.grp=key;
+        cell.innerHTML=`<button data-k="attack" title="${d.nm} 병종 공격 지점">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 지점">➜ 이동</button><button data-k="hold" title="${d.nm} 병종 홀드 (제자리 사수) — 다시 누르면 집결 복귀">✋ 홀드</button>`;
+        wireOrderStrip(cell,key);}
+      orow.appendChild(cell);
+    });
     PANEL_BUILDS.forEach(key=>{
       const d=BAL.BUILDINGS[key], lock=buildLockReason(key);
       const div=document.createElement("div");
       div.className="p-item"+(lock?" locked":(effElixir(MYSIDE)<d.cost?" dim":""));
       div.innerHTML=`<div class="p-cost">${d.cost}</div><img draggable="false" src="${ICONS[key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(lock?`<div class="p-lock">🔒\n${lock}</div>`:"")
-        +(d.prod?`<div class="p-ord" data-grp="${key}"><button data-k="attack" title="${d.nm} 병종 공격 지점">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 지점">➜ 이동</button><button data-k="hold" title="${d.nm} 병종 홀드 (제자리 사수) — 다시 누르면 집결 복귀">✋ 홀드</button></div>`:"");
+        ;
       if(!lock)attachDrag(div,{type:"build",key});
-      if(d.prod)wireOrderStrip(div,key);
       p.appendChild(div);
     });
   } else {
