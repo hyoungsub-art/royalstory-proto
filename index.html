@@ -303,7 +303,7 @@ const BAL={
  EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
- UNIT_CAP:60, HERO_COST:0, HERO_CD:12,   // 영웅 무료 소환 — 사망 시 쿨다운만
+ UNIT_CAP:60, PROD_CAP:5, HERO_COST:0, HERO_CD:12,   // PROD_CAP(2026-09-13): 생산 건물당 살아 있는 자기 유닛 상한 — 이 미만이면 다시 생산. 영웅 무료 소환 — 사망 시 쿨다운만
  HEROES_ON:0,   // 영웅 시스템 스위치 (2026-09-12 사용자 결정: 일단 제거, 추후 재검토) — 0이면 영웅 탭·AI 소환·튜토리얼 단계·협곡 영웅 스테이지 문구 비활성
  /* 이동 감각 (2026-09-08, 가정): accel = 최고 속도 도달 빠르기(1/초, 9 ≈ 0.25초), turnRate = 선회 속도(rad/초, 11 ≈ 180°에 0.29초),
     turnSlow = 큰 각도 선회 중 최소 속도 비율(뒤돌아설 때 제자리 선회 느낌). 결정론 시뮬 내부 값 — 양측 동일 적용 */
@@ -953,6 +953,7 @@ function morphUnit(u,newKey){
   burst(u.x,u.y,"255,220,120",10,120);
 }
 function unitCount(side){return S.units.filter(u=>u.side===side&&!u.hero).length;}
+function prodAlive(b){return S.units.filter(u=>u.src===b.id&&u.hp>0).length;}   // 이 건물이 낳은 살아 있는 유닛 수
 function canHit(att,tgt){return tgt.air?!!att.antiair:true;}
 
 function nearestTarget(u){
@@ -1175,8 +1176,10 @@ function buildingUpdate(b,dt){
   }
   /* 생산 (자동 웨이브) */
   if(d.prod&&unitCount(b.side)<BAL.UNIT_CAP){
-    b.prodT+=dt;
-    if(b.prodT>=d.prod.period){
+    /* 건물당 상한 (2026-09-13): 이 건물이 낳은 살아 있는 유닛이 PROD_CAP 이상이면 생산 보류 — 게이지는 주기까지 채워 두어 자리가 비면 즉시 생산 */
+    const cap=BAL.PROD_CAP||5, alive=prodAlive(b);
+    b.prodT=Math.min(b.prodT+dt,d.prod.period);
+    if(alive<cap&&b.prodT>=d.prod.period){
       b.prodT=0;
       const dir=b.side==="player"?-1:1;
       /* 생산 건물의 레벨이 곧 유닛 레벨 (티어 상한 적용) */
@@ -1859,7 +1862,7 @@ function showStrip(b){
   const el=document.getElementById("bubble");
   const d=BAL.BUILDINGS[b.key], t=effTier(MYSIDE);
   const unitNm=d.prod?(BAL.UNITS[d.prod.unit]||{}).nm||"유닛":"";
-  let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">${unitNm} Lv${Math.min(b.level,t)}</span>`:""}</div>`;
+  let html=`<div class="b-title">${d.nm}${d.prod?` Lv${b.level} <span style="color:#9fc0ff;font-size:10px">${unitNm} Lv${Math.min(b.level,t)} · 병력 ${prodAlive(b)}/${BAL.PROD_CAP||5}</span>`:""}</div>`;
   /* 철거 버튼 — 최상단·소형 (본진은 철거 불가) */
   if(b.key!=="hall"){
     html+=`<button class="b-mini" onclick="demolishSel()">🔨 철거</button>`;
@@ -3782,7 +3785,7 @@ function buildEditorUI(){
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_REACH.1","본진 건설 지역 타운홀 (앞 칸수)"],["HALL_REACH.2","본진 건설 지역 킵"],["HALL_REACH.3","본진 건설 지역 캐슬"],["BUILD_RING.1","거점 보조 띠 타운홀"],["BUILD_RING.2","거점 보조 띠 킵"],["BUILD_RING.3","거점 보조 띠 캐슬"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
-     ["UNIT_CAP","유닛 상한"],["HEROES_ON","영웅 사용(0/1, 새 판부터)"],["HERO_CD","영웅 재소환 쿨다운"],
+     ["UNIT_CAP","유닛 상한"],["PROD_CAP","생산 건물당 유닛 상한"],["HEROES_ON","영웅 사용(0/1, 새 판부터)"],["HERO_CD","영웅 재소환 쿨다운"],
      ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
      ["MOVE.accel","이동 가속 (1/초)"],["MOVE.turnRate","선회 속도 (rad/초)"],["MOVE.turnSlow","선회 중 최소 속도 비율"],
      ["TERRAIN.bridgeSpd","다리 위 지상 이속 배율"],["TERRAIN.wallRng","성벽 인접 타워 사거리(+타일)"],
