@@ -57,8 +57,10 @@
   #atk-btn.picking{background:linear-gradient(180deg,#b3452a,#8a2f18)!important;border-color:#ff9a70!important;animation:pulse .8s ease-in-out infinite alternate;}
   #mov-btn.picking{background:linear-gradient(180deg,#2f8a5a,#1e6a42)!important;border-color:#7fe0a8!important;animation:pulse .8s ease-in-out infinite alternate;}
   /* 건물별 병종 명령 미니 버튼 (2026-09-13) */
-  .p-item .p-ord{position:absolute;top:-8px;right:-4px;display:flex;gap:2px;z-index:2;}
-  .p-item .p-ord button{width:18px;height:18px;border-radius:50%;border:1.5px solid #fff;background:#3b4a75;color:#fff;font-size:9px;line-height:14px;padding:0;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .p-item .p-ord{display:flex;width:calc(100% + 4px);margin:3px -2px -3px;z-index:2;}
+  .p-item .p-ord button{flex:1;height:26px;border:0;border-top:1.5px solid #5a6ea6;border-right:1px solid rgba(255,255,255,.25);background:#3b4a75;color:#fff;font-size:14px;line-height:1;padding:0;cursor:pointer;}
+  .p-item .p-ord button:first-child{border-radius:0 0 0 7px;}
+  .p-item .p-ord button:last-child{border-radius:0 0 7px 0;border-right:0;}
   .p-item .p-ord button.on[data-k="attack"]{background:#d8363a;}
   .p-item .p-ord button.on[data-k="move"]{background:#2f8a5a;}
   .p-item .p-ord button.on[data-k="hold"]{background:#b8860b;}
@@ -66,16 +68,13 @@
   @keyframes pulse{from{filter:brightness(1);}to{filter:brightness(1.35);}}
   #ret-btn:disabled{opacity:.4;cursor:default;}
   #cv.picking{cursor:crosshair;}
-  #order-row{display:flex;gap:6px;margin-bottom:6px;}
-  #order-row button{flex:1;height:32px;border-radius:9px;font-size:12px;font-weight:bold;cursor:pointer;color:#fff;
-    background:linear-gradient(180deg,#4a5a8a,#3b4a75);border:2px solid #5a6ea6;line-height:1;}
   #swap-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
-  #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:76px;}
+  #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:100px;}
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
     padding:3px 2px;text-align:center;cursor:grab;user-select:none;position:relative;touch-action:none;min-width:0;
     box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .p-item img{width:80%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .p-item img{width:70%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
   .p-item .p-nm{font-size:9px;font-weight:bold;color:#2c3a5e;white-space:nowrap;overflow:hidden;max-width:100%;}
   .p-item .p-cost{position:absolute;top:-7px;left:-5px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;font-size:11px;font-weight:bold;line-height:20px;color:#4a2f00;
     background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd24d 55%,#c8901a);border:1.5px solid #fff;border-radius:11px;
@@ -203,12 +202,6 @@
       <div id="elixir-num">0/10</div>
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
       <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 붉은 게이지를 채우면 적립" style="display:flex;align-items:center;justify-content:center;">★0</div>
-    </div>
-    <div id="order-row">   <!-- 행동 명령 (2026-09-13): 건물 패널 위 별도 줄 -->
-      <button id="atk-btn" onclick="beginPick('attack')" title="공격 지점 지정 — 누른 뒤 지도를 탭하면 전군이 그 지점으로 진격합니다 (가는 길의 적과 교전, 도착 후 대기)">⚔ 공격 지점</button>
-      <button id="mov-btn" onclick="beginPick('move')" title="이동 지점 지정 — 누른 뒤 지도를 탭하면 전군이 적을 무시하고 이동, 도착 후 그 자리에서 대기">➜ 이동 지점</button>
-      <button id="hold-btn" onclick="holdAll()" title="홀드 — 전군이 제자리에서 움직이지 않고 사거리 안의 적만 공격">✋ 홀드</button>
-      <button id="ret-btn" onclick="recallAll()" title="명령 해제 — 유닛이 가까운 거점·본진 앞으로 복귀">↩ 복귀</button>
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
@@ -1657,7 +1650,8 @@ function wireOrderStrip(div,grp){
   strip.querySelectorAll("button").forEach(b=>{
     b.addEventListener("pointerdown",e=>{e.stopPropagation();e.preventDefault();});
     b.addEventListener("click",e=>{e.stopPropagation();e.preventDefault(); const k=b.dataset.k;
-      if(k==="hold")holdAll(grp); else beginPick(k,grp);});
+      if(k==="hold"){const cur=S&&S.orders&&S.orders[MYSIDE]&&S.orders[MYSIDE][grp]; if(cur&&cur.type==="hold")recallAll(grp); else holdAll(grp);}   // ✋ 재탭 = 집결 복귀
+      else beginPick(k,grp);});
   });
 }
 function heroesOn(){return !!BAL.HEROES_ON;}
@@ -4133,7 +4127,7 @@ const TUT=(()=>{
     {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 범위가 2칸 넓어집니다</b>",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
     {hero:1,t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 영웅은 <b>무료</b>, 쓰러지면 쿨다운 후 재소환",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
-    {t:"⑦ 마지막! <b>⚔ 공격</b> 버튼을 누른 뒤 <b>적 본진</b>을 탭해 공격 지점을 지정하세요 — 전군이 진격합니다 (➜ 이동 = 교전 없이 이동, ✋ 홀드 = 제자리 사수, ↩ 복귀 = 해제). 건물 버튼의 작은 ⚔➜✋는 그 병종만 지휘합니다",ok:()=>false},
+    {t:"⑦ 마지막! 배럭 버튼 아래 <b>⚔</b>를 누른 뒤 <b>적 본진</b>을 탭하세요 — 그 병종이 진격합니다 (➜ = 교전 없이 이동, ✋ = 제자리 사수, ✋ 다시 = 집결 복귀)",ok:()=>false},
   ];
   /* 영웅 비활성(HEROES_ON=0)이면 영웅 단계를 빼고 번호를 다시 매긴다 */
   const steps=rawSteps.filter(s=>heroesOn()||!s.hero).map((s,i)=>Object.assign({},s,{t:CIRC[i]+s.t.slice(1)}));
