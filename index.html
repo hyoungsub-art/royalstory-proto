@@ -46,8 +46,10 @@
   #elixir-bar{flex:1;height:18px;background:#171b28;border-radius:9px;overflow:hidden;position:relative;border:1px solid #0d1120;}
   #elixir-fill{height:100%;background:linear-gradient(180deg,#ff9a9a 0%,#d8363a 45%,#8a1c1c 100%);border-radius:9px;width:0%;transition:width .1s linear;position:relative;}
   #elixir-fill::after{content:"";position:absolute;top:2px;left:4px;right:4px;height:40%;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);border-radius:7px;}
-  #elixir-num{display:inline-block;font-weight:bold;color:#ffd24d;height:22px;line-height:22px;font-size:12px;padding:0 9px;margin-left:8px;
-    background:linear-gradient(180deg,#6a4a1c 0%,#3f2c10 100%);border:1.5px solid #e2b64a;border-radius:11px;text-shadow:0 1px 2px rgba(0,0,0,.6);vertical-align:middle;}
+  .gold-cell .gold-box{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:9px;
+    background:linear-gradient(180deg,#6a4a1c 0%,#3f2c10 100%);border:2px solid #e2b64a;box-shadow:0 2px 4px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,235,150,.35);}
+  .gold-cell .gold-ico{font-size:16px;line-height:1;}
+  #elixir-num{font-weight:bold;color:#ffd24d;font-size:20px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   /* 블러드 스타 칩 (표시 전용 — 골드와 동일한 보라 계열) */
   #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;
     background:radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418);border:2px solid #fff;color:#fff;
@@ -188,7 +190,7 @@
       <button onclick="restart()">↺</button>
       <button onclick="cycleDiff()" id="diff-btn" title="난이도 (연습 모드, 변경 시 재시작)">보통</button>
     </div>
-    <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span> <span id="elixir-num" title="골드 (상한 없음)">💰0</span></div>
+    <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
     <div style="display:flex;gap:4px;">
       <button onclick="SND.toggle()" id="snd-btn" title="사운드 켜기/끄기">🔊</button>
       <button onclick="toggleEditor()" title="밸런스 에디터">⚙</button>
@@ -1732,7 +1734,8 @@ function renderPanel(){
     /* 건물 버튼 아래 같은 열에 병종 명령 버튼 (생산 건물만) — 2026-09-13 */
     if(orow)PANEL_BUILDS.forEach(key=>{
       const d=BAL.BUILDINGS[key], cell=document.createElement("div"); cell.className="p-ocell";
-      if(d.prod){cell.classList.add("p-ord"); cell.dataset.grp=key;
+      if(key==="elixirBase"){cell.className="p-ocell gold-cell"; cell.innerHTML=`<div class="gold-box" title="누적 골드 (상한 없음)"><div class="gold-ico">💰</div><div id="elixir-num">0</div></div>`;}   // 골드 표시 (2026-09-13: 광산 버튼 아래로 이동)
+      else if(d.prod){cell.classList.add("p-ord"); cell.dataset.grp=key;
         cell.innerHTML=`<button data-k="attack" title="${d.nm} 병종 공격 지점">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 지점">➜ 이동</button><button data-k="hold" title="${d.nm} 병종 홀드 (제자리 사수) — 다시 누르면 집결 복귀">✋ 홀드</button>`;
         wireOrderStrip(cell,key);}
       orow.appendChild(cell);
@@ -2222,7 +2225,7 @@ function updateHUD(){
   /* 하단 자원 줄 (2026-09-12 재편): 숫자 = 골드(상한 없음), 바 = 블러드 게이지(다음 블러드 스타까지), 칩 = 블러드 스타 */
   const per=Math.max(1,BAL.ECON.bloodPer||30), bl=(MYSIDE==="player"?S.blood:S.eBlood)||0;
   document.getElementById("elixir-fill").style.width=(blood?Math.min(100,bl/per*100):Math.min(100,el/cap*100))+"%";
-  document.getElementById("elixir-num").textContent="💰"+Math.floor(el);
+  {const en=document.getElementById("elixir-num"); if(en)en.textContent=Math.floor(el);}
   document.getElementById("elixir-bar").title=blood?("블러드 게이지 "+Math.floor(bl)+"/"+per+" — 적 유닛 처치로 채워지며 가득 차면 블러드 스타 +1"):"골드";
   const t=effTier(MYSIDE);
   document.getElementById("tier-label").textContent=TIER_NM[t];   // 강등 없음 (2026-09-12)
