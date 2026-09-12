@@ -54,8 +54,12 @@
     background:radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418);border:2px solid #fff;color:#fff;
     text-shadow:0 1px 2px rgba(90,10,10,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
   #mode-row{display:flex;gap:6px;align-items:stretch;}
-  #stance-btn.hold{background:linear-gradient(180deg,#8a5a2a,#6a4218)!important;border-color:#b07a3a!important;}
-  #swap-btn,#stance-btn{flex:none;width:58px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
+  #atk-btn.picking{background:linear-gradient(180deg,#b3452a,#8a2f18)!important;border-color:#ff9a70!important;animation:pulse .8s ease-in-out infinite alternate;}
+  #mov-btn.picking{background:linear-gradient(180deg,#2f8a5a,#1e6a42)!important;border-color:#7fe0a8!important;animation:pulse .8s ease-in-out infinite alternate;}
+  @keyframes pulse{from{filter:brightness(1);}to{filter:brightness(1.35);}}
+  #ret-btn:disabled{opacity:.4;cursor:default;}
+  #cv.picking{cursor:crosshair;}
+  #swap-btn,#atk-btn,#mov-btn,#ret-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
   #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:76px;}
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
@@ -192,7 +196,9 @@
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
-      <button id="stance-btn" onclick="toggleStance()" title="총공격/대기 전환 — 대기 중엔 유닛이 가까운 거점 앞에 집결해 지키고, 총공격을 누르면 일제히 진군">⚔<br>총공격</button>
+      <button id="atk-btn" onclick="beginPick('attack')" title="공격 지점 지정 — 누른 뒤 지도를 탭하면 전군이 그 지점으로 진격합니다 (가는 길의 적과 교전, 도착 후 대기)">⚔<br>공격</button>
+      <button id="mov-btn" onclick="beginPick('move')" title="이동 지점 지정 — 누른 뒤 지도를 탭하면 전군이 적을 무시하고 이동, 도착 후 그 자리에서 대기">➜<br>이동</button>
+      <button id="ret-btn" onclick="recallAll()" title="공격·이동 지점 해제 — 유닛이 가까운 거점·본진 앞으로 복귀">↩<br>복귀</button>
       <div id="panel"></div>
     </div>
   </div>
@@ -644,7 +650,7 @@ document.addEventListener("click",e=>{if(e.target.closest("button"))SND.play("cl
 /* ---------- 초기화 ---------- */
 function newGame(){
   S={tiles:makeTiles(), buildings:[], units:[], effects:[], particles:[], shake:0,
-     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, starG:0, eStarG:0, blood:0, eBlood:0, stance:{player:"attack",enemy:"attack"}, aiT:0, elapsed:0, over:false,
+     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, starG:0, eStarG:0, blood:0, eBlood:0, attackPt:{player:null,enemy:null}, movePt:{player:null,enemy:null}, aiT:0, elapsed:0, over:false,
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      eHeroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
@@ -983,8 +989,9 @@ function unitUpdate(u,dt){
       const tx=tgt.x!==undefined?tgt.x:tgt.cx, ty=tgt.y!==undefined?tgt.y:tgt.cy;
       const d=Math.hypot(u.x-tx,u.y-ty);
       setFacing(u,tx-u.x,ty-u.y);
-      if(S.stance&&S.stance[u.side]==="hold"&&d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){   // 대기 태세 (6-4)
-        const rp=rallyPoint(u), hx=rp.x, hy=rp.y;
+      const mpB=S.movePt?S.movePt[u.side]:null, gpB=goalPoint(u);
+      if(d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(mpB&&Math.hypot(u.x-gpB.x,u.y-gpB.y)>TILE*1.5)){   // 공격 이동 / 이동 명령 중 적 무시
+        const hx=gpB.x, hy=gpB.y;
         if(Math.hypot(u.x-hx,u.y-hy)>TILE*0.4)locomote(u,hx,hy,dt); else turnStep(u,dt);
       } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
     return;
@@ -996,8 +1003,17 @@ function unitUpdate(u,dt){
   const ty=tgt.y!==undefined?tgt.y:tgt.cy, tx=tgt.x!==undefined?tgt.x:tgt.cx;
   const dd=Math.hypot(u.x-tx,u.y-ty);
   /* 대기 태세 (2026-09-12, 6-4): 전역 토글이 "대기"면 자위 반경 밖의 목표는 무시하고 집결 지점(생산 위치) 근처를 지킨다 */
-  if(S.stance&&S.stance[u.side]==="hold"&&dd>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){
-    const rp=rallyPoint(u), hx=rp.x, hy=rp.y, hd=Math.hypot(u.x-hx,u.y-hy);   // 가까운 거점(없으면 본진) 앞 자기 자리로 집결
+  /* 공격 이동 (2026-09-13): 자위 반경(aggroR) 안의 적과만 교전하고, 아니면 목표 지점(공격 지점 또는 집결지)으로 이동해 대기.
+     복귀(공격 지점 없음) 중에는 적 "건물"은 집결지 반경 안에 있을 때만 상대한다 — 적진에서 건물을 때리느라 못 돌아오는 일 방지 */
+  const aggro=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE, apNow=S.attackPt?S.attackPt[u.side]:null, mpNow=S.movePt?S.movePt[u.side]:null;
+  let engage=dd<=aggro;
+  if(mpNow){   /* 이동 명령 (2026-09-13): 목적지 근처(1.5칸)에 닿기 전엔 적을 무시하고 이동, 도착 후엔 그 자리에서 자위 대기 */
+    const g0=goalPoint(u);
+    if(Math.hypot(u.x-g0.x,u.y-g0.y)>TILE*1.5)engage=false;
+    else if(engage&&tgt.cx!==undefined)engage=Math.hypot(tgt.cx-mpNow.x,tgt.cy-mpNow.y)<=aggro;
+  } else if(engage&&!apNow&&tgt.cx!==undefined){const g0=goalPoint(u);engage=Math.hypot(tgt.cx-g0.x,tgt.cy-g0.y)<=aggro;}
+  if(!engage){
+    const gp=goalPoint(u), hx=gp.x, hy=gp.y, hd=Math.hypot(u.x-hx,u.y-hy);
     if(hd>TILE*0.4){setFacing(u,hx-u.x,hy-u.y);locomote(u,hx,hy,dt);}
     else turnStep(u,dt);
     return;
@@ -1034,11 +1050,20 @@ function rallyPoint(u){
   });
   if(!best)return u.home||{x:u.x,y:u.y};
   const fwd=u.side==="player"?-1:1;
-  const bx=best.cx, by=best.cy+fwd*(best.h/2+1.2)*TILE;
-  /* 유닛마다 고정 자리 (황금각 나선, 2026-09-12): 한 점에 겹치지 않고 무리를 이룬다. 반경은 STANCE.holdR 안 */
+  return slotAround(u,best.cx,best.cy+fwd*(best.h/2+1.2)*TILE);
+}
+/* 유닛마다 고정 자리 (황금각 나선, 2026-09-12): 한 점에 겹치지 않고 무리를 이룬다. 반경은 STANCE.holdR 안 */
+function slotAround(u,bx,by){
   const k=(u.uid||0)%40, R=((BAL.STANCE&&BAL.STANCE.holdR)||2)*TILE;
   const a=k*2.399963, r=Math.min(R,TILE*0.45*Math.sqrt(k+1));
-  return {x:Math.max(TILE,Math.min(W-TILE,bx+Math.cos(a)*r)),y:by+Math.sin(a)*r*0.7};
+  return {x:Math.max(TILE,Math.min(W-TILE,bx+Math.cos(a)*r)),y:Math.max(TILE,Math.min(H-TILE,by+Math.sin(a)*r*0.7))};
+}
+/* 이동 목표 (2026-09-13, 공격 지점 방식): 공격 지점이 지정돼 있으면 그 주변 자기 자리, 아니면 가까운 거점/본진 앞 집결 */
+function goalPoint(u){
+  const mp=S.movePt?S.movePt[u.side]:null;
+  if(mp)return slotAround(u,mp.x,mp.y);   // 이동 지점 (2026-09-13) — 공격 지점보다 우선 (둘은 커맨드에서 배타)
+  const ap=S.attackPt?S.attackPt[u.side]:null;
+  return ap?slotAround(u,ap.x,ap.y):rallyPoint(u);
 }
 function moveToward(u,tx,ty,step){const d=Math.hypot(tx-u.x,ty-u.y);if(d<1)return;
   u.x+=(tx-u.x)/d*step;u.y+=(ty-u.y)/d*step;
@@ -1279,7 +1304,7 @@ const LEARN=(()=>{
     const st=S&&S.stats; if(!st)return; const t=+S.elapsed.toFixed(1);
     if(c.type==="build")st.pBuild.push({t,key:c.key,tx:c.tx,ty:c.ty});
     else if(c.type==="hero")st.pHero.push(t);
-    else if(c.type==="stance"&&c.v==="hold")st.pHold=(st.pHold||0)+1;
+    else if(c.type==="attack")st.pHold=(st.pHold||0)+1;   // 공격 지점 지정 횟수 (웨이브 운용 모방 근거)
     else if(c.type==="transform")st.pTf.push(c.toKey);
     else if(c.type==="tier")st.pTier.push(t);
   }
@@ -1440,12 +1465,14 @@ function aiUpdate(dt){
   const prodOrder=()=>Object.keys(prodW).filter(k=>BAL.BUILDINGS[k]).sort((a,b)=>(lineCnt(a)+0.01)/prodW[a]-(lineCnt(b)+0.01)/prodW[b]);
   const prodPref=st.aggro?"fwd":null;   // 공격형: 생산 건물도 전방 배치
   const gasNeed=st.gasBases;
-  /* 웨이브 태세 (2026-09-12, 6-4): wave 설정 성향은 유닛을 모았다가(대기) 규모가 차면 일제히 진군, 1/3 이하로 줄면 다시 집결 */
-  if(S.stance){
+  /* 공격 지점 (2026-09-13): AI의 공격 지점 = 상대 본진. wave 성향은 유닛을 모았다가(해제) 규모가 차면 지정, 1/3 이하로 줄면 다시 해제 */
+  if(S.attackPt){
+    const ph=S.buildings.find(b=>b.side==="player"&&b.key==="hall"&&b.hp>0);
+    const target=ph?{x:ph.cx,y:ph.cy}:null;
     if(st.wave){const n=unitCount(side);
-      if(S.stance[side]!=="hold"&&n<Math.ceil(st.wave/3))S.stance[side]="hold";
-      else if(S.stance[side]==="hold"&&n>=st.wave)S.stance[side]="attack";}
-    else if(S.stance[side]==="hold")S.stance[side]="attack";
+      if(S.attackPt[side]&&n<Math.ceil(st.wave/3))S.attackPt[side]=null;
+      else if(!S.attackPt[side]&&n>=st.wave)S.attackPt[side]=target;}
+    else S.attackPt[side]=target;
   }
   /* 구조적 건설 가능 여부(해금·티어·전제) — 비용은 제외 */
   const canB=key=>{if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;
@@ -1571,15 +1598,20 @@ function aiUpdate(dt){
 }
 
 /* ---------- 조작: 패널 & 드래그 ---------- */
-/* 전역 태세 토글 (2026-09-12, 6-4) */
-function toggleStance(){
-  if(!S||S.over||!S.stance)return;
-  const v=S.stance[MYSIDE]==="hold"?"attack":"hold";
-  issueCmd({type:"stance",v,side:MYSIDE});
+/* 공격 지점 지정 (2026-09-13): ⚔ 버튼 → 지도 탭 = 공격 지점 커맨드 / ↩ 복귀 = 해제 */
+let pickMode=null;   // null | "attack" | "move"
+function beginPick(kind){
+  if(!S||S.over)return;
+  pickMode=(pickMode===kind)?null:kind; syncAttackUI();
+  if(pickMode)toast(kind==="attack"?"지도를 탭해 공격 지점을 지정하세요 (다시 누르면 취소)":"지도를 탭해 이동 지점을 지정하세요 (다시 누르면 취소)");
 }
-function syncStanceUI(){
-  const b=document.getElementById("stance-btn"); if(!b||!S||!S.stance)return;
-  const h=S.stance[MYSIDE]==="hold"; b.innerHTML=h?"🛡<br>대기":"⚔<br>총공격"; b.classList.toggle("hold",h);
+function recallAll(){ if(!S||S.over)return; pickMode=null; issueCmd({type:"recall",side:MYSIDE}); syncAttackUI(); }
+function syncAttackUI(){
+  const a=document.getElementById("atk-btn"), m=document.getElementById("mov-btn"), r=document.getElementById("ret-btn"), c=document.getElementById("cv");
+  if(a)a.classList.toggle("picking",pickMode==="attack");
+  if(m)m.classList.toggle("picking",pickMode==="move");
+  if(c)c.classList.toggle("picking",!!pickMode);
+  if(r)r.disabled=!(S&&((S.attackPt&&S.attackPt[MYSIDE])||(S.movePt&&S.movePt[MYSIDE])));
 }
 function heroesOn(){return !!BAL.HEROES_ON;}
 function swapMode(){
@@ -1703,6 +1735,7 @@ cv.addEventListener("click",e=>{
   const rect=cv.getBoundingClientRect();
   const sx=(e.clientX-rect.left)*(cv.width/rect.width), sy=(e.clientY-rect.top)*(cv.height/rect.height);
   const {x,y}=unflipPt(sx,sy);   // 게스트 화면 반전 보정 → 시뮬 좌표
+  if(pickMode){ const k=pickMode; pickMode=null; issueCmd({type:k,x,y,side:MYSIDE}); syncAttackUI(); return; }   // 공격/이동 지점 지정 탭
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
   if(b&&b.side===MYSIDE&&b.hp>0){
@@ -1866,9 +1899,21 @@ function execCmd(c){
       break;
     }
     case "hero": execHero(sd,c.slot,c.x,c.y); break;
-    case "stance": {   // 전역 태세 전환 (6-4) — 커맨드라 리플레이·PvP 결정론 유지
-      if(!S.stance)break; S.stance[sd]=c.v==="hold"?"hold":"attack";
-      if(sd===MYSIDE){syncStanceUI();toast(c.v==="hold"?"🛡 대기 — 유닛이 가까운 거점 앞에 집결합니다":"⚔ 총공격!");SND.play("click");}
+    case "attack": {   // 공격 지점 지정 (2026-09-13) — 커맨드라 리플레이·PvP 결정론 유지. 이동 지점과 배타
+      if(!S.attackPt)break;
+      S.attackPt[sd]={x:Math.max(0,Math.min(W,+c.x||0)),y:Math.max(0,Math.min(H,+c.y||0))}; if(S.movePt)S.movePt[sd]=null;
+      if(sd===MYSIDE){syncAttackUI();toast("⚔ 공격 지점 지정 — 전군 진격");SND.play("click");}
+      break;
+    }
+    case "move": {   // 이동 지점 지정 (2026-09-13): 적을 무시하고 이동, 도착 후 자위 대기. 공격 지점과 배타
+      if(!S.movePt)break;
+      S.movePt[sd]={x:Math.max(0,Math.min(W,+c.x||0)),y:Math.max(0,Math.min(H,+c.y||0))}; if(S.attackPt)S.attackPt[sd]=null;
+      if(sd===MYSIDE){syncAttackUI();toast("➜ 이동 지점 지정 — 교전 없이 이동");SND.play("click");}
+      break;
+    }
+    case "recall": {   // 공격·이동 지점 해제 → 거점/본진 앞 집결
+      if(S.attackPt)S.attackPt[sd]=null; if(S.movePt)S.movePt[sd]=null;
+      if(sd===MYSIDE){syncAttackUI();toast("↩ 복귀 — 거점·본진 앞으로 집결");SND.play("click");}
       break;
     }
   }
@@ -3451,6 +3496,19 @@ function draw(){
     }
     if(u.hp<u.maxHp){const hy=u.y-u.r-13+dropY+hover;upr(u.x,hy,()=>drawHpBar(u.x,hy,u.hp,u.maxHp,u.hero?36:26,u.side));}
   });
+  /* 이동 지점 표식 (내 진영): 초록 링 + ➜ */
+  {const mp=S.movePt&&S.movePt[MYSIDE];
+   if(mp){const pl=1+Math.sin(S.elapsed*5)*0.12;
+     ctx.strokeStyle="rgba(90,220,140,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(mp.x,mp.y,TILE*0.9*pl,0,7);ctx.stroke();
+     upr(mp.x,mp.y,()=>{ctx.fillStyle="#fff";ctx.font="bold 16px sans-serif";ctx.textAlign="center";
+       ctx.strokeStyle="rgba(10,80,40,.9)";ctx.lineWidth=3;ctx.strokeText("➜",mp.x,mp.y+6);ctx.fillText("➜",mp.x,mp.y+6);});}}
+  /* 공격 지점 표식 (내 진영, 2026-09-13): 맥동 링 + ⚔ */
+  {const ap=S.attackPt&&S.attackPt[MYSIDE];
+   if(ap){const pl=1+Math.sin(S.elapsed*5)*0.12;
+     ctx.strokeStyle="rgba(255,80,60,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(ap.x,ap.y,TILE*0.9*pl,0,7);ctx.stroke();
+     ctx.strokeStyle="rgba(255,80,60,.5)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(ap.x,ap.y,TILE*1.6,S.elapsed*2,S.elapsed*2+4.5);ctx.stroke();
+     upr(ap.x,ap.y,()=>{ctx.fillStyle="#fff";ctx.font="bold 16px sans-serif";ctx.textAlign="center";
+       ctx.strokeStyle="rgba(120,20,10,.9)";ctx.lineWidth=3;ctx.strokeText("⚔",ap.x,ap.y+6);ctx.fillText("⚔",ap.x,ap.y+6);});}}
   /* 이펙트 */
   S.effects.forEach(f=>{
     if(f.tp==="boom"){const p=1-Math.max(0,f.t)/f.t0;
@@ -3854,7 +3912,7 @@ function startGame(cfg){
   PENDING=REPLAY?cfg.replayCmds.map(c=>({...c})):[];
   newGame();
   showScr(null); closeOv();
-  gameSpeed=1; syncPauseUI(); syncStanceUI();
+  gameSpeed=1; syncPauseUI(); pickMode=null; syncAttackUI();
   const sb=document.getElementById("swap-btn"); if(sb)sb.style.display=heroesOn()?"":"none";   // 영웅 비활성 시 탭 전환 숨김
   if(!heroesOn()&&S.mode!=="build"){S.mode="build";renderPanel();}
   TUT.stop(); if(cfg.mode==="tutorial")TUT.start();
@@ -4054,7 +4112,7 @@ const TUT=(()=>{
     {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 범위가 2칸 넓어집니다</b>",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
     {hero:1,t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 영웅은 <b>무료</b>, 쓰러지면 쿨다운 후 재소환",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
-    {t:"⑦ 마지막! 병력을 이끌고 <b>적 본진</b>을 파괴하세요",ok:()=>false},
+    {t:"⑦ 마지막! <b>⚔ 공격</b> 버튼을 누른 뒤 <b>적 본진</b>을 탭해 공격 지점을 지정하세요 — 전군이 진격합니다 (➜ 이동 = 교전 없이 이동, ↩ 복귀 = 해제)",ok:()=>false},
   ];
   /* 영웅 비활성(HEROES_ON=0)이면 영웅 단계를 빼고 번호를 다시 매긴다 */
   const steps=rawSteps.filter(s=>heroesOn()||!s.hero).map((s,i)=>Object.assign({},s,{t:CIRC[i]+s.t.slice(1)}));
