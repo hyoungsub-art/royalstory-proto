@@ -296,6 +296,8 @@ const BAL={
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
  /* 무너진 성벽 흔적 (2026-09-13 확정): 각 진영 본진 앞 off칸 떨어진 곳부터 h칸 두께로 맵을 가로지르는 성벽선. 거점은 이 위에서만 건설 (길·지형·금광 칸은 비움) */
  RUIN_LINE:{off:4, h:2},   // off 4 (2026-09-13): 본진 앞 4칸 간격 — 플레이어 y14-15 / 적 y8-9 (금광 지대와 겹치지 않음)
+ /* 본진 건설 지역 (2026-09-13 확정): 본진 앞쪽으로 티어별 HALL_REACH[티어]칸까지, 맵 가로 전체 (뒤쪽은 전부). 타운홀 6 / 킵 10 / 캐슬 14 (가정) */
+ HALL_REACH:[0,6,10,14],
  EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -716,7 +718,13 @@ function tileDist(x1,y1,x2,y2){return Math.hypot(x1-x2,y1-y2);}
 /* 아군 영역 (2026-09-12 확정): 본진·타워류 풋프린트를 둘러싼 BUILD_RING(2)칸 띠. 타일 단위 체비셰프 거리 */
 const ZONE_KEYS=new Set(["hall","tower","guardTower","arcaneTower"]);
 function ringFor(side){const r=BAL.BUILD_RING; if(Array.isArray(r))return r[Math.min(effTier(side),r.length-1)]||2; return r!==undefined?r:2;}   // 티어별 띠 폭
+function hallReach(side){const a=BAL.HALL_REACH||[0,6,10,14];return a[Math.min(effTier(side),a.length-1)]||6;}
 function tileInZone(tx,ty,side){
+  /* ① 본진 지역 (2026-09-13 확정): 본진 앞 hallReach칸까지 세로 확장, 가로는 맵 전체, 본진 뒤쪽은 전부 */
+  const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
+  if(hall){const N=hallReach(side);
+    if(side==="player"?(ty>=hall.ty-N):(ty<=hall.ty+hall.h-1+N))return true;}
+  /* ② 거점 주변 보조 띠 */
   const R=ringFor(side);
   return S.buildings.some(b=>{
     if(b.side!==side||b.hp<=0||!ZONE_KEYS.has(b.key))return false;
@@ -752,7 +760,7 @@ function buildBlockReason(key,tx,ty,side){
   }
   /* 영역 판정 (2026-09-12 확정): 건물의 모든 타일이 본진·거점 주변 2칸 띠 안에 있어야 함.
      거점(tower)은 예외 — 어디든 건설 가능(적 본진 배제 반경만 적용)하며, 그 주변 2칸이 새 영역이 된다 */
-  if(key!=="tower"&&key!=="elixirBase"&&!rectInZone(tx,ty,d.w,d.h,side))return"본진·거점 주변 "+ringFor(side)+"칸 밖";   // 거점(성벽 흔적)·골드 광산(금광 지대)은 띠 예외 (2026-09-13)
+  if(key!=="tower"&&key!=="elixirBase"&&!rectInZone(tx,ty,d.w,d.h,side))return"건설 지역 밖 (본진 앞 "+hallReach(side)+"칸)";   // 거점(성벽 흔적)·골드 광산(금광 지대)은 예외 (2026-09-13)
   return null;
 }
 /* 영웅 배치 판정 (side 인식 — PvP 게스트는 위 진영) */
@@ -830,7 +838,7 @@ function doTierUp(side){
   if(elixirOf(side)<need)return false;   // 조건 없음 — 골드만 (2026-09-12)
   spend(side,need);
   if(side==="player")S.tier=nt; else S.eTier=nt;
-  if(side===MYSIDE)toast(TIER_NM[nt]+" 승급! (💰"+need+") 골드 회복 ×"+((BAL.ECON.tierRegen||[])[nt]||1)+" · 건설 범위 "+ringFor(side)+"칸");
+  if(side===MYSIDE)toast(TIER_NM[nt]+" 승급! (💰"+need+") 골드 회복 ×"+((BAL.ECON.tierRegen||[])[nt]||1)+" · 건설 지역 본진 앞 "+hallReach(side)+"칸");
   else toast("⚠ 상대가 "+TIER_NM[nt]+"(으)로 승급!");
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(hall)burst(hall.cx,hall.cy,"255,220,120",20,160);
@@ -3774,7 +3782,7 @@ function buildEditorUI(){
      ["ECON.tierGold.2","킵 승급 비용 (골드)"],["ECON.tierGold.3","캐슬 승급 비용 (골드)"],
      ["ECON.transformGold","건물 변형 비용 (골드, 일괄)"],
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
-     ["EXCLUDE_R","적 건물 배제 반경"],["BUILD_RING.1","건설 범위 타운홀 (칸)"],["BUILD_RING.2","건설 범위 킵 (칸)"],["BUILD_RING.3","건설 범위 캐슬 (칸)"],
+     ["EXCLUDE_R","적 건물 배제 반경"],["HALL_REACH.1","본진 건설 지역 타운홀 (앞 칸수)"],["HALL_REACH.2","본진 건설 지역 킵"],["HALL_REACH.3","본진 건설 지역 캐슬"],["BUILD_RING.1","거점 보조 띠 타운홀"],["BUILD_RING.2","거점 보조 띠 킵"],["BUILD_RING.3","거점 보조 띠 캐슬"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
      ["UNIT_CAP","유닛 상한"],["HEROES_ON","영웅 사용(0/1, 새 판부터)"],["HERO_CD","영웅 재소환 쿨다운"],
      ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
@@ -4215,9 +4223,9 @@ const TUT=(()=>{
   const CIRC="①②③④⑤⑥⑦⑧⑨";
   const rawSteps=[
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
-    {t:"② <b>거점</b>을 본진 앞 <b>무너진 성벽 흔적</b>(회색 석축선) 위에 세우세요 — 거점은 그 위에서만 지을 수 있고, 주변(타운홀 2칸, 승급마다 +2)이 아군 영역이 됩니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
+    {t:"② <b>거점</b>을 본진 앞 <b>무너진 성벽 흔적</b>(회색 석축선) 위에 세우세요 — 거점은 그 위에서만 지을 수 있고, 유닛 집결지가 됩니다. 건설 지역은 본진 앞 6칸(승급마다 +4)",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 금광 지대는 영역 밖이어도 지을 수 있고, 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
-    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 범위가 2칸 넓어집니다</b>",ok:()=>S.tier>=2},
+    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열리고 <b>건설 지역이 앞으로 4칸 넓어집니다</b>",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이미 나온 유닛까지 그 건물 병종의 레벨이 함께 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
     {hero:1,t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 영웅은 <b>무료</b>, 쓰러지면 쿨다운 후 재소환",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
     {t:"⑦ 마지막! 배럭 버튼 아래 <b>⚔</b>를 누른 뒤 <b>적 본진</b>을 탭하세요 — 그 병종이 진격합니다 (➜ = 교전 없이 이동, ✋ = 제자리 사수, ✋ 다시 = 집결 복귀)",ok:()=>false},
