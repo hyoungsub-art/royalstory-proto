@@ -59,7 +59,10 @@
   @keyframes pulse{from{filter:brightness(1);}to{filter:brightness(1.35);}}
   #ret-btn:disabled{opacity:.4;cursor:default;}
   #cv.picking{cursor:crosshair;}
-  #swap-btn,#atk-btn,#mov-btn,#ret-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
+  #order-row{display:flex;gap:6px;margin-bottom:6px;}
+  #order-row button{flex:1;height:32px;border-radius:9px;font-size:12px;font-weight:bold;cursor:pointer;color:#fff;
+    background:linear-gradient(180deg,#4a5a8a,#3b4a75);border:2px solid #5a6ea6;line-height:1;}
+  #swap-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
   #panel{flex:1;display:flex;gap:5px;align-items:stretch;min-height:76px;}
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
@@ -194,11 +197,13 @@
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
       <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 붉은 게이지를 채우면 적립" style="display:flex;align-items:center;justify-content:center;">★0</div>
     </div>
+    <div id="order-row">   <!-- 행동 명령 (2026-09-13): 건물 패널 위 별도 줄 -->
+      <button id="atk-btn" onclick="beginPick('attack')" title="공격 지점 지정 — 누른 뒤 지도를 탭하면 전군이 그 지점으로 진격합니다 (가는 길의 적과 교전, 도착 후 대기)">⚔ 공격 지점</button>
+      <button id="mov-btn" onclick="beginPick('move')" title="이동 지점 지정 — 누른 뒤 지도를 탭하면 전군이 적을 무시하고 이동, 도착 후 그 자리에서 대기">➜ 이동 지점</button>
+      <button id="ret-btn" onclick="recallAll()" title="공격·이동 지점 해제 — 유닛이 가까운 거점·본진 앞으로 복귀">↩ 복귀</button>
+    </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
-      <button id="atk-btn" onclick="beginPick('attack')" title="공격 지점 지정 — 누른 뒤 지도를 탭하면 전군이 그 지점으로 진격합니다 (가는 길의 적과 교전, 도착 후 대기)">⚔<br>공격</button>
-      <button id="mov-btn" onclick="beginPick('move')" title="이동 지점 지정 — 누른 뒤 지도를 탭하면 전군이 적을 무시하고 이동, 도착 후 그 자리에서 대기">➜<br>이동</button>
-      <button id="ret-btn" onclick="recallAll()" title="공격·이동 지점 해제 — 유닛이 가까운 거점·본진 앞으로 복귀">↩<br>복귀</button>
       <div id="panel"></div>
     </div>
   </div>
