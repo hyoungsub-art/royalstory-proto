@@ -43,15 +43,15 @@
     padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
   #elixir-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
   #elixir-bar{flex:1;height:18px;background:#171b28;border-radius:9px;overflow:hidden;position:relative;border:1px solid #0d1120;}
-  #elixir-fill{height:100%;background:linear-gradient(180deg,#e08cff 0%,#c86bfa 45%,#8f36d9 100%);border-radius:9px;width:0%;transition:width .1s linear;position:relative;}
+  #elixir-fill{height:100%;background:linear-gradient(180deg,#ff9a9a 0%,#d8363a 45%,#8a1c1c 100%);border-radius:9px;width:0%;transition:width .1s linear;position:relative;}
   #elixir-fill::after{content:"";position:absolute;top:2px;left:4px;right:4px;height:40%;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);border-radius:7px;}
-  #elixir-num{font-weight:bold;color:#fff;min-width:52px;height:34px;text-align:center;font-size:13px;line-height:34px;padding:0 6px;
+  #elixir-num{font-weight:bold;color:#ffd24d;min-width:52px;height:34px;text-align:center;font-size:13px;line-height:34px;padding:0 6px;
     background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;
     border-radius:17px;text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
-  /* 엘릭서 스타 칩 (표시 전용 — 엘릭서와 동일한 보라 계열) */
+  /* 블러드 스타 칩 (표시 전용 — 골드와 동일한 보라 계열) */
   #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;
-    background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;color:#fff;
-    text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
+    background:radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418);border:2px solid #fff;color:#fff;
+    text-shadow:0 1px 2px rgba(90,10,10,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
   #mode-row{display:flex;gap:6px;align-items:stretch;}
   #swap-btn{flex:none;width:58px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
@@ -184,7 +184,7 @@
     <div id="elixir-row">
       <div id="elixir-num">0/10</div>
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
-      <div id="star-chip" title="엘릭서 스타 — 승급·변형·영웅 재화. 회복량 누적으로 자동 적립(금색 링 = 진행도). 비용 부족 시 자동으로 녹아 사용" style="display:flex;align-items:center;justify-content:center;">★0</div>
+      <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 게이지를 채우면 적립 (링 = 진행도)" style="display:flex;align-items:center;justify-content:center;">★0</div>
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
@@ -260,21 +260,26 @@ let ctx=cv.getContext("2d");
 
 /* ---------- 밸런스 기본값 (balance.js의 window.BALANCE로 오버라이드 가능) ---------- */
 const BAL={
- /* cap: 티어별 엘릭서 상한 10/20/30 (2026-09-04). 스타는 녹여서 "현재 상한만큼" 엘릭서로 환원. 영웅 소환 비용 = 스타(HERO_COST 단위).
+ /* cap: 티어별 골드 상한 10/20/30 (2026-09-04). 스타는 녹여서 "현재 상한만큼" 골드로 환원. 영웅 소환 비용 = 스타(HERO_COST 단위).
     ★ 적립 방식 (2026-09-12 확정, starBy): "regen" = 자연 회복량 누적이 (상한 × starPer)에 이를 때마다 ★1 — 지출과 무관, 바는 상한에서 멈춤.
     (구 "cap" = 자연 회복으로 상한 "도달" 순간 ★1 + 바 초기화 → ★ 저축이 곧 지출 동결이던 딜레마를 없앰. 스위치로 보존)
     승급·업그레이드 비용은 해당 시점 상한 이하 유지 */
- /* 2026-09-07 경제 개편: 승급·변형 = 엘릭서 스타(★), 레벨업 = 엘릭서.
+ /* 2026-09-07 경제 개편: 승급·변형 = 블러드 스타(★), 레벨업 = 골드.
     - tierStars: 킵 ★1 / 캐슬 ★2
     - transformStar: 건물 변형 비용 일괄 ★1 (2026-09-08 확정 — 승급 비용과 별개)
-    - upPerLevel[건물 등급]: 레벨당 엘릭서 — 1티어 건설 건물 4 / 킵 건물 8 / 변형 획득 건물 12 */
- ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5,
-       starBy:"regen", starPer:1.0,   // ★ 적립: 누적 회복량이 상한×starPer마다 1개 (2026-09-12 확정, starPer는 가정)
+    - upPerLevel[건물 등급]: 레벨당 골드 — 1티어 건설 건물 4 / 킵 건물 8 / 변형 획득 건물 12 */
+ /* 자원 재편 (2026-09-12 확정): 골드 → **골드** (상한 없음, 숫자 누적) / ★ → **블러드 스타** (적 유닛 처치로 블러드 게이지를 채워 획득).
+    - 골드: 자연 회복 1/regen초 × (1 + gasBonus×광산 수) × tierRegen[티어]. 상한 없음. 승급의 경제 보상 = tierRegen 배율
+    - 블러드: 처치한 적 유닛 maxHp/bloodDiv 만큼 적립, bloodPer마다 블러드 스타 1개 (막타 진영 귀속, 건물 파괴는 미적립)
+    - starBy:"blood"(기본) / "regen"(누적 회복량 기준, cap×starPer 단위 — 실험용 보존). 블러드 모드에서는 ★ 녹이기 없음 (자원 분리)
+    - cap은 regen 모드 단위·레거시 용도로만 남김. 전 수치 (가정) */
+ ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierRegen:[0,1,1.25,1.5], pushGold:15,
+       starBy:"blood", bloodPer:30, bloodDiv:100, starPer:1.0,
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
  EXCLUDE_R:5.25, HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4, AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
- UNIT_CAP:60, HERO_COST:1, HERO_CD:12,   // HERO_COST 단위 = 엘릭서 스타 (최소 1, 2026-09-04)
+ UNIT_CAP:60, HERO_COST:1, HERO_CD:12,   // HERO_COST 단위 = 블러드 스타 (최소 1, 2026-09-04)
  /* 이동 감각 (2026-09-08, 가정): accel = 최고 속도 도달 빠르기(1/초, 9 ≈ 0.25초), turnRate = 선회 속도(rad/초, 11 ≈ 180°에 0.29초),
     turnSlow = 큰 각도 선회 중 최소 속도 비율(뒤돌아설 때 제자리 선회 느낌). 결정론 시뮬 내부 값 — 양측 동일 적용 */
  MOVE:{accel:9, turnRate:11, turnSlow:0.3},
@@ -283,7 +288,7 @@ const BAL={
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
                  hAtk:{hs:0.8, rng:7, dmg:[0,109,160,240], targets:[0,2,5,10]},   // 티어 연동 다중 공격 (사거리 5→7)
                  hDef:[0,1,0.8,0.65]},   // 티어별 방어: 받는 피해 배율 (킵 -20%, 캐슬 -35%) (2026-09-04, 가정)
-  elixirBase:   {nm:"엘릭서 기지", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
+  elixirBase:   {nm:"골드 광산", w:2,h:2, hp:1800, cost:4, tier:1, gas:true, panel:true},
   barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:5, tier:1, panel:true, prod:{unit:"footman",period:8},
                  transforms:[{key:"shieldBarracks",minLevel:3}]},    // 배럭 Lv3 → 쉴드 배럭 (2026-08-31 개편)
   shieldBarracks:{nm:"쉴드 배럭",  w:2,h:2, hp:2800, cost:0, tier:1, panel:false, prod:{unit:"shieldman",period:9}},
@@ -321,7 +326,7 @@ const BAL={
   golem:        {nm:"골렘",        hp:3000, dmg:300, hs:1.8, rng:0.9, spd:0.55, r:22, cat:"gp", melee:true},   // 최상위 지상 물리 탱커 — 유닛 중 최대급 (r 18→22)
  },
  /* 영웅: aura {tags 조건} 또는 heal/aoe */
- /* 영웅: 소환 비용 = 엘릭서 스타. 스탯은 최상위 유닛(드래곤 2400/320)보다 상위 (2026-09-04 상향) */
+ /* 영웅: 소환 비용 = 블러드 스타. 스탯은 최상위 유닛(드래곤 2400/320)보다 상위 (2026-09-04 상향) */
  HEROES:{
   archmage:    {nm:"아크메이지",   hp:2600, dmg:380, hs:1.4, rng:4.0, spd:1.0, r:25, antiair:true,
                 aura:{label:"지상 원거리 강화", test:"groundRanged"}},
@@ -625,7 +630,7 @@ document.addEventListener("click",e=>{if(e.target.closest("button"))SND.play("cl
 /* ---------- 초기화 ---------- */
 function newGame(){
   S={tiles:makeTiles(), buildings:[], units:[], effects:[], particles:[], shake:0,
-     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, starG:0, eStarG:0, aiT:0, elapsed:0, over:false,
+     elixir:BAL.ECON.start, tier:1, stars:0, eElixir:BAL.ECON.start, eTier:1, eStars:0, starG:0, eStarG:0, blood:0, eBlood:0, aiT:0, elapsed:0, over:false,
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      eHeroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
@@ -699,8 +704,8 @@ function buildBlockReason(key,tx,ty,side){
     if(t.road)return"길 위에는 건설 불가";
     if(!t.build)return"건설 불가 타일";
     if(occ[ty+dy][tx+dx])return"다른 건물과 겹침";
-    if(d.gas&&!t.gas)return"엘릭서 가스 타일 필요";
-    if(!d.gas&&t.gas)return"가스 타일에는 엘릭서 기지만";
+    if(d.gas&&!t.gas)return"골드 가스 타일 필요";
+    if(!d.gas&&t.gas)return"가스 타일에는 골드 광산만";
     if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 본진 영역";
   }
   /* 영역 판정: 건물 중심 기준 (반경 절반 개정에 따른 완화 — 2026-08-30) */
@@ -747,28 +752,29 @@ function hallAtkRng(){
 function elixirCap(){return capFor("player");}
 function elixirOf(side){return side==="player"?S.elixir:S.eElixir;}
 function starsOf(side){return side==="player"?S.stars:S.eStars;}
-/* 유효 엘릭서 = 보유 엘릭서 + 스타×현재 상한. 모든 비용 판정은 이 값 기준 (2026-09-04) */
-function effElixir(side){return elixirOf(side)+starsOf(side)*capFor(side);}
-/* 지출: 보유 엘릭서가 모자라면 스타를 자동으로 녹여 충당 (수동 녹이기 폐지) */
+/* 유효 골드 = 보유 골드 + 스타×현재 상한. 모든 비용 판정은 이 값 기준 (2026-09-04) */
+function starMelts(){return BAL.ECON.starBy==="regen";}   // ★ 녹이기는 regen(실험) 모드에서만 — 블러드 모드는 자원 분리
+function effElixir(side){return elixirOf(side)+(starMelts()?starsOf(side)*capFor(side):0);}
+/* 지출: 보유 골드가 모자라면 스타를 자동으로 녹여 충당 (수동 녹이기 폐지) */
 function spend(side,amt){
   const cap=capFor(side);
   if(side==="player"){
     let melted=0;
-    while(S.elixir<amt&&S.stars>0){S.stars--;S.elixir+=cap;melted++;}
+    while(starMelts()&&S.elixir<amt&&S.stars>0){S.stars--;S.elixir+=cap;melted++;}
     S.elixir-=amt;
     if(melted>0&&side===MYSIDE){toast("★ 스타 "+melted+"개 자동 사용");renderPanel();}
   }else{
-    while(S.eElixir<amt&&S.eStars>0){S.eStars--;S.eElixir+=cap;}
+    while(starMelts()&&S.eElixir<amt&&S.eStars>0){S.eStars--;S.eElixir+=cap;}
     S.eElixir-=amt;
   }
 }
-/* 스타 지불 (양측 공용) — 승급·변형 재화. 엘릭서로 대체 불가 (상한 도달 적립으로만 획득) */
+/* 스타 지불 (양측 공용) — 승급·변형 재화. 골드로 대체 불가 (상한 도달 적립으로만 획득) */
 function spendStars(side,n){
   if(starsOf(side)<n)return false;
   if(side==="player")S.stars-=n; else S.eStars-=n;
   return true;
 }
-/* 티어 승급 (양측 공용) — 비용: 엘릭서 스타 (킵 ★1 / 캐슬 ★2, 2026-09-07 개편) */
+/* 티어 승급 (양측 공용) — 비용: 블러드 스타 (킵 ★1 / 캐슬 ★2, 2026-09-07 개편) */
 function doTierUp(side){
   const cur=side==="player"?S.tier:S.eTier;
   if(cur>=3)return false;
@@ -776,7 +782,7 @@ function doTierUp(side){
   const ok=nt===2?hasBarracksLine(side):hasSanctumLine(side);
   if(!ok||!spendStars(side,need))return false;
   if(side==="player")S.tier=nt; else S.eTier=nt;
-  if(side===MYSIDE)toast(TIER_NM[nt]+" 승급! (★"+need+") 최대 엘릭서 "+BAL.ECON.cap[nt]);
+  if(side===MYSIDE)toast(TIER_NM[nt]+" 승급! (★"+need+") 골드 회복 ×"+((BAL.ECON.tierRegen||[])[nt]||1));
   else toast("⚠ 상대가 "+TIER_NM[nt]+"(으)로 승급!");
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(hall)burst(hall.cx,hall.cy,"255,220,120",20,160);
@@ -909,6 +915,7 @@ function dealDamage(att,tgt,amount){
   /* 기병 계열 약점: 원거리 공격에 추가 피해 */
   if(tgt.rangedWeak&&att.melee===false&&att.r!==undefined)dmg*=(1+tgt.rangedWeak);
   if(tgt.key==="hall"&&tgt.side==="enemy"&&att.side==="player"&&S.stats)LEARN.hallHit(att,dmg);   // 학습: 패인 분석용
+  if(tgt.cx===undefined&&att.side&&att.side!==tgt.side)tgt.lastHit=att.side;   // 블러드 귀속: 마지막으로 때린 진영
   tgt.hp-=dmg; tgt.flash=0.15;
 }
 function unitUpdate(u,dt){
@@ -998,12 +1005,12 @@ function buildingUpdate(b,dt){
   b.flash=Math.max(0,b.flash-dt);
   if(b.hp<=0)return;
   const d=BAL.BUILDINGS[b.key];
-  /* 엘릭서 기지: 수급 주기마다 획득량 플로팅 연출 (상한 도달 시 생략) */
+  /* 골드 광산: 수급 주기마다 획득량 플로팅 연출 (상한 도달 시 생략) */
   if(b.key==="elixirBase"){
     b.gainT=(b.gainT||0)+dt;
     if(b.gainT>=BAL.ECON.regen){
       b.gainT-=BAL.ECON.regen;
-      if(elixirOf(b.side)<capFor(b.side)-0.01){
+      {
         S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"+"+BAL.ECON.gasBonus,
                         t:0.9,t0:0.9,col:b.side==="player"?"216,150,255":"255,150,150"});
         addP({x:b.cx-6,y:b.cy-8,vx:(Math.random()-.5)*20,vy:-30,g:-10,t:0,life:0.6,size:2.5,col:"200,130,250"});
@@ -1078,8 +1085,8 @@ function buildingUpdate(b,dt){
 }
 /* 변형 (양측 공용) */
 function transformBuilding(b,newKey){
-  const need=transformStarsFor(b.key,newKey);   // 비용 = 엘릭서 스타 (2026-09-07)
-  if(!spendStars(b.side,need)){if(b.side===MYSIDE){toast("엘릭서 스타 부족 (★"+need+" 필요)");SND.play("error");}return;}
+  const need=transformStarsFor(b.key,newKey);   // 비용 = 블러드 스타 (2026-09-07)
+  if(!spendStars(b.side,need)){if(b.side===MYSIDE){toast("블러드 스타 부족 (★"+need+" 필요)");SND.play("error");}return;}
   const nd=BAL.BUILDINGS[newKey];
   const ratio=b.hp/b.maxHp;
   /* 변형 시 레벨 초기화 (확정 규칙): 업그레이드한 건물을 변형하면 새 건물 Lv1부터 시작 */
@@ -1094,7 +1101,7 @@ function findSpot(key,side,pref){
   const d=BAL.BUILDINGS[key];
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(!hall)return null;
-  /* 미점유 가스 지역 중심 목록 (pref="gas"용) */
+  /* 미점유 금광 지대 중심 목록 (pref="gas"용) */
   const gasTargets=BAL.GAS_ZONES
     .filter(([gx,gy])=>!S.buildings.some(b=>b.side===side&&b.key==="elixirBase"&&b.hp>0&&b.tx===gx&&b.ty===gy))
     .map(([gx,gy])=>[gx+1,gy+1]);
@@ -1119,7 +1126,7 @@ function findSpot(key,side,pref){
    난이도(DIFF) = 실행 수준(판단 주기·목표치·스위치), 성향(AI_STYLES) = "무엇을 먼저 하느냐".
    aiCfg() = DIFF[diffKey] 위에 S.aiStyle 필드를 덮어쓴 설정. 스파링은 시드 난수(grnd)로 성향을 뽑아 리플레이가 재현된다.
    자원 운용 원칙(2026-09-12): 전략적 저축(승급·변형·영웅 ★)을 제외하면 자원을 놀리지 않는다 —
-   잉여 ★은 영웅 소환 → 녹여서 레벨업·건설, 엘릭서는 소프트 캡을 넘어서도 레벨업·증설·타워로 계속 소비(spendAll). */
+   잉여 ★은 영웅 소환 → 녹여서 레벨업·건설, 골드는 소프트 캡을 넘어서도 레벨업·증설·타워로 계속 소비(spendAll). */
 function aiCfg(){
   const base=diff();
   const sty=S&&(S.aiStyleObj||(S.aiStyle&&BAL.AI_STYLES?BAL.AI_STYLES[S.aiStyle]:null));
@@ -1277,22 +1284,22 @@ function aiUpdate(dt){
     return 0;})();
   const reserve=(S.eTier<2&&maxTier>=2?BAL.ECON.tierStars[2]:(S.eTier<3&&maxTier>=3?BAL.ECON.tierStars[3]:0))+tfWait;
   const surplus=Math.max(0,S.eStars-reserve);
-  /* 예산 = 엘릭서 + 잉여 ★×상한. spend()가 부족분만큼만 자동으로 녹인다 (예약 ★은 손대지 않음) */
-  const budget=()=>elixirOf(side)+surplus*cap;
-  /* 지출↔저축 교대 (2026-09-12): ★은 엘릭서 바를 상한까지 채워야 생기므로 "저축"은 곧 엘릭서 지출 동결이다.
-     저축 국면은 직전 ★ 지출 이후 엘릭서를 상한의 75% 이상 쓴 뒤에만 허용 → 건설·레벨업이 끊기지 않으면서 ★도 주기적으로 모인다.
+  /* 예산 = 골드 + 잉여 ★×상한. spend()가 부족분만큼만 자동으로 녹인다 (예약 ★은 손대지 않음) */
+  const budget=()=>elixirOf(side)+(starMelts()?surplus*cap:0);   // 블러드 모드: ★은 녹지 않음 (잉여 ★은 영웅에만)
+  /* 지출↔저축 교대 (2026-09-12): ★은 골드 바를 상한까지 채워야 생기므로 "저축"은 곧 골드 지출 동결이다.
+     저축 국면은 직전 ★ 지출 이후 골드를 상한의 75% 이상 쓴 뒤에만 허용 → 건설·레벨업이 끊기지 않으면서 ★도 주기적으로 모인다.
      (침입 대응 변형은 예외 — 즉시 저축) */
   S.aiSpent=S.aiSpent||0; S.aiNonHeroStars=S.aiNonHeroStars||0;
-  /* regen 모드(2026-09-12 확정)에서는 ★이 지출과 무관하게 흐르므로 "저축 국면"이 필요 없다 — 엘릭서는 항상 쓰고 ★은 오는 대로 우선순위대로 쓴다.
+  /* regen 모드(2026-09-12 확정)에서는 ★이 지출과 무관하게 흐르므로 "저축 국면"이 필요 없다 — 골드는 항상 쓰고 ★은 오는 대로 우선순위대로 쓴다.
      구 cap 모드에서만 교대 규칙(직전 ★ 지출 후 상한의 holdPct만큼 쓴 뒤 저축) 유지 */
-  const starByCap=(BAL.ECON.starBy||"regen")!=="regen";
+  const starByCap=BAL.ECON.starBy==="cap";   // (구) 상한 도달 적립 모드에서만 저축 국면이 의미 있음
   const holdOK=()=>starByCap&&S.aiSpent>=cap*(st.holdPct||0.75);
   const lvOK=prodAll>=(st.lvAfterProd||0);   // 기본기: 생산 건물을 먼저 넓게, 레벨업은 그 다음
   const starSpent=hero=>{S.aiSpent=0; S.aiNonHeroStars=hero?0:S.aiNonHeroStars+1;};
   const tryB=(key,pref,useStars)=>{
     if(GAME_CFG&&GAME_CFG.allowB&&!GAME_CFG.allowB.has(key))return false;   // 스테이지 해금 규칙은 양측 동일
     const d=BAL.BUILDINGS[key]; if(!d)return false;
-    if((useStars?budget():elixirOf(side))<d.cost)return false;   // 기본은 순수 엘릭서 — ★은 승급·변형·영웅 재원 (잉여분만 예외)
+    if((useStars?budget():elixirOf(side))<d.cost)return false;   // 기본은 순수 골드 — ★은 승급·변형·영웅 재원 (잉여분만 예외)
     if(d.tier>tier)return false;
     if(!hasPrereq(side,d.prereq))return false;
     const spot=findSpot(key,side,pref); if(!spot)return false;
@@ -1371,11 +1378,11 @@ function aiUpdate(dt){
   const gasNow=(!st.gasFirst&&(st.atkTwMin||0)>0&&atkTw<st.atkTwMin)?Math.min(gasNeed,2):gasNeed;
   if(cnt("elixirBase")<gasNow){
     if(tryB("elixirBase"))return;
-    if(towerCnt<st.towerMax&&(!st.aggro||prodCnt>=2)&&tryB("tower","gas"))return;   // 가스가 영역 밖이면 타워로 확장
+    if(towerCnt<st.towerMax&&prodCnt>=(st.aggro?2:1)&&tryB("tower","gas"))return;   // 금광이 영역 밖이면 타워로 확장 — 단, 생산(배럭) 1채가 먼저 (기본기, 2026-09-12)
   }
   /* 2) 최소 생산 라인 (킵 승급 조건 = 배럭 계열) */
   if(prodCnt<1&&tryB("barracks",prodPref))return;
-  /* 3) 킵 승급 — ★ 저축 (엘릭서를 상한까지 채워 ★ 적립) */
+  /* 3) 킵 승급 — ★ 저축 (골드를 상한까지 채워 ★ 적립) */
   if(maxTier>=2&&S.eTier<2){
     if(doTierUp(side)){starSpent();return;}
     if(prodCnt>=1&&holdOK())return;   // 저축 국면 (지출 사이클을 한 번 돈 뒤에만)
@@ -1422,18 +1429,18 @@ function aiUpdate(dt){
       const bb=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key===from&&x.level>=3); if(!bb)continue;
       if(starsOf(side)>=transformStarsFor(from,to)){transformBuilding(bb,to);starSpent();return;}
       if(holdOK())return;
-      break;   // 지출 국면 — 아래 엘릭서 지출로 진행
+      break;   // 지출 국면 — 아래 골드 지출로 진행
     }
   }
   /* 8) 생산 증설 (성향 가중치, 소프트 캡까지) */
   if(prodAll<st.prodMax&&buildPref(prodOrder(),prodPref))return;
-  /* 9) 레벨 투자 (순수 엘릭서, ★ 보호) — 생산 건물 lvAfterProd채 이후 */
+  /* 9) 레벨 투자 (순수 골드, ★ 보호) — 생산 건물 lvAfterProd채 이후 */
   if(maxLv>1&&lvOK){const up=nextUp(maxLv);if(up){if(elixirOf(side)>=upCostFor(up)+2){doLevel(up);return;} return;}}
   /* 9-1) 타워 화력 확보 (towerTf) */
   if((st.towerTf||0)>atkTw&&tfKey){const base=S.buildings.find(x=>x.side===side&&x.hp>0&&x.key==="tower");
     if(base){if(starsOf(side)>=transformStarsFor("tower",tfKey)){transformBuilding(base,tfKey);starSpent();return;} if(holdOK())return;}}
   /* 10) 여유 자원 → 전진 타워 압박 */
-  if(elixirOf(side)>=cap-2&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
+  if(elixirOf(side)>=(BAL.ECON.pushGold||15)&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
   /* 11) 잉여 자원 상시 운용 (spendAll) — 여기까지 왔다면 전략적 저축 사유가 없다.
      소프트 캡(prodMax·towerMax)을 넘어서도 레벨업 → 증설 → 타워 → 가스로 계속 쓰고, 잉여 ★은 녹여 쓴다 (예약 ★ 보호) */
   if(st.spendAll){
@@ -1529,7 +1536,7 @@ function tryBuildAt(key,x,y){
   const d=BAL.BUILDINGS[key];
   const tx=Math.round(x/TILE-d.w/2), ty=Math.round(y/TILE-d.h/2);
   const lock=buildLockReason(key); if(lock){toast(lock);SND.play("error");return;}
-  if(effElixir(MYSIDE)<d.cost){toast("엘릭서 부족");SND.play("error");return;}
+  if(effElixir(MYSIDE)<d.cost){toast("골드 부족");SND.play("error");return;}
   const reason=buildBlockReason(key,tx,ty,MYSIDE);
   if(reason){toast(reason);SND.play("error");return;}
   issueCmd({type:"build",key,tx,ty,side:MYSIDE});   // 실행은 다음 틱 (결정론 커맨드)
@@ -1547,8 +1554,8 @@ function tryHeroAt(slotIdx,x,y){
   const slot=mySlots()[slotIdx];
   if(GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key)){toast("이 단계에서는 사용할 수 없는 영웅입니다");SND.play("error");return;}
   if(slot.state!=="ready")return;
-  const cost=Math.max(1,BAL.HERO_COST);   // 영웅 비용 = 엘릭서 스타 (최소 1)
-  if(starsOf(MYSIDE)<cost){toast("엘릭서 스타 부족 (★"+cost+" 필요)");SND.play("error");return;}
+  const cost=Math.max(1,BAL.HERO_COST);   // 영웅 비용 = 블러드 스타 (최소 1)
+  if(starsOf(MYSIDE)<cost){toast("블러드 스타 부족 (★"+cost+" 필요)");SND.play("error");return;}
   const reason=heroBlockReason(x,y,MYSIDE);
   if(reason){toast(reason);SND.play("error");return;}
   issueCmd({type:"hero",slot:slotIdx,x,y,side:MYSIDE});   // 실행은 다음 틱 (결정론 커맨드)
@@ -1616,7 +1623,7 @@ function showStrip(b){
         +`<img src="${ICONS[tr.key]||""}" draggable="false">`
         +`<span>➔ ${nd.nm} (★${need})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</span></button>`;
   });
-  /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) — 비용: 레벨당 고정 엘릭서 (건물 등급별) */
+  /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) — 비용: 레벨당 고정 골드 (건물 등급별) */
   if(d.prod){
     const cost=upCostFor(b);
     if(b.level<3){
@@ -1646,7 +1653,7 @@ function showStrip(b){
   const half=bw2/2, cvL=(cvR.left-wrapR.left);
   el.style.left=Math.max(cvL+half+2,Math.min(cvL+cvR.width-half-2,cx2))+"px";
 }
-/* 엘릭서 변동에 따른 버튼 활성화 실시간 갱신 */
+/* 골드 변동에 따른 버튼 활성화 실시간 갱신 */
 function refreshBubble(){
   if(!S.selBld)return;
   document.querySelectorAll("#bubble button[data-cost]").forEach(btn=>{
@@ -1740,13 +1747,24 @@ function execCmd(c){
     case "hero": execHero(sd,c.slot,c.x,c.y); break;
   }
 }
+/* 블러드 (2026-09-12 자원 재편): 적 유닛 처치 시 maxHp/bloodDiv 만큼 적립, bloodPer마다 블러드 스타 1개 */
+function addBlood(side,v,x,y){
+  if(BAL.ECON.starBy&&BAL.ECON.starBy!=="blood")return;
+  const per=Math.max(1,BAL.ECON.bloodPer||30);
+  if(side==="player")S.blood=(S.blood||0)+v; else S.eBlood=(S.eBlood||0)+v;
+  if(x!==undefined)S.effects.push({tp:"ftext",x:x+(Math.random()-.5)*6,y:y-10,text:"+"+v+"🩸",t:0.8,t0:0.8,col:side===MYSIDE?"255,120,120":"255,190,190"});
+  let got=0;
+  if(side==="player"){while(S.blood>=per){S.blood-=per;S.stars++;got++;}}
+  else{while(S.eBlood>=per){S.eBlood-=per;S.eStars++;got++;}}
+  if(got&&side===MYSIDE){toast("🩸 블러드 스타 +"+got+" (보유 "+starsOf(side)+")");SND.play("star");renderPanel();}
+}
 /* ---------- 리플레이 (0단계 산출물): 시드 + 커맨드 로그 = 게임 전체 ---------- */
 function simHash(){
   let h=2166136261>>>0;
   const f=v=>{h=(h^((v*8192)|0))>>>0;h=Math.imul(h,16777619)>>>0;};
   S.units.forEach(u=>{f(u.x);f(u.y);f(u.hp);});
   S.buildings.forEach(b=>{f(b.tx*31+b.ty);f(b.hp);f(b.level);});
-  f(S.elixir*100);f(S.eElixir*100);f(S.stars);f(S.eStars);f((S.starG||0)*1000);f((S.eStarG||0)*1000);f(S.tier*10+S.eTier);f(simTick);
+  f(S.elixir*100);f(S.eElixir*100);f(S.stars);f(S.eStars);f((S.starG||0)*1000);f((S.eStarG||0)*1000);f(S.blood||0);f(S.eBlood||0);f(S.tier*10+S.eTier);f(simTick);
   return h>>>0;
 }
 function saveReplay(){
@@ -1806,19 +1824,20 @@ function stepSim(dt){
     const econTick=side=>{
       const P=side==="player";
       const gas=S.buildings.filter(b=>b.side===side&&b.key==="elixirBase"&&b.hp>0).length;
-      const cap=capFor(side), inc=dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen;
+      const cap=capFor(side), tr=(BAL.ECON.tierRegen||[0,1,1,1])[effTier(side)]||1;
+      const inc=dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen*tr;   // 골드: 상한 없음 (2026-09-12 자원 재편)
       const before=P?S.elixir:S.eElixir;
-      let after=Math.min(cap,before+inc), gained=false;
-      if((BAL.ECON.starBy||"regen")==="regen"){
+      let after=before+inc, gained=false;
+      if(BAL.ECON.starBy==="regen"){
         const per=Math.max(0.25,BAL.ECON.starPer||1);
         const ng=((P?S.starG:S.eStarG)||0)+inc/(cap*per);
         const left=ng>=1?ng-1:ng; if(ng>=1)gained=true;
         if(P)S.starG=left; else S.eStarG=left;
-      } else if(before<cap&&after>=cap){gained=true;after=0;}
+      }   // "blood" 모드: ★은 처치로만 (addBlood)
       if(P)S.elixir=after; else S.eElixir=after;
       if(gained){
         if(P)S.stars++; else S.eStars++;
-        if(MYSIDE===side){toast("★ 엘릭서 스타 +1 (보유 "+starsOf(side)+")");SND.play("star");renderPanel();}
+        if(MYSIDE===side){toast("★ 블러드 스타 +1 (보유 "+starsOf(side)+")");SND.play("star");renderPanel();}
       }
     };
     econTick("player"); econTick("enemy");
@@ -1829,6 +1848,7 @@ function stepSim(dt){
     S.buildings.forEach(b=>buildingUpdate(b,dt));
     /* 사망 처리 */
     S.units.forEach(u=>{if(u.hp<=0){deathFx(u);
+      if(u.lastHit&&u.lastHit!==u.side)addBlood(u.lastHit,Math.max(1,Math.round(u.maxHp/(BAL.ECON.bloodDiv||100))),u.x,u.y);   // 처치 → 블러드
       if(u.hero){const slots=u.side==="player"?S.heroSlots:(S.eHeroSlots||[]);
         const slot=slots.find(s=>s.unit===u);
         if(slot){slot.state="cd";slot.cd=BAL.HERO_CD;slot.unit=null;if(u.side===MYSIDE)renderPanel();}}}});
@@ -1917,9 +1937,12 @@ function syncPauseUI(){
   const ep=document.getElementById("ed-pause");if(ep)ep.textContent=p?"▶":"⏸";
 }
 function updateHUD(){
-  const cap=capFor(MYSIDE), el=elixirOf(MYSIDE);
-  document.getElementById("elixir-fill").style.width=(el/cap*100)+"%";
-  document.getElementById("elixir-num").textContent=Math.floor(el)+"/"+cap;
+  const cap=capFor(MYSIDE), el=elixirOf(MYSIDE), blood=BAL.ECON.starBy!=="regen";
+  /* 하단 자원 줄 (2026-09-12 재편): 숫자 = 골드(상한 없음), 바 = 블러드 게이지(다음 블러드 스타까지), 칩 = 블러드 스타 */
+  const per=Math.max(1,BAL.ECON.bloodPer||30), bl=(MYSIDE==="player"?S.blood:S.eBlood)||0;
+  document.getElementById("elixir-fill").style.width=(blood?Math.min(100,bl/per*100):Math.min(100,el/cap*100))+"%";
+  document.getElementById("elixir-num").textContent="💰"+Math.floor(el);
+  document.getElementById("elixir-bar").title=blood?("블러드 게이지 "+Math.floor(bl)+"/"+per+" — 적 유닛 처치로 채워지며 가득 차면 블러드 스타 +1"):"골드";
   const t=effTier(MYSIDE);
   document.getElementById("tier-label").textContent=TIER_NM[t]+(t<myTier()?" (강등)":"");
   const m=Math.floor(S.elapsed/60),s=Math.floor(S.elapsed%60);
@@ -1931,16 +1954,17 @@ function updateHUD(){
     if(S.mode==="build")el2.classList.toggle("dim",effElixir(MYSIDE)<BAL.BUILDINGS[PANEL_BUILDS[i]].cost);
     else el2.classList.toggle("dim",starsOf(MYSIDE)<Math.max(1,BAL.HERO_COST));
   });
-  /* 엘릭서 스타 칩 (표시 전용 — 자동 사용). regen 모드에서는 테두리 금색 링이 다음 ★까지의 진행도 */
+  /* 블러드 스타 칩 (표시 전용 — 자동 사용). regen 모드에서는 테두리 금색 링이 다음 ★까지의 진행도 */
   const sc=document.getElementById("star-chip");
   sc.textContent="★"+starsOf(MYSIDE);
-  if((BAL.ECON.starBy||"regen")==="regen"){
-    const g=Math.max(0,Math.min(1,(MYSIDE==="player"?S.starG:S.eStarG)||0)), pct=Math.round(g*100);
+  {
+    const g=blood?Math.min(1,bl/per):Math.max(0,Math.min(1,(MYSIDE==="player"?S.starG:S.eStarG)||0)), pct=Math.round(g*100);
     sc.style.border="3px solid transparent";
-    sc.style.background="radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf) padding-box, conic-gradient(#ffd24d "+pct+"%, rgba(255,255,255,.22) 0) border-box";
+    sc.style.background="radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418) padding-box, conic-gradient(#ffd24d "+pct+"%, rgba(255,255,255,.22) 0) border-box";
     sc.style.opacity="1";
-    sc.title="엘릭서 스타 — 승급·변형·영웅 재화. 회복량이 누적되면 자동 적립 (금색 링 = 다음 ★까지 "+pct+"%). 비용 부족 시 자동으로 녹아 사용";
-  } else sc.style.opacity=starsOf(MYSIDE)>0?"1":"0.45";
+    sc.title=blood?("블러드 스타 — 승급·변형·영웅 재화. 적 유닛을 처치해 게이지를 채우면 적립 (링 = "+pct+"%)")
+                  :("스타 — 회복량 누적으로 적립 (링 = "+pct+"%). 비용 부족 시 자동으로 녹아 사용");
+  }
 }
 
 /* ============================================================ 렌더링 (치비 스타일 — v1 계승) ============================================================ */
@@ -3389,7 +3413,7 @@ const ED_LABELS={hp:"HP",dmg:"공격력",hs:"공속(초)",rng:"사거리",spd:"�
   cost:"비용",heal:"초당 회복",rad:"광역 반경",castRng:"시전 사거리",targets:"동시 대상",tier:"요구 티어",
   kb:"넉백",slowDur:"둔화(초)",atk:"",hAtk:"본진공격",hDef:"본진 방어(받는 피해 배율)",aoe:"",prod:"",delay:"AI 시작 지연(초)",interval:"AI 판단 주기(초)",
   easy:"쉬움",normal:"보통",hard:"어려움",aiDelay:"AI 지연(초)",aiInterval:"AI 주기(초)",
-  maxTier:"최대 티어",maxLevel:"최대 유닛 레벨",gasBases:"가스 기지 목표",prodMax:"생산 건물 목표",
+  maxTier:"최대 티어",maxLevel:"최대 유닛 레벨",gasBases:"골드 광산 목표",prodMax:"생산 건물 목표",
   towerMax:"타워 목표",transform:"변형 사용(0/1)",aviary:"상위 변형 사용(0/1)",defensive:"방어 반응(0/1)",towerTf:"타워 변형 목표",
   extreme:"매우 어려움",aggro:"전진 배치(0/1)",atkTwMin:"최소 공격 타워",heroUse:"영웅 사용(0/1)",
   rangedResist:"원거리 물리 경감(비율)",pierceVsMelee:"근접 관통 추가피해(+)",rangedWeak:"원거리 피해 취약(+)",
@@ -3417,10 +3441,11 @@ function buildEditorUI(){
     .map(([id,nm])=>`<button class="ed-tab${edTab===id?" on":""}" onclick="edTab='${id}';buildEditorUI()">${nm}</button>`).join("")
     +`</div>`;
   if(edTab==="rules"){
-    [["ECON.regen","엘릭서 회복 주기(초)"],["ECON.start","시작 엘릭서"],
-     ["ECON.cap.1","엘릭서 상한 T1"],["ECON.cap.2","엘릭서 상한 T2"],["ECON.cap.3","엘릭서 상한 T3"],
-     ["ECON.gasBonus","가스 기지 보너스"],["ECON.tierStars.2","킵 승급 (★)"],["ECON.tierStars.3","캐슬 승급 (★)"],
-     ["ECON.transformStar","건물 변형 비용 (★, 일괄)"],["ECON.starPer","★ 적립 주기 (상한 배수, regen 모드)"],
+    [["ECON.regen","골드 회복 주기(초)"],["ECON.start","시작 골드"],
+     ["ECON.gasBonus","골드 광산 보너스(+비율)"],["ECON.tierRegen.2","킵 골드 회복 배율"],["ECON.tierRegen.3","캐슬 골드 회복 배율"],
+     ["ECON.bloodPer","블러드 스타당 블러드"],["ECON.bloodDiv","처치 블러드 = maxHp ÷"],["ECON.pushGold","AI 전진 타워 골드 기준"],
+     ["ECON.tierStars.2","킵 승급 (★)"],["ECON.tierStars.3","캐슬 승급 (★)"],
+     ["ECON.transformStar","건물 변형 비용 (★, 일괄)"],["ECON.starPer","(실험) regen 모드 ★ 주기"],
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
      ["EXCLUDE_R","적 건물 배제 반경"],["HALL_ZONE","본진 영역 반경"],["TOWER_ZONE","타워 영역 반경"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
@@ -3560,7 +3585,7 @@ function kingdomCleared(ki){return progOf(ki)>=KINGDOMS[ki].stages.length;}
 /* --- 왕국·스테이지 정의 ---
    초원(1왕국): 단계별 건물 해금 — 사용법·상성 학습 (해금 규칙은 적 AI에도 동일 적용)
    협곡(2왕국): 새 지형(두 갈래 길) + 단계별 영웅 해금 학습 / 3왕국: 추후 오픈 */
-/* 해금 순서 주의: 가스 지역은 본진 영역 밖 — 엘릭서 기지보다 타워(영역 확장)가 먼저여야 한다 (2026-09-04 수정) */
+/* 해금 순서 주의: 금광 지대은 본진 영역 밖 — 골드 광산보다 타워(영역 확장)가 먼저여야 한다 (2026-09-04 수정) */
 const K1_UNLOCK=[
   ["barracks"],
   ["barracks","tower"],
@@ -3575,7 +3600,7 @@ const KINGDOMS=[
   {id:"k1",nm:"🌿 초원 왕국",desc:"단계마다 건물이 하나씩 해금 — 유닛 활용과 상성을 배웁니다",map:"plain",heroes:false,stages:[
     {nm:"1단계 · 첫 전선",d:"배럭 — 드래그 건설과 자동 웨이브",diff:"easy"},
     {nm:"2단계 · 거점",d:"타워 해금 — 전선(아군 영역) 확장",diff:"easy"},
-    {nm:"3단계 · 경제",d:"엘릭서 기지 해금 — 확장한 영역의 ◆ 가스 점유",diff:"easy"},
+    {nm:"3단계 · 경제",d:"골드 광산 해금 — 확장한 영역의 ◆ 가스 점유",diff:"easy"},
     {nm:"4단계 · 원거리",d:"아처리 해금 — 근접 vs 원거리 상성",diff:"easy"},
     {nm:"5단계 · 공성",d:"워크숍 해금 — 공성추, 가드 타워 변형 개방",diff:"normal"},
     {nm:"6단계 · 기병",d:"어썰트 배럭 해금 — 창 관통, 원거리에 취약",diff:"normal"},
@@ -3645,7 +3670,7 @@ const MODE_NM={tutorial:"튜토리얼",story:"스토리",pvp:"대전",practice:"
 function startGame(cfg){
   GAME_CFG=cfg;
   applyMap(cfg.map||"plain",cfg.layout||null);
-  /* 엘릭서 기지가 해금되지 않은 스테이지는 가스 광산 자체를 맵에서 제거 (2026-09-07) */
+  /* 골드 광산가 해금되지 않은 스테이지는 금광 자체를 맵에서 제거 (2026-09-07) */
   if(cfg.allowB&&!cfg.allowB.has("elixirBase"))BAL.GAS_ZONES=[];
   if(cfg.mode==="practice")diffKey=cfg.diff||store.getItem("rs2_diff")||"normal";
   else if(cfg.diff)diffKey=cfg.diff;
@@ -3851,11 +3876,11 @@ const TUT=(()=>{
   /* 순서 = 실제 게임 흐름: 배럭 → 타워로 영역 확장 → (영역에 들어온) 가스 점유 → 성장 → 영웅 → 공략 */
   const steps=[
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
-    {t:"② <b>타워</b>를 좌우 <b>◆ 가스 지역</b> 방향에 건설하세요 — 타워 주변이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
-    {t:"③ 영역에 들어온 <b>◆ 가스 지역</b>에 <b>엘릭서 기지</b>를 건설하세요 — 엘릭서 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
-    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (★1)</b> — ★은 엘릭서가 회복되는 만큼 자동 적립됩니다(★ 칩의 금색 링). 상위 건물·상한·레벨이 열립니다",ok:()=>S.tier>=2},
+    {t:"② <b>타워</b>를 좌우 <b>◆ 금광 지대</b> 방향에 건설하세요 — 타워 주변이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
+    {t:"③ 영역에 들어온 <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
+    {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (★1)</b> — 블러드 스타(★)는 <b>적 유닛을 처치</b>해 붉은 게이지를 채우면 적립됩니다. 상위 건물·레벨·골드 회복 배율이 열립니다",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
-    {t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 비용은 ★ (회복량 누적으로 자동 적립)",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
+    {t:"⑥ <b>⇄ 버튼</b>으로 영웅 탭 전환 후 영웅을 배치하세요 — 비용은 블러드 스타 ★ (적 처치로 적립)",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
     {t:"⑦ 마지막! 병력을 이끌고 <b>적 본진</b>을 파괴하세요",ok:()=>false},
   ];
   function start(){active=true;idx=0;bonusGiven=false;render();}
@@ -3864,8 +3889,8 @@ const TUT=(()=>{
   let bonus2=false;
   function update(){
     if(!active||!S||S.over)return;
-    if(idx===3&&S.stars<1&&!bonus2){bonus2=true;S.stars=1;toast("(튜토리얼) 승급용 엘릭서 스타 ★1 지급");renderPanel();}
-    if(idx===5&&S.stars<1&&!bonusGiven){bonusGiven=true;S.stars=1;toast("(튜토리얼) 엘릭서 스타 ★1 지급");renderPanel();}
+    if(idx===3&&S.stars<1&&!bonus2){bonus2=true;S.stars=1;toast("(튜토리얼) 승급용 블러드 스타 ★1 지급");renderPanel();}
+    if(idx===5&&S.stars<1&&!bonusGiven){bonusGiven=true;S.stars=1;toast("(튜토리얼) 블러드 스타 ★1 지급");renderPanel();}
     if(steps[idx].ok()){idx=Math.min(idx+1,steps.length-1);SND.play("star");render();}
   }
   return {start,stop,update,get active(){return active;}};
