@@ -49,7 +49,7 @@
   .gold-cell .gold-box{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:9px;
     background:linear-gradient(180deg,#6a4a1c 0%,#3f2c10 100%);border:2px solid #e2b64a;box-shadow:0 2px 4px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,235,150,.35);}
   .gold-cell .gold-ico{font-size:16px;line-height:1;}
-  #elixir-num{font-weight:bold;color:#ffd24d;font-size:20px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  #elixir-num{font-weight:bold;color:#ffd24d;font-size:17px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   /* 블러드 스타 칩 (표시 전용 — 골드와 동일한 보라 계열) */
   #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;
     background:radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418);border:2px solid #fff;color:#fff;
@@ -64,11 +64,11 @@
   #swap-btn{flex:none;width:52px;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;border:2px solid #5a6ea6;border-radius:10px;
     font-size:11px;font-weight:bold;cursor:pointer;line-height:1.3;}
   #panel-wrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
-  #panel{display:flex;gap:5px;align-items:stretch;min-height:76px;}
+  #panel{display:flex;gap:5px;align-items:stretch;min-height:56px;}   /* 2026-09-13: 건물 버튼 축소(76→56), 명령 버튼 확대 */
   /* 건물별 명령 줄 (2026-09-13): 건물 버튼과 분리된 독립 버튼, 같은 열 폭으로 아래에 정렬 */
   #ord-row{display:flex;gap:5px;}
   .p-ocell{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
-  .p-ocell button{height:26px;border-radius:7px;border:1.5px solid #5a6ea6;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;font-size:12px;font-weight:bold;cursor:pointer;padding:0 2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .p-ocell button{height:32px;border-radius:8px;border:1.5px solid #5a6ea6;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;font-size:13px;font-weight:bold;cursor:pointer;padding:0 2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);}
   .p-ocell button.on[data-k="attack"]{background:linear-gradient(180deg,#e0524a,#b3302a);border-color:#ff9a8a;}
   .p-ocell button.on[data-k="move"]{background:linear-gradient(180deg,#3aa86e,#247a4c);border-color:#8fe6b4;}
   .p-ocell button.on[data-k="hold"]{background:linear-gradient(180deg,#d1a12a,#9c7412);border-color:#ffe08a;}
@@ -76,7 +76,7 @@
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
     padding:3px 2px;text-align:center;cursor:grab;user-select:none;position:relative;touch-action:none;min-width:0;
     box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .p-item img{width:80%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+  .p-item img{width:58%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
   .p-item .p-nm{font-size:9px;font-weight:bold;color:#2c3a5e;white-space:nowrap;overflow:hidden;max-width:100%;}
   .p-item .p-cost{position:absolute;top:-7px;left:-5px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;font-size:11px;font-weight:bold;line-height:20px;color:#4a2f00;
     background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd24d 55%,#c8901a);border:1.5px solid #fff;border-radius:11px;
@@ -1845,10 +1845,11 @@ cv.addEventListener("click",e=>{
   const rect=cv.getBoundingClientRect();
   const sx=(e.clientX-rect.left)*(cv.width/rect.width), sy=(e.clientY-rect.top)*(cv.height/rect.height);
   const {x,y}=unflipPt(sx,sy);   // 게스트 화면 반전 보정 → 시뮬 좌표
-  if(pickMode){ if(performance.now()-lastDragEnd<300)return;   // 건물 배치 직후의 클릭은 무시
-    const k=pickMode; issueCmd({type:k.kind,x,y,grp:k.grp,side:MYSIDE}); syncAttackUI(); return; }   // 지정 모드 유지 (2026-09-13): 연속 지정 가능, 버튼 재탭으로 해제
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
+  if(pickMode){ if(performance.now()-lastDragEnd<300)return;   // 건물 배치 직후의 클릭은 무시
+    if(b&&b.side===MYSIDE&&b.hp>0){ pickMode=null; syncAttackUI(); }   // 아군 건물 탭 = 지정 모드 해제 후 평소처럼 건물 선택 (2026-09-13)
+    else { const k=pickMode; issueCmd({type:k.kind,x,y,grp:k.grp,side:MYSIDE}); syncAttackUI(); return; } }   // 지정 모드 유지: 연속 지정 가능, 버튼 재탭·아군 건물 탭으로 해제
   if(b&&b.side===MYSIDE&&b.hp>0){
     if(S.selBld===b)hideStrip();      // 같은 건물 재클릭 → 말풍선 닫기 (토글)
     else showStrip(b);
@@ -2260,6 +2261,21 @@ function drawHpBar(x,y,hp,maxHp,w,side){
   const p=Math.max(0,hp/maxHp);
   ctx.fillStyle=side==="player"?"#3f8cff":"#ff4d4d";
   roundRectPath(x-w/2,y,Math.max(2,w*p),h,2);ctx.fill();
+}
+/* 병력 상한 바 (2026-09-13): 생산 건물 하단의 얇은 5칸 분절 바 — 채워진 칸 = 살아 있는 생산 유닛, 다음 칸은 생산 진행도만큼 부분 채움, 상한 도달 시 금색 */
+function drawProdBar(b,px,py,pw,ph){
+  const d=BAL.BUILDINGS[b.key]; if(!d||!d.prod)return;
+  const cap=BAL.PROD_CAP||5, alive=prodAlive(b), full=alive>=cap;
+  const w=pw-10, h=4, x0=px+5, y=py+ph-h-3, gap=2, sw=(w-gap*(cap-1))/cap;
+  ctx.fillStyle="rgba(15,20,30,.8)";roundRectPath(x0-1.5,y-1.5,w+3,h+3,2.5);ctx.fill();
+  const col=full?"#f2c14e":(b.side===MYSIDE?"#6fb7ff":"#ff7a6a");
+  for(let i=0;i<cap;i++){
+    const sx=x0+i*(sw+gap);
+    ctx.fillStyle="rgba(255,255,255,.12)";ctx.fillRect(sx,y,sw,h);   // 빈 칸
+    if(i<alive){ctx.fillStyle=col;ctx.fillRect(sx,y,sw,h);}
+    else if(i===alive&&!full){ctx.fillStyle="rgba(200,230,255,.55)";ctx.fillRect(sx,y,sw*Math.min(1,(b.prodT||0)/d.prod.period),h);}   // 다음 유닛 진행도
+  }
+  if(full){ctx.strokeStyle="rgba(242,193,78,.6)";ctx.lineWidth=1;roundRectPath(x0-1.5,y-1.5,w+3,h+3,2.5);ctx.stroke();}
 }
 /* --- 파티클 --- */
 function addP(p){if(S&&S.particles.length<300)S.particles.push(p);}
@@ -3539,6 +3555,7 @@ function draw(){
     if(b.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(0.7,b.flash*5).toFixed(2)+")";
       roundRectPath(px+2,py+2,pw-4,ph-4,6);ctx.fill();}
     if(b.hp<b.maxHp)upr(b.cx,py-8,()=>drawHpBar(b.cx,py-8,b.hp,b.maxHp,Math.min(50,pw-8),b.side));
+    if(b.side===MYSIDE&&BAL.BUILDINGS[b.key].prod)upr(b.cx,py+ph-5,()=>drawProdBar(b,px,py,pw,ph));   // 병력 n/5 분절 바 (내 건물만)
     /* 행동 가능 뱃지 (맥동): ↑ = 레벨업/승급 가능, ➔ = 변형 가능 */
     if(b.side===MYSIDE&&!S.over){
       const canUp=b.key==="hall"?canTierUpP():canUpgradeB(b);
