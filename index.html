@@ -728,8 +728,9 @@ function buildBlockReason(key,tx,ty,side){
     if(!d.gas&&t.gas)return"가스 타일에는 골드 광산만";
     if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 본진 영역";
   }
-  /* 영역 판정 (2026-09-12 확정): 건물의 모든 타일이 본진·타워 주변 2칸 띠 안에 있어야 함 */
-  if(!rectInZone(tx,ty,d.w,d.h,side))return"본진·거점 주변 2칸 밖";
+  /* 영역 판정 (2026-09-12 확정): 건물의 모든 타일이 본진·거점 주변 2칸 띠 안에 있어야 함.
+     거점(tower)은 예외 — 어디든 건설 가능(적 본진 배제 반경만 적용)하며, 그 주변 2칸이 새 영역이 된다 */
+  if(key!=="tower"&&!rectInZone(tx,ty,d.w,d.h,side))return"본진·거점 주변 2칸 밖";
   return null;
 }
 /* 영웅 배치 판정 (side 인식 — PvP 게스트는 위 진영) */
@@ -1165,6 +1166,8 @@ function findSpot(key,side,pref){
   for(let ty=0;ty<=ROWS-d.h;ty++)for(let tx=0;tx<=COLS-d.w;tx++){
     if(buildBlockReason(key,tx,ty,side))continue;
     const cx=tx+d.w/2, cy=ty+d.h/2;
+    /* AI 전진 거점은 자기 영역에서 6칸 이내로만 뻗는다 (거점 자유 건설이지만 맵 전체에 흩뿌리지 않게, 2026-09-12) */
+    if(key==="tower"&&pref==="fwd"&&!S.buildings.some(b=>b.side===side&&b.hp>0&&ZONE_KEYS.has(b.key)&&tileDist(cx,cy,b.cx/TILE,b.cy/TILE)<=6))continue;
     let score;
     if(pref==="fwd") score=(side==="enemy"?cy:-cy)-Math.abs(cx-COLS/2)*0.1;
     else if(pref==="gas") score=gasTargets.length? -Math.min(...gasTargets.map(([gx,gy])=>tileDist(cx,cy,gx,gy))) : -1e9;
@@ -1550,14 +1553,15 @@ function aiUpdate(dt){
     const base=tfBase();
     if(base){if(elixirOf(side)>=transformCostFor(base.key,tfKey)){transformBuilding(base,tfKey);starSpent();return;} return;}}
   /* 10) 여유 자원 → 전진 타워 압박 */
-  if(elixirOf(side)>=(BAL.ECON.pushGold||15)&&towerCnt<st.towerMax&&tryB("tower","fwd"))return;
+  const twCap=Math.min(st.towerMax,prodAll+2);   // 여유 거점은 생산 건물 수+2까지만 (거점 자유 건설 후 거점 밭 방지, 2026-09-12)
+  if(elixirOf(side)>=(BAL.ECON.pushGold||15)&&towerCnt<twCap&&tryB("tower","fwd"))return;
   /* 11) 잉여 자원 상시 운용 (spendAll) — 여기까지 왔다면 전략적 저축 사유가 없다.
      소프트 캡(prodMax·towerMax)을 넘어서도 레벨업 → 증설 → 타워 → 가스로 계속 쓰고, 잉여 ★은 녹여 쓴다 (예약 ★ 보호) */
   if(st.spendAll){
     const up=lvOK?nextUp(tier):null;   // 레벨 상한 = 티어 (넓게 지은 뒤에만)
     if(up){if(budget()>=upCostFor(up)){doLevel(up);return;} return;}   // 소프트 캡 이후엔 레벨업 우선 — 모자라면 기다린다 (싼 증설로 새지 않게)
     if(unitCount(side)<BAL.UNIT_CAP*0.9&&buildPref(prodOrder(),prodPref,true))return;
-    if(tryB("tower","fwd",true))return;
+    if(towerCnt<twCap&&tryB("tower","fwd",true))return;
     if(tryB("elixirBase",null,true))return;
   }
 }
@@ -4033,7 +4037,7 @@ const TUT=(()=>{
   /* 순서 = 실제 게임 흐름: 배럭 → 타워로 영역 확장 → (영역에 들어온) 가스 점유 → 성장 → 영웅 → 공략 */
   const steps=[
     {t:"① 아래 패널에서 <b>배럭</b>을 끌어 본진 근처(아군 영역)에 놓으세요 — 풋맨이 자동으로 생산됩니다",ok:()=>cntP("barracks")>=1},
-    {t:"② <b>거점</b>을 좌우 <b>◆ 금광 지대</b> 방향에 건설하세요 — 거점 주변 2칸이 아군 영역이 되어 전선이 늘어납니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
+    {t:"② <b>거점</b>을 <b>◆ 금광 지대</b> 옆에 세우세요 — 거점은 어디든 지을 수 있고, 그 주변 2칸이 아군 영역이 됩니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {t:"③ 영역에 들어온 <b>◆ 금광 지대</b>에 <b>골드 광산</b>을 건설하세요 — 골드 회복이 빨라집니다",ok:()=>cntP("elixirBase")>=1},
     {t:"④ <b>본진</b>을 클릭해 <b>킵 승급 (💰15)</b> — 골드가 모이면 승급할 수 있습니다. 상위 건물·레벨·골드 회복 배율이 열립니다",ok:()=>S.tier>=2},
     {t:"⑤ 배럭을 <b>클릭</b>하고 말풍선에서 <b>레벨업</b> — 이후 생산되는 유닛의 레벨이 올라갑니다 (레벨 상한 = 티어)",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
