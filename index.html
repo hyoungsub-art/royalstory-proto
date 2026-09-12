@@ -46,7 +46,7 @@
   #elixir-fill{height:100%;background:linear-gradient(180deg,#ff9a9a 0%,#d8363a 45%,#8a1c1c 100%);border-radius:9px;width:0%;transition:width .1s linear;position:relative;}
   #elixir-fill::after{content:"";position:absolute;top:2px;left:4px;right:4px;height:40%;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);border-radius:7px;}
   #elixir-num{font-weight:bold;color:#ffd24d;min-width:52px;height:34px;text-align:center;font-size:13px;line-height:34px;padding:0 6px;
-    background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:2px solid #fff;
+    background:linear-gradient(180deg,#6a4a1c 0%,#3f2c10 100%);border:1.5px solid #e2b64a;
     border-radius:17px;text-shadow:0 1px 2px rgba(70,10,110,.9);box-shadow:0 2px 4px rgba(0,0,0,.4);}
   /* 블러드 스타 칩 (표시 전용 — 골드와 동일한 보라 계열) */
   #star-chip{min-width:44px;height:34px;border-radius:17px;font-size:13px;font-weight:bold;
@@ -62,9 +62,11 @@
     box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .p-item img{width:80%;height:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
   .p-item .p-nm{font-size:9px;font-weight:bold;color:#2c3a5e;white-space:nowrap;overflow:hidden;max-width:100%;}
-  .p-item .p-cost{position:absolute;top:-6px;left:-4px;width:18px;height:22px;font-size:11px;font-weight:bold;line-height:23px;color:#fff;
-    background:radial-gradient(circle at 35% 28%,#f0b3ff,#c86bfa 55%,#7d2bbf);border:1.5px solid #fff;
-    border-radius:50% 50% 50% 50% / 62% 62% 40% 40%;text-shadow:0 1px 2px rgba(70,10,110,.9);z-index:1;}
+  .p-item .p-cost{position:absolute;top:-7px;left:-5px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;font-size:11px;font-weight:bold;line-height:20px;color:#4a2f00;
+    background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd24d 55%,#c8901a);border:1.5px solid #fff;border-radius:11px;
+    box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 -2px 0 rgba(120,70,0,.35);text-shadow:0 1px 0 rgba(255,255,255,.55);z-index:1;}   /* 금화 배지 (2026-09-12) */
+  .p-item .p-cost.star{background:radial-gradient(circle at 35% 30%,#ffb3b3,#d8363a 55%,#7a1418);color:#fff;text-shadow:0 1px 2px rgba(60,0,0,.85);
+    box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 -2px 0 rgba(60,0,0,.35);}   /* 블러드 스타 배지 (영웅) */
   .p-item.locked{filter:grayscale(.8) brightness(.6);cursor:not-allowed;}
   .p-item.dim{filter:grayscale(.5) brightness(.75);}
   .p-item .p-lock{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:8.5px;color:#ffd27a;
@@ -185,7 +187,7 @@
     <div id="elixir-row">
       <div id="elixir-num">0/10</div>
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
-      <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 게이지를 채우면 적립 (링 = 진행도)" style="display:flex;align-items:center;justify-content:center;">★0</div>
+      <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 붉은 게이지를 채우면 적립" style="display:flex;align-items:center;justify-content:center;">★0</div>
     </div>
     <div id="mode-row">
       <button id="swap-btn" onclick="swapMode()">⇄<br>건설</button>
@@ -1043,9 +1045,9 @@ function buildingUpdate(b,dt){
       b.gainT-=BAL.ECON.regen;
       {
         S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"+"+BAL.ECON.gasBonus,
-                        t:0.9,t0:0.9,col:b.side==="player"?"216,150,255":"255,150,150"});
-        addP({x:b.cx-6,y:b.cy-8,vx:(Math.random()-.5)*20,vy:-30,g:-10,t:0,life:0.6,size:2.5,col:"200,130,250"});
-        addP({x:b.cx+6,y:b.cy-6,vx:(Math.random()-.5)*20,vy:-26,g:-10,t:0,life:0.6,size:2,col:"230,180,255"});
+                        t:0.9,t0:0.9,col:b.side==="player"?"255,215,80":"255,170,120"});
+        addP({x:b.cx-6,y:b.cy-8,vx:(Math.random()-.5)*20,vy:-30,g:-10,t:0,life:0.6,size:2.5,col:"255,210,70"});
+        addP({x:b.cx+6,y:b.cy-6,vx:(Math.random()-.5)*20,vy:-26,g:-10,t:0,life:0.6,size:2,col:"255,235,150"});
       }
     }
   }
@@ -1591,7 +1593,7 @@ function renderPanel(){
       const hLock=GAME_CFG&&GAME_CFG.allowH&&!GAME_CFG.allowH.has(slot.key);   // 스테이지 영웅 해금
       const div=document.createElement("div");
       div.className="p-item"+((hLock||slot.state!=="ready")?" locked":(starsOf(MYSIDE)<cost?" dim":""));
-      div.innerHTML=`<div class="p-cost">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
+      div.innerHTML=`<div class="p-cost star">★${cost}</div><img draggable="false" src="${ICONS["hero_"+slot.key]||""}" alt=""><div class="p-nm">${d.nm}</div>`
         +(hLock?`<div class="p-lock">🔒\n미해금</div>`:
           slot.state==="field"?`<div class="p-cd" style="font-size:10px;">출전 중</div>`:
           slot.state==="cd"?`<div class="p-cd" data-cd="${i}">${Math.ceil(slot.cd)}</div>`:"");
@@ -2063,13 +2065,9 @@ function updateHUD(){
   /* 블러드 스타 칩 (표시 전용 — 자동 사용). regen 모드에서는 테두리 금색 링이 다음 ★까지의 진행도 */
   const sc=document.getElementById("star-chip");
   sc.textContent="★"+starsOf(MYSIDE);
-  {
-    const g=blood?Math.min(1,bl/per):Math.max(0,Math.min(1,(MYSIDE==="player"?S.starG:S.eStarG)||0)), pct=Math.round(g*100);
-    sc.style.border="3px solid transparent";
-    sc.style.background="radial-gradient(circle at 35% 28%,#ff9a9a,#d8363a 55%,#7a1418) padding-box, conic-gradient(#ffd24d "+pct+"%, rgba(255,255,255,.22) 0) border-box";
-    sc.style.opacity="1";
-    sc.title=blood?("블러드 스타 — 승급·변형·영웅 재화. 적 유닛을 처치해 게이지를 채우면 적립 (링 = "+pct+"%)")
-                  :("스타 — 회복량 누적으로 적립 (링 = "+pct+"%). 비용 부족 시 자동으로 녹아 사용");
+  {   /* 진행 링 없음 (2026-09-12 사용자 결정) — 다음 ★까지의 진행은 붉은 바가 담당 */
+    sc.style.border=""; sc.style.background=""; sc.style.opacity="1";
+    sc.title=blood?"블러드 스타 — 승급·변형·영웅 재화. 적 유닛을 처치해 붉은 게이지를 채우면 적립":"스타 — 회복량 누적으로 적립. 비용 부족 시 자동으로 녹아 사용";
   }
 }
 
@@ -2716,12 +2714,25 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
       ctx.fillText("I".repeat(t),bx+bw*0.09,by+bh*0.6);
       break;}
     case "elixirBase":{
-      /* 형태: 낮은 받침 + 큰 마름모 크리스탈 (다이아몬드 실루엣) */
-      ctx.fillStyle=T.main;roundRectPath(bx,by+bh*0.42,bw,bh*0.58,6);ctx.fill();po(lw);
-      ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.1,by+bh*0.42,bw*0.8,bh*0.14,3);ctx.fill();po(lw*0.7);
-      ctx.fillStyle="#c86bfa";
-      ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.2);ctx.lineTo(px+pw*0.72,by+bh*0.36);ctx.lineTo(px+pw/2,by+bh*0.8);ctx.lineTo(px+pw*0.28,by+bh*0.36);ctx.closePath();ctx.fill();po(lw);
-      ctx.fillStyle="#e8b3ff";ctx.beginPath();ctx.moveTo(px+pw/2,by-ph*0.08);ctx.lineTo(px+pw*0.6,by+bh*0.3);ctx.lineTo(px+pw/2,by+bh*0.5);ctx.closePath();ctx.fill();
+      /* 골드 광산 (2026-09-12 자원 재편): 금맥 바위 무더기 + 목재 갱도 입구(진영색 상인방) + 금 수레 */
+      const cx0=px+pw/2;
+      ctx.fillStyle="#8d8a7c";   // 뒤쪽 바위
+      ctx.beginPath();ctx.moveTo(bx-bw*0.05,by+bh*0.62);ctx.lineTo(bx+bw*0.12,by+bh*0.1);ctx.lineTo(bx+bw*0.5,by-bh*0.06);
+      ctx.lineTo(bx+bw*0.9,by+bh*0.12);ctx.lineTo(bx+bw*1.05,by+bh*0.62);ctx.closePath();ctx.fill();po(lw);
+      ctx.fillStyle="#a5a294";ctx.beginPath();ctx.moveTo(bx+bw*0.2,by+bh*0.6);ctx.lineTo(bx+bw*0.3,by+bh*0.2);ctx.lineTo(bx+bw*0.55,by+bh*0.08);ctx.lineTo(bx+bw*0.7,by+bh*0.6);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="#ffd24d";ctx.lineWidth=lw*1.1;ctx.lineCap="round";   // 금맥
+      ctx.beginPath();ctx.moveTo(bx+bw*0.16,by+bh*0.42);ctx.lineTo(bx+bw*0.28,by+bh*0.3);ctx.lineTo(bx+bw*0.34,by+bh*0.44);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(bx+bw*0.64,by+bh*0.22);ctx.lineTo(bx+bw*0.76,by+bh*0.32);ctx.lineTo(bx+bw*0.88,by+bh*0.26);ctx.stroke();ctx.lineCap="butt";
+      /* 갱도 입구 */
+      ctx.fillStyle="#8a5a28";roundRectPath(cx0-bw*0.3,by+bh*0.3,bw*0.6,bh*0.72,3);ctx.fill();po(lw);
+      ctx.fillStyle="#2a2028";ctx.beginPath();ctx.arc(cx0,by+bh*0.64,bw*0.19,Math.PI,0);ctx.lineTo(cx0+bw*0.19,by+bh*1.0);ctx.lineTo(cx0-bw*0.19,by+bh*1.0);ctx.closePath();ctx.fill();po(lw*0.8);
+      ctx.strokeStyle="rgba(255,255,255,.18)";ctx.lineWidth=1;   // 목재 결
+      for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(cx0-bw*0.3+2,by+bh*(0.3+0.18*i));ctx.lineTo(cx0-bw*0.19,by+bh*(0.3+0.18*i));ctx.stroke();ctx.beginPath();ctx.moveTo(cx0+bw*0.19,by+bh*(0.3+0.18*i));ctx.lineTo(cx0+bw*0.3-2,by+bh*(0.3+0.18*i));ctx.stroke();}
+      ctx.fillStyle=T.main;roundRectPath(cx0-bw*0.34,by+bh*0.24,bw*0.68,bh*0.12,2);ctx.fill();po(lw*0.7);   // 진영색 상인방
+      /* 금 수레 */
+      ctx.fillStyle="#5a4028";roundRectPath(bx+bw*0.68,by+bh*0.76,bw*0.3,bh*0.18,2);ctx.fill();po(lw*0.7);
+      ctx.fillStyle="#ffd24d";[[0.74,0.74],[0.82,0.7],[0.9,0.74]].forEach(([fx,fy])=>{ctx.beginPath();ctx.arc(bx+bw*fx,by+bh*fy,bw*0.05,0,7);ctx.fill();po(lw*0.5);});
+      ctx.fillStyle=DARKGRAY;[[0.74,0.97],[0.92,0.97]].forEach(([fx,fy])=>{ctx.beginPath();ctx.arc(bx+bw*fx,by+bh*fy,bw*0.045,0,7);ctx.fill();po(lw*0.5);});
       break;}
     case "shooterGarden":{
       /* 형태: 야외 사격장 — 낮은 담장 + 나란한 원형 과녁 2기 + 화살 다발 (텐트 계열과 무관) */
@@ -3262,18 +3273,23 @@ function buildBG(){
       c.strokeRect(x+1,y+1,w-2,h-2);
     });
   });
-  /* 가스 타일 */
+  /* 금광 지대 (2026-09-12 자원 재편): 흙빛 노두 패치 + 회색 바위 + 금덩이 (구 보라 크리스탈 대체) */
   BAL.GAS_ZONES.forEach(([gx,gy])=>{
-    c.fillStyle="rgba(160,90,220,.28)";
-    c.fillRect(gx*TILE,gy*TILE,2*TILE,2*TILE);
-    c.strokeStyle="rgba(120,50,180,.7)";c.lineWidth=2;
-    c.strokeRect(gx*TILE+2,gy*TILE+2,2*TILE-4,2*TILE-4);
-    /* 크리스탈 */
-    const cx=(gx+1)*TILE,cy=(gy+1)*TILE;
-    c.fillStyle="#c86bfa";
-    c.beginPath();c.moveTo(cx,cy-12);c.lineTo(cx+9,cy);c.lineTo(cx,cy+12);c.lineTo(cx-9,cy);c.closePath();c.fill();
+    const x0=gx*TILE,y0=gy*TILE,s=2*TILE,cx=x0+TILE,cy=y0+TILE;
+    const rr=(x,y,w,h,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();};
+    c.fillStyle="rgba(150,110,50,.45)";rr(x0+3,y0+3,s-6,s-6,8);c.fill();
+    c.strokeStyle="rgba(90,60,20,.8)";c.lineWidth=2;c.stroke();
+    c.fillStyle="rgba(110,80,35,.35)";rr(x0+8,y0+8,s-16,s-16,6);c.fill();   // 안쪽 흙
+    /* 바위 노두 */
+    c.fillStyle="#9a927e";
+    c.beginPath();c.moveTo(cx-20,cy+14);c.lineTo(cx-14,cy-4);c.lineTo(cx-2,cy-14);c.lineTo(cx+14,cy-6);c.lineTo(cx+20,cy+14);c.closePath();c.fill();
     c.strokeStyle="#2e2a33";c.lineWidth=1.6;c.stroke();
-    c.fillStyle="#e8b3ff";c.beginPath();c.moveTo(cx,cy-8);c.lineTo(cx+5,cy-1);c.lineTo(cx,cy+2);c.closePath();c.fill();
+    c.fillStyle="#b3ab98";c.beginPath();c.moveTo(cx-10,cy+10);c.lineTo(cx-6,cy-4);c.lineTo(cx+4,cy-9);c.lineTo(cx+8,cy+10);c.closePath();c.fill();
+    /* 금덩이 + 반짝임 */
+    c.fillStyle="#ffd24d";
+    [[-8,3,5],[3,-3,6],[11,7,4]].forEach(([dx,dy,r])=>{c.beginPath();c.arc(cx+dx,cy+dy,r,0,7);c.fill();c.stroke();});
+    c.fillStyle="rgba(255,255,255,.85)";
+    [[-9.5,1.5],[1,-5],[10,5.5]].forEach(([dx,dy])=>{c.beginPath();c.arc(cx+dx,cy+dy,1.5,0,7);c.fill();});
   });
   c.strokeStyle="rgba(40,85,15,.6)";c.lineWidth=6;c.strokeRect(3,3,W-6,H-6);
 }
