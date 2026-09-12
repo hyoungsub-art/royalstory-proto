@@ -295,7 +295,7 @@ const BAL={
        tierGold:[0,0,15,35], transformGold:8,   // (가정) 킵 15 / 캐슬 35 / 변형 일괄 8
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
  /* 무너진 성벽 흔적 (2026-09-13 확정): 각 진영 본진 앞 off칸 떨어진 곳부터 h칸 두께로 맵을 가로지르는 성벽선. 거점은 이 위에서만 건설 (길·지형·금광 칸은 비움) */
- RUIN_LINE:{off:2, h:2},
+ RUIN_LINE:{off:3, h:2},   // off 3 (2026-09-13): 금광 지대(본진 앞 2~3칸)와 겹치지 않게 한 칸 상대 쪽으로
  EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -1718,6 +1718,7 @@ function renderPanel(){
       p.appendChild(div);
     });
   }
+  syncAttackUI();   // 패널을 다시 그린 뒤 명령 버튼의 선택(picking)·활성(on) 표시 복원 — 연출/파괴로 재생성돼도 선택 유지 (2026-09-13)
 }
 function attachDrag(div,info){
   div.addEventListener("pointerdown",e=>{
