@@ -67,8 +67,8 @@ window.BALANCE = {
     workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 13 } },   // 공성추 생산, Lv3 → 시즈 워크숍
     sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
     tower:         { hp: 3200, cost: 5 },   // 비무장 거점 전용 (2026-09-04) — 공격은 가드/아케인 변형만
-    guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 6 } },   // 2026-09-08 사거리 5→6 (아케인과 교환, 가정)
-    arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.4, rng: 5, splash: 2.0 } },   // 2026-09-08 사거리 6→5, 공속 1.0→1.4 — 근거리 광역 카운터 (가정)
+    guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 4.5 } }, // 2026-09-13 사거리 6→4.5 — 흔적선 간격 6칸 안, 거점끼리 교전 방지 (가정)
+    arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.4, rng: 4, splash: 2.0 } },   // 2026-09-13 사거리 5→4 — 거점 간 교전 방지, 근거리 광역 카운터 (가정)
     siegeWorkshop: { hp: 3000,          prod: { unit: "siegeTank",     period: 20 } },   // 워크숍 Lv3 변형
     dragonNest:    { hp: 3200,          prod: { unit: "dragon",        period: 16 } },   // 생텀 Lv3 변형
     golemCradle:   { hp: 3400,          prod: { unit: "golem",         period: 16 } },   // 생텀 Lv3 변형 (택일)
