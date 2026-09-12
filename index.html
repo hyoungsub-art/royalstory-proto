@@ -283,7 +283,7 @@ const BAL={
        starBy:"none", bloodPer:30, bloodDiv:100, starPer:1.0,
        tierGold:[0,0,15,35], transformGold:8,   // (가정) 킵 15 / 캐슬 35 / 변형 일괄 8
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
- EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2, 강등 시 축소). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
+ EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
  UNIT_CAP:60, HERO_COST:0, HERO_CD:12,   // 영웅 무료 소환 — 사망 시 쿨다운만
@@ -1726,7 +1726,6 @@ function showStrip(b){
       html+=`<button onclick="tierUp()" ${hard?'disabled data-hard="1"':`data-cost="${need}"`} ${!hard&&elixirOf(MYSIDE)<need?"disabled":""}>`
           +`${TIER_NM[nt]} 승급 (💰${need})${hard?`<br><span style="font-size:10px">${needNm} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최고 티어</div>`;
-    if(effTier(MYSIDE)<myTier())html+=`<div class="b-note" style="color:var(--red)">⚠ 티어 강등 중</div>`;
   }
   (d.transforms||[]).forEach((tr,i)=>{
     if(tr.minLevel&&b.level<tr.minLevel)return;   // 레벨 조건 변형은 조건 충족 시에만 버튼 표시
@@ -2066,7 +2065,7 @@ function updateHUD(){
   document.getElementById("elixir-num").textContent="💰"+Math.floor(el);
   document.getElementById("elixir-bar").title=blood?("블러드 게이지 "+Math.floor(bl)+"/"+per+" — 적 유닛 처치로 채워지며 가득 차면 블러드 스타 +1"):"골드";
   const t=effTier(MYSIDE);
-  document.getElementById("tier-label").textContent=TIER_NM[t]+(t<myTier()?" (강등)":"");
+  document.getElementById("tier-label").textContent=TIER_NM[t];   // 강등 없음 (2026-09-12)
   const m=Math.floor(S.elapsed/60),s=Math.floor(S.elapsed%60);
   document.getElementById("time-label").textContent=m+":"+String(s).padStart(2,"0");
   refreshBubble();
@@ -2684,7 +2683,7 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
   const bx=px+pw*0.12,by=py+ph*0.18,bw=pw*0.76,bh=ph*0.55;
   switch(key){
     case "hall":{
-      /* 티어별 외형 진화: 1 타운 홀(단층) → 2 킵(2층 증축) → 3 캐슬(대탑+금관). 강등 시 외형도 하락 */
+      /* 티어별 외형 진화: 1 타운 홀(단층) → 2 킵(2층 증축) → 3 캐슬(대탑+금관) */
       const t=tierNow||1, cx=px+pw/2;
       ctx.fillStyle=T.main;roundRectPath(bx,by,bw,bh+ph*0.05,8);ctx.fill();po(lw);
       ctx.fillStyle=T.dark;roundRectPath(bx+bw*0.62,by,bw*0.38,bh+ph*0.05,8);ctx.fill();   // 그늘 면
