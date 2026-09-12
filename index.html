@@ -1676,12 +1676,12 @@ function aiUpdate(dt){
 
 /* ---------- 조작: 패널 & 드래그 ---------- */
 /* 공격 지점 지정 (2026-09-13): ⚔ 버튼 → 지도 탭 = 공격 지점 커맨드 / ↩ 복귀 = 해제 */
-let pickMode=null;   // null | {kind:"attack"|"move", grp:null(전군)|그룹키}
+let pickMode=null, lastDragEnd=0;   // null | {kind:"attack"|"move", grp} — 지정 모드는 지형을 눌러도 유지되고(연속 지정), 같은 버튼 재탭·✋·복귀로만 해제
 function beginPick(kind,grp){
   if(!S||S.over)return;
   grp=grp||null;
   pickMode=(pickMode&&pickMode.kind===kind&&pickMode.grp===grp)?null:{kind,grp}; syncAttackUI();
-  if(pickMode)toast("지도를 탭해 "+(grp?grpNm(grp)+" ":"전군 ")+(kind==="attack"?"공격":"이동")+" 지점을 지정하세요 (다시 누르면 취소)");
+  if(pickMode)toast("지도를 탭해 "+(grp?grpNm(grp)+" ":"전군 ")+(kind==="attack"?"공격":"이동")+" 지점을 지정하세요 — 연속 지정 가능, 버튼을 다시 누르면 해제");
 }
 function recallAll(grp){ if(!S||S.over)return; pickMode=null; issueCmd({type:"recall",grp:grp||null,side:MYSIDE}); syncAttackUI(); }
 function holdAll(grp){ if(!S||S.over)return; pickMode=null; issueCmd({type:"hold",grp:grp||null,side:MYSIDE}); syncAttackUI(); }
@@ -1792,7 +1792,7 @@ function attachDrag(div,info){
   const end=e=>{
     if(!dragState||dragState.id!==e.pointerId)return;
     const st=dragState; dragState=null; div.classList.remove("dragging");
-    S.sel=null; S.mouse=null;
+    S.sel=null; S.mouse=null; if(st.moved)lastDragEnd=performance.now();   // 배치 드롭 직후 캔버스 click이 지정 모드 명령으로 새지 않게
     const finish=()=>{ if(panelDirty){panelDirty=false;renderPanel();} };
     if(e.type==="pointercancel"||!st.moved||!st.pt){finish();return;}
     if(st.rawAimY>H+20||st.rawX<-20||st.rawX>W+20){finish();return;}  // 취소 제스처
@@ -1845,7 +1845,8 @@ cv.addEventListener("click",e=>{
   const rect=cv.getBoundingClientRect();
   const sx=(e.clientX-rect.left)*(cv.width/rect.width), sy=(e.clientY-rect.top)*(cv.height/rect.height);
   const {x,y}=unflipPt(sx,sy);   // 게스트 화면 반전 보정 → 시뮬 좌표
-  if(pickMode){ const k=pickMode; pickMode=null; issueCmd({type:k.kind,x,y,grp:k.grp,side:MYSIDE}); syncAttackUI(); return; }   // 공격/이동 지점 지정 탭 — 지형 지점만
+  if(pickMode){ if(performance.now()-lastDragEnd<300)return;   // 건물 배치 직후의 클릭은 무시
+    const k=pickMode; issueCmd({type:k.kind,x,y,grp:k.grp,side:MYSIDE}); syncAttackUI(); return; }   // 지정 모드 유지 (2026-09-13): 연속 지정 가능, 버튼 재탭으로 해제
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
   if(b&&b.side===MYSIDE&&b.hp>0){
