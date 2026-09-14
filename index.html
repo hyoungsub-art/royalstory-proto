@@ -3238,7 +3238,7 @@ function draw(){
       ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0,y0+h-5,w,5);
     }
   });
-  [...S.buildings].sort((a,b)=>(a.ty+a.h)-(b.ty+b.h)).forEach(b=>{
+  const drawBld=b=>{
     const px=b.tx*TILE,py=b.ty*TILE,pw=b.w*TILE,ph=b.h*TILE;
     if(b.hp<=0){ /* 잔해 — 6초에 걸쳐 페이드 아웃 후 제거 */
       ctx.globalAlpha=Math.max(0,Math.min(1,(b.rubbleT===undefined?1:b.rubbleT/6)));
@@ -3276,21 +3276,23 @@ function draw(){
         if(canUp)badge("↑","#3fae5a");
       }
     }
-  });
-  /* 세로 성벽 (2026-09-15 3차, 사용자 요청): 거점 사이 가운데 한 줄 — 스프라이트에 가리지 않게 건물 위에 그린다 */
-  wallData().segs.forEach(({a,b,dir})=>{
-    if(dir!=="v")return;
+  };
+  /* 세로 성벽 (2026-09-15 4차): 위 거점 뒤에서 나와 아래 거점 **뒤로** 들어가도록 건물과 같은 깊이 순서로 그린다
+     — 이음새 구간만 칠해 아래 거점을 가리지 않는다 */
+  const drawVWall=({a,b})=>{
     const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
-    const seam=(a.ty+a.h)*TILE;   // 두 거점이 맞닿는 이음새 — 탑 몸체를 가리지 않게 그 둘레만 잇는다
-    const w=TILE*0.72, x0=a.cx-w/2, y0=seam-TILE*0.62, y1=seam+TILE*0.62, h=y1-y0;
+    const seam=(a.ty+a.h)*TILE;
+    const w=TILE*0.78, x0=a.cx-w/2, y0=seam-TILE*0.95, y1=seam+TILE*0.5, h=y1-y0;   // 위쪽은 드러나고 아래쪽은 아래 거점에 가린다
     ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
     ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
     for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+w,yy);ctx.stroke();}
-    ctx.fillStyle=T.dark;   // 총안 (양 모서리) + 진영색 띠
-    for(let yy=y0+5;yy<y1-8;yy+=12){ctx.fillRect(x0-4,yy,5,7);ctx.fillRect(x0+w-1,yy,5,7);}
-    ctx.fillRect(x0,y0,w,3);
+    ctx.fillStyle=T.dark;   // 총안 (양 모서리)
+    for(let yy=y0+4;yy<y1-7;yy+=11){ctx.fillRect(x0-4,yy,5,7);ctx.fillRect(x0+w-1,yy,5,7);}
     ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(x0+w-4,y0,4,h);   // 측면 그림자
-  });
+  };
+  {const list=S.buildings.map(b=>({k:b.ty+b.h, f:()=>drawBld(b)}));
+   wallData().segs.forEach(seg=>{if(seg.dir==="v")list.push({k:seg.a.ty+seg.a.h+0.01, f:()=>drawVWall(seg)});});   // 위 거점 직후 · 아래 거점 앞
+   list.sort((p,q)=>p.k-q.k).forEach(it=>it.f());}
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
     const team=(u.side===MYSIDE);   // 색은 내 편 기준 (내 편=파랑)
