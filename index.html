@@ -2224,7 +2224,9 @@ function drawHpBar(x,y,hp,maxHp,w,side){
 function drawProdBar(b,px,py,pw,ph){
   const d=BAL.BUILDINGS[b.key]; if(!d||!d.prod)return;
   const cap=BAL.PROD_CAP||5, alive=prodAlive(b), full=alive>=cap;
-  const w=pw-10, h=4, x0=px+5, y=py+ph-h-3, gap=2, sw=(w-gap*(cap-1))/cap;
+  /* 유닛 레벨 = 건물 레벨(티어 상한) — 이미 나온 유닛도 함께 오르므로 병력 바에 레벨 핍으로 같이 보여준다 (2026-09-15) */
+  const ulv=Math.min(b.level,effTier(b.side)), pipW=ulv>1?(ulv-1)*5+3:0;
+  const w=pw-10-pipW, h=4, x0=px+5+pipW, y=py+ph-h-3, gap=2, sw=(w-gap*(cap-1))/cap;
   ctx.fillStyle="rgba(15,20,30,.8)";roundRectPath(x0-1.5,y-1.5,w+3,h+3,2.5);ctx.fill();
   const col=full?"#f2c14e":(b.side===MYSIDE?"#6fb7ff":"#ff7a6a");
   for(let i=0;i<cap;i++){
@@ -2234,6 +2236,10 @@ function drawProdBar(b,px,py,pw,ph){
     else if(i===alive&&!full){ctx.fillStyle="rgba(200,230,255,.55)";ctx.fillRect(sx,y,sw*Math.min(1,(b.prodT||0)/d.prod.period),h);}   // 다음 유닛 진행도
   }
   if(full){ctx.strokeStyle="rgba(242,193,78,.6)";ctx.lineWidth=1;roundRectPath(x0-1.5,y-1.5,w+3,h+3,2.5);ctx.stroke();}
+  if(ulv>1){   // 레벨 핍 (Lv2 = 1개, Lv3 = 2개) — 건물 스프라이트의 금색 핍과 같은 표기
+    ctx.fillStyle="#ffd24d";ctx.strokeStyle="rgba(30,25,15,.8)";ctx.lineWidth=1;
+    for(let i=0;i<ulv-1;i++){const cx=px+5+2+i*5, cy=y+h/2;ctx.beginPath();ctx.arc(cx,cy,2,0,7);ctx.fill();ctx.stroke();}
+  }
 }
 /* --- 파티클 --- */
 function addP(p){if(S&&S.particles.length<300)S.particles.push(p);}
