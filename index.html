@@ -479,7 +479,8 @@ function terrSpd(u){
 function passableTile(tx,ty){
   if(tx<0||ty<0||tx>=COLS||ty>=ROWS)return false;
   const tr=S.tiles[ty][tx].terr;
-  return !(tr&&TERR[tr].pass===false);
+  if(tr&&TERR[tr].pass===false)return false;
+  return !wallBlocked(tx,ty);   // 거점 성벽 (2026-09-15): 이어진 거점 타일은 지상 통행 불가 (공중은 moveSmart에서 직진)
 }
 function lineClear(x0,y0,x1,y1){
   const d=Math.hypot(x1-x0,y1-y0), n=Math.max(1,Math.ceil(d/(TILE*0.25)));
@@ -647,7 +648,7 @@ function newGame(){
      mode:"build", sel:null, selBld:null, mouse:null,
      heroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
      eHeroSlots:Object.keys(BAL.HEROES).map(k=>({key:k,state:"ready",cd:0,unit:null})),
-     occ:null, zoneDirty:true, bldSeq:0, unitSeq:0};
+     occ:null, wallC:null, zoneDirty:true, bldSeq:0, unitSeq:0};
   /* 스파링(AI 대전)만 전략 인격을 시드 난수로 뽑는다 — 같은 시드 = 같은 상대 (리플레이 재현). GAME_CFG.aiStyle로 강제 가능 */
   S.stats={pBuild:[],pHero:[],pTf:[],pTier:[],pHold:0,pUnits:{},hallDmg:{}};   // 학습용 기록 (플레이어 커맨드·유닛 구성·AI 본진 피해 주체)
   S.aiStyle=null; S.aiStyleObj=null;
@@ -671,7 +672,7 @@ function addBuilding(key,side,tx,ty){
   const b={key,side,tx,ty,w:d.w,h:d.h,hp:bhp,maxHp:bhp,level:1,prodT:0,cd:0,flash:0,boomed:false,
            id:++S.bldSeq,   // 커맨드(리플레이·PvP)에서 건물을 지칭하는 결정론적 id
            cx:(tx+d.w/2)*TILE, cy:(ty+d.h/2)*TILE};
-  S.buildings.push(b); S.occ=null; S.zoneDirty=true;
+  S.buildings.push(b); S.occ=null; S.wallC=null; S.zoneDirty=true;
   return b;
 }
 function aliveB(side,key){return S.buildings.some(b=>b.side===side&&b.key===key&&b.hp>0);}
@@ -693,6 +694,23 @@ function occGrid(){
     for(let dy=0;dy<b.h;dy++)for(let dx=0;dx<b.w;dx++){const y=b.ty+dy,x=b.tx+dx;if(g[y]&&g[y][x]!==undefined)g[y][x]=b;}});
   return S.occ=g;
 }
+/* 거점 성벽 (2026-09-15): 같은 편 거점(거점·가드·아케인)이 가로 또는 세로로 맞붙으면 성벽으로 이어진다.
+   이어진 거점의 타일은 지상 유닛이 지날 수 없다 (홀로 선 거점은 통행 가능 — 벽이 아니라 초소) */
+function wallData(){
+  if(S.wallC)return S.wallC;
+  const outs=S.buildings.filter(b=>b.hp>0&&ZONE_KEYS.has(b.key)&&b.key!=="hall");
+  const segs=[], linked=new Set();
+  outs.forEach(a=>outs.forEach(o=>{
+    if(o===a||o.side!==a.side)return;
+    if(o.ty===a.ty&&o.tx===a.tx+a.w){segs.push({a,b:o,dir:"h"});linked.add(a.id);linked.add(o.id);}        // 가로 연결
+    else if(o.tx===a.tx&&o.ty===a.ty+a.h){segs.push({a,b:o,dir:"v"});linked.add(a.id);linked.add(o.id);}   // 세로 연결 (2026-09-15 추가)
+  }));
+  const block=new Set();
+  outs.forEach(b=>{if(!linked.has(b.id))return;
+    for(let dy=0;dy<b.h;dy++)for(let dx=0;dx<b.w;dx++)block.add((b.ty+dy)*COLS+(b.tx+dx));});
+  return S.wallC={segs,block};
+}
+function wallBlocked(tx,ty){return wallData().block.has(ty*COLS+tx);}
 function tileDist(x1,y1,x2,y2){return Math.hypot(x1-x2,y1-y2);}
 /* 아군 영역 (2026-09-12 확정): 본진·타워류 풋프린트를 둘러싼 BUILD_RING(2)칸 띠. 타일 단위 체비셰프 거리 */
 const ZONE_KEYS=new Set(["hall","tower","guardTower","arcaneTower"]);
@@ -1107,7 +1125,15 @@ function goalPoint(u){
   return rallyPoint(u);
 }
 function moveToward(u,tx,ty,step){const d=Math.hypot(tx-u.x,ty-u.y);if(d<1)return;
-  u.x+=(tx-u.x)/d*step;u.y+=(ty-u.y)/d*step;
+  const nx=u.x+(tx-u.x)/d*step, ny=u.y+(ty-u.y)/d*step;
+  /* 거점 성벽은 지상 유닛이 통과할 수 없다 (2026-09-15): 막힌 칸으로 들어가는 성분만 잘라 벽을 따라 미끄러진다.
+     이미 벽 안에 있는 유닛(성벽 완성 시 갇힌 경우)은 빠져나올 수 있도록 그대로 통과시킨다 */
+  if(u.air||wallBlocked(Math.floor(u.x/TILE),Math.floor(u.y/TILE))){u.x=nx;u.y=ny;}
+  else {
+    const bx=wallBlocked(Math.floor(nx/TILE),Math.floor(u.y/TILE)), by=wallBlocked(Math.floor(u.x/TILE),Math.floor(ny/TILE));
+    if(!bx)u.x=nx;
+    if(!by)u.y=ny;
+  }
   u.x=Math.max(8,Math.min(W-8,u.x));u.y=Math.max(8,Math.min(H-8,u.y));}
 function hitFx(x,y){S.effects.push({tp:"hit",x,y,t:0.18});}
 
@@ -1223,7 +1249,7 @@ function transformBuilding(b,newKey){
   b.key=newKey; b.maxHp=nd.hp; b.hp=Math.round(nd.hp*ratio); b.prodT=0; b.level=1;
   if(nd.prod)S.units.forEach(u=>{if(u.src===b.id&&u.hp>0)morphUnit(u,nd.prod.unit);});   // 이미 나온 유닛도 새 병종으로 (2026-09-13)
   if(lostLv>1&&b.side===MYSIDE)toast(nd.nm+"(으)로 변형 — 레벨 Lv"+lostLv+" → Lv1 초기화");
-  S.occ=null; burst(b.cx,b.cy,"255,220,120",14,140);
+  S.occ=null; S.wallC=null; burst(b.cx,b.cy,"255,220,120",14,140);
   if(b.side===MYSIDE){SND.play("transform");renderPanel(); hideStrip();}   // 실행 후 말풍선 닫기
 }
 /* ---------- 적 건설 AI ---------- */
@@ -2110,14 +2136,14 @@ function stepSim(dt){
         const slot=slots.find(s=>s.unit===u);
         if(slot){slot.state="cd";slot.cd=BAL.HERO_CD;slot.unit=null;if(u.side===MYSIDE)renderPanel();}}}});
     S.units=S.units.filter(u=>u.hp>0);
-    S.buildings.forEach(b=>{if(b.hp<=0&&!b.boomed){b.boomed=true;b.rubbleT=6;buildingBoom(b);S.occ=null;S.zoneDirty=true;
+    S.buildings.forEach(b=>{if(b.hp<=0&&!b.boomed){b.boomed=true;b.rubbleT=6;buildingBoom(b);S.occ=null; S.wallC=null;S.zoneDirty=true;
       if(S.selBld===b)hideStrip();
       if(b.side!==MYSIDE)toast(BAL.BUILDINGS[b.key].nm+" 파괴! 배제 반경 해제");
       renderPanel();}});
     /* 잔해 소멸 (2026-09-07): 파괴 6초 후 잔해 제거 — 빈 셀로 명확히 */
     let rubbleGone=false;
     S.buildings.forEach(b=>{if(b.boomed){b.rubbleT=(b.rubbleT===undefined?6:b.rubbleT)-dt;if(b.rubbleT<=0)rubbleGone=true;}});
-    if(rubbleGone){S.buildings=S.buildings.filter(b=>!(b.boomed&&b.rubbleT<=0));S.occ=null;S.zoneDirty=true;}
+    if(rubbleGone){S.buildings=S.buildings.filter(b=>!(b.boomed&&b.rubbleT<=0));S.occ=null; S.wallC=null;S.zoneDirty=true;}
     /* 영웅 쿨다운 */
     let cdChanged=false;
     S.heroSlots.forEach(s=>{if(s.state==="cd"){s.cd-=dt;if(s.cd<=0){s.state="ready";if(MYSIDE==="player")cdChanged=true;}}});
@@ -3193,17 +3219,30 @@ function draw(){
   }
   /* 건물 (y 정렬 — 아래쪽 건물이 위쪽 건물의 솟은 부분을 가리도록) */
   /* 인접 거점 연결 성벽 (2026-09-13, 연출): 같은 줄에 붙여 세운 거점·가드·아케인은 석축 성벽으로 이어진다 (이동 차단은 없음) */
-  {const outs=S.buildings.filter(b=>b.hp>0&&ZONE_KEYS.has(b.key)&&b.key!=="hall");
-   outs.forEach(a=>{const b=outs.find(o=>o!==a&&o.side===a.side&&o.ty===a.ty&&o.tx===a.tx+a.w); if(!b)return;
-     const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"], x0=a.cx, x1=b.cx, y0=a.ty*TILE+TILE*0.62, h=TILE*1.15, w=x1-x0;
-     ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
-     ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
-     for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();}
-     for(let xx=x0+8;xx<x1;xx+=15){ctx.beginPath();ctx.moveTo(xx,y0+3);ctx.lineTo(xx,y0+h-3);ctx.stroke();}
-     ctx.fillStyle=T.dark;   // 총안 + 진영색 띠
-     for(let xx=x0+4;xx<x1-8;xx+=12)ctx.fillRect(xx,y0-6,7,7);
-     ctx.fillRect(x0,y0+h*0.45,w,4);
-     ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0,y0+h-5,w,5);});}
+  wallData().segs.forEach(({a,b,dir})=>{
+    const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
+    if(dir==="h"){   // 가로 성벽 — 두 거점 사이를 잇는 석축
+      const x0=a.cx, x1=b.cx, y0=a.ty*TILE+TILE*0.62, h=TILE*1.15, w=x1-x0;
+      ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
+      ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
+      for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();}
+      for(let xx=x0+8;xx<x1;xx+=15){ctx.beginPath();ctx.moveTo(xx,y0+3);ctx.lineTo(xx,y0+h-3);ctx.stroke();}
+      ctx.fillStyle=T.dark;   // 총안 + 진영색 띠
+      for(let xx=x0+4;xx<x1-8;xx+=12)ctx.fillRect(xx,y0-6,7,7);
+      ctx.fillRect(x0,y0+h*0.45,w,4);
+      ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0,y0+h-5,w,5);
+    } else {   // 세로 성벽 (2026-09-15): 위아래로 맞붙은 거점을 잇는 석축
+      const x0=a.cx-TILE*0.42, w=TILE*0.84, y0=a.cy, y1=b.cy, h=y1-y0;
+      ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
+      ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;
+      for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+w,yy);ctx.stroke();}
+      ctx.beginPath();ctx.moveTo(x0+w*0.5,y0);ctx.lineTo(x0+w*0.5,y1);ctx.stroke();
+      ctx.fillStyle=T.dark;   // 총안 (양옆) + 진영색 띠
+      for(let yy=y0+6;yy<y1-8;yy+=12){ctx.fillRect(x0-5,yy,6,7);ctx.fillRect(x0+w-1,yy,6,7);}
+      ctx.fillRect(x0,y0,w,3);
+      ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0+w-5,y0,5,h);
+    }
+  });
   [...S.buildings].sort((a,b)=>(a.ty+a.h)-(b.ty+b.h)).forEach(b=>{
     const px=b.tx*TILE,py=b.ty*TILE,pw=b.w*TILE,ph=b.h*TILE;
     if(b.hp<=0){ /* 잔해 — 6초에 걸쳐 페이드 아웃 후 제거 */
