@@ -300,6 +300,7 @@ const BAL={
  RUIN_LINE:{off:4, h:2},   // off 4 (2026-09-13): 본진 앞 4칸 간격 — 플레이어 y14-15 / 적 y8-9 (금광 지대와 겹치지 않음)
  /* 건설 지역 (2026-09-13 확정): 아군 쪽 맵 끝에서 세로 HALL_REACH[티어]행 × 맵 가로 전체. 타운홀 6 / 킵 10 / 캐슬 14 (가정) — 거점(흔적선)·골드 광산(금광)도 이 안에서만 */
  HALL_REACH:[0,6,10,14],
+ AURA_PWR:0.25, UPG_PWR:0.12,   // 2026-09-15 버그 수정: balance.js 없이 열면 undefined → lvMult()=NaN → 레벨업한 유닛의 HP가 NaN이 되어 조용히 사라졌다
  EXCLUDE_R:5.25, BUILD_RING:[0,2,4,6], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 2 / 킵 4 / 캐슬 6 (승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
@@ -832,7 +833,7 @@ function doTierUp(side){
 }
 
 /* 유닛 레벨 배율: 생산 건물 레벨이 곧 유닛 레벨 (2026-08-30 개정) */
-function lvMult(level){return 1+BAL.UPG_PWR*((level||1)-1);}
+function lvMult(level){const p=+BAL.UPG_PWR; const m=1+(isFinite(p)?p:0.12)*((level||1)-1); return isFinite(m)&&m>0?m:1;}
 /* 레벨업 비용 (레벨당 고정, 2026-09-07): 건물 등급별 — 1티어 건설 4 / 킵 건설 8 / 변형 획득 12 */
 function upCostFor(bOrKey){
   const key=bOrKey&&bOrKey.key?bOrKey.key:bOrKey;
@@ -915,7 +916,8 @@ function spawnUnit(key,side,x,y,hero,level){
   if(side==="player"&&S.stats&&!hero)S.stats.pUnits[key]=(S.stats.pUnits[key]||0)+1;   // 학습: 플레이어 유닛 구성 (6-7)
   /* 유닛 레벨: 생산 건물 레벨을 그대로 계승 — 스탯에 즉시 반영 (영웅은 레벨 1) */
   u.level=hero?1:(level||1);
-  if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;}
+  if(u.level>1){const lm=lvMult(u.level);u.hp*=lm;u.maxHp*=lm;u.dmg*=lm;
+    if(!(isFinite(u.maxHp)&&u.maxHp>0)){u.maxHp=d.hp;u.hp=d.hp;u.dmg=d.dmg;}}   // 방어 (2026-09-15)
   S.units.push(u);
   return u;
 }
@@ -924,7 +926,8 @@ function applyUnitLevel(u,lv){
   if(u.hero||lv===u.level)return;
   const d=BAL.UNITS[u.key]; if(!d)return;
   const r0=u.maxHp>0?u.hp/u.maxHp:1, ratio=(isFinite(r0)&&r0>0)?Math.min(1,r0):1, lm=lvMult(lv);
-  u.level=lv; u.maxHp=d.hp*lm; u.hp=Math.max(1,u.maxHp*ratio); u.dmg=d.dmg*lm;   // 레벨 반영이 유닛을 죽이지 않도록 하한 보장 (2026-09-15)
+  const mx=d.hp*lm, hp=mx*ratio;   // 레벨 반영이 유닛을 지우지 않도록 (NaN → hp>0 필터에서 조용히 제거되던 문제, 2026-09-15)
+  u.level=lv; u.maxHp=isFinite(mx)&&mx>0?mx:d.hp; u.hp=isFinite(hp)&&hp>0?hp:u.maxHp; u.dmg=isFinite(d.dmg*lm)?d.dmg*lm:d.dmg;
   S.effects.push({tp:"ftext",x:u.x,y:u.y-u.r-8,text:"Lv"+lv,t:0.8,t0:0.8,col:u.side===MYSIDE?"140,220,255":"255,170,170"});
 }
 function morphUnit(u,newKey){
