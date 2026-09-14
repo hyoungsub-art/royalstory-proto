@@ -3220,8 +3220,8 @@ function draw(){
   /* 건물 (y 정렬 — 아래쪽 건물이 위쪽 건물의 솟은 부분을 가리도록) */
   /* 인접 거점 연결 성벽 (2026-09-13, 연출): 같은 줄에 붙여 세운 거점·가드·아케인은 석축 성벽으로 이어진다 (이동 차단은 없음) */
   wallData().segs.forEach(({a,b,dir})=>{
-    const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
-    if(dir==="h"){   // 가로 성벽 — 두 거점 사이를 잇는 석축
+    if(dir!=="h")return;   // 세로 성벽은 거점 스프라이트에 가리므로 건물 뒤가 아니라 건물 위에 그린다 (아래 drawVWalls)
+    {const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
       const x0=a.cx, x1=b.cx, y0=a.ty*TILE+TILE*0.62, h=TILE*1.15, w=x1-x0;
       ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
       ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
@@ -3231,16 +3231,6 @@ function draw(){
       for(let xx=x0+4;xx<x1-8;xx+=12)ctx.fillRect(xx,y0-6,7,7);
       ctx.fillRect(x0,y0+h*0.45,w,4);
       ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0,y0+h-5,w,5);
-    } else {   // 세로 성벽 (2026-09-15): 위아래로 맞붙은 거점을 잇는 석축
-      const x0=a.cx-TILE*0.42, w=TILE*0.84, y0=a.cy, y1=b.cy, h=y1-y0;
-      ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
-      ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;
-      for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+w,yy);ctx.stroke();}
-      ctx.beginPath();ctx.moveTo(x0+w*0.5,y0);ctx.lineTo(x0+w*0.5,y1);ctx.stroke();
-      ctx.fillStyle=T.dark;   // 총안 (양옆) + 진영색 띠
-      for(let yy=y0+6;yy<y1-8;yy+=12){ctx.fillRect(x0-5,yy,6,7);ctx.fillRect(x0+w-1,yy,6,7);}
-      ctx.fillRect(x0,y0,w,3);
-      ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0+w-5,y0,5,h);
     }
   });
   [...S.buildings].sort((a,b)=>(a.ty+a.h)-(b.ty+b.h)).forEach(b=>{
@@ -3281,6 +3271,21 @@ function draw(){
         if(canUp)badge("↑","#3fae5a");
       }
     }
+  });
+  /* 세로 성벽 (2026-09-15 2차): 위아래로 맞붙은 거점은 스프라이트가 사이를 덮어 버려서, 건물 위에 양 측면 석축으로 그린다 */
+  wallData().segs.forEach(({a,b,dir})=>{
+    if(dir!=="v")return;
+    const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
+    const y0=a.cy-TILE*0.25, y1=b.cy+TILE*0.25, h=y1-y0, sw=TILE*0.46;
+    [a.tx*TILE-2, (a.tx+a.w)*TILE+2-sw].forEach((x0,i)=>{
+      ctx.fillStyle=STONE;ctx.fillRect(x0,y0,sw,h);po(1.6);ctx.strokeRect(x0,y0,sw,h);
+      ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
+      for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+sw,yy);ctx.stroke();}
+      ctx.fillStyle=T.dark;   // 총안 (바깥쪽) + 진영색 띠
+      for(let yy=y0+5;yy<y1-8;yy+=12)ctx.fillRect(i?x0+sw-2:x0-4,yy,6,7);
+      ctx.fillRect(x0,y0,sw,3);
+      ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(i?x0+sw-4:x0,y0,4,h);   // 측면 그림자
+    });
   });
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
