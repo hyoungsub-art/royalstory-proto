@@ -3302,22 +3302,20 @@ function draw(){
     ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(x0+w-4,y0,4,h);   // 측면 그림자
   };
   /* 대각 성벽 (2026-09-15): 모서리로 이어진 거점 사이를 비스듬한 석축으로 잇는다 (세로와 같은 깊이 정렬) */
-  const drawDWall=({a,b})=>{
-    /* 가로 성벽과 같은 문법(석축 몸체 + 윗면 총안 + 진영색 띠 + 아랫면 그림자)을 비스듬히 눕힌 형태.
-       두 거점 사이 구간만 칠해 탑을 덮지 않는다 (2026-09-15 2차: 모양 보정) */
+  const drawDWall=({a,b,dir})=>{
+    /* 대각 연결 (2026-09-15 3차): 회전한 띠는 타일 아트와 겉돌아 어색 → 두 거점이 맞닿는 **모서리에 성벽 블록**을 놓아 잇는다.
+       가로 성벽과 같은 문법(석축 + 윗면 총안 + 진영색 띠 + 아랫면 그림자), 축에 정렬돼 지형과 어울린다 */
     const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
-    const dx=b.cx-a.cx, dy=b.cy-a.cy, ang=Math.atan2(dy,dx), dist=Math.hypot(dx,dy);
-    const s0=dist*0.3, len=dist*0.4, w=TILE*0.82;
-    ctx.save();ctx.translate(a.cx,a.cy);ctx.rotate(ang);
-    ctx.fillStyle=STONE;ctx.fillRect(s0,-w/2,len,w);po(1.6);ctx.strokeRect(s0,-w/2,len,w);
-    ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈 (가로 2줄 + 세로)
-    for(let k=1;k<3;k++){const yy=-w/2+w*k/3;ctx.beginPath();ctx.moveTo(s0,yy);ctx.lineTo(s0+len,yy);ctx.stroke();}
-    for(let xx=s0+11;xx<s0+len;xx+=11){ctx.beginPath();ctx.moveTo(xx,-w/2+2);ctx.lineTo(xx,w/2-2);ctx.stroke();}
-    ctx.fillStyle=T.dark;   // 윗면 총안 + 진영색 띠
-    for(let xx=s0+3;xx<s0+len-7;xx+=12)ctx.fillRect(xx,-w/2-5,7,6);
-    ctx.fillRect(s0,-w*0.06,len,4);
-    ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(s0,w/2-5,len,5);   // 아랫면 그림자
-    ctx.restore();
+    const cxp=(dir==="d1"?(a.tx+a.w):a.tx)*TILE, cyp=(a.ty+a.h)*TILE;   // 맞닿은 모서리 점
+    const w=TILE*1.05, h=TILE*1.15, x0=cxp-w/2, y0=cyp-h*0.62;
+    ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
+    ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
+    for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+w,yy);ctx.stroke();}
+    for(let xx=x0+8;xx<x0+w;xx+=15){ctx.beginPath();ctx.moveTo(xx,y0+3);ctx.lineTo(xx,y0+h-3);ctx.stroke();}
+    ctx.fillStyle=T.dark;   // 총안 + 진영색 띠
+    for(let xx=x0+4;xx<x0+w-8;xx+=12)ctx.fillRect(xx,y0-6,7,7);
+    ctx.fillRect(x0,y0+h*0.45,w,4);
+    ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(x0,y0+h-5,w,5);
   };
   {const list=S.buildings.map(b=>({k:b.ty+b.h, f:()=>drawBld(b)}));
    wallData().segs.forEach(seg=>{if(seg.dir==="v")list.push({k:seg.a.ty+seg.a.h+0.01, f:()=>drawVWall(seg)});
