@@ -68,11 +68,11 @@
   /* 건물별 명령 줄 (2026-09-13): 건물 버튼과 분리된 독립 버튼, 같은 열 폭으로 아래에 정렬 */
   #ord-row{display:flex;gap:5px;}
   .p-ocell{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
-  .p-ocell button{height:32px;border-radius:8px;border:1.5px solid #5a6ea6;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;font-size:13px;font-weight:bold;cursor:pointer;padding:0 2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .p-ocell button{height:44px;border-radius:9px;border:1.5px solid #5a6ea6;background:linear-gradient(180deg,#4a5a8a,#3b4a75);color:#fff;font-size:15px;font-weight:bold;cursor:pointer;padding:0 2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);touch-action:none;}
   .p-ocell button.on[data-k="attack"]{background:linear-gradient(180deg,#e0524a,#b3302a);border-color:#ff9a8a;}
   .p-ocell button.on[data-k="move"]{background:linear-gradient(180deg,#3aa86e,#247a4c);border-color:#8fe6b4;}
-  .p-ocell button.on[data-k="hold"]{background:linear-gradient(180deg,#d1a12a,#9c7412);border-color:#ffe08a;}
   .p-ocell button.picking{animation:pulse .5s ease-in-out infinite alternate;border-color:#ffd24d;}
+  .p-ocell button.drawing{border-color:#ffd24d;box-shadow:0 0 0 2px rgba(255,210,77,.5);transform:scale(1.04);}   /* 드로우 중 (2026-09-15) */
   .p-item{flex:1;background:linear-gradient(180deg,#fbfcff 0%,#dbe4f5 55%,#b9c6e2 100%);border:2px solid #5a6ea6;border-radius:9px;
     padding:3px 2px;text-align:center;cursor:grab;user-select:none;position:relative;touch-action:none;min-width:0;
     box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;}
@@ -923,8 +923,8 @@ function spawnUnit(key,side,x,y,hero,level){
 function applyUnitLevel(u,lv){
   if(u.hero||lv===u.level)return;
   const d=BAL.UNITS[u.key]; if(!d)return;
-  const ratio=u.maxHp>0?u.hp/u.maxHp:1, lm=lvMult(lv);
-  u.level=lv; u.maxHp=d.hp*lm; u.hp=u.maxHp*ratio; u.dmg=d.dmg*lm;
+  const r0=u.maxHp>0?u.hp/u.maxHp:1, ratio=(isFinite(r0)&&r0>0)?Math.min(1,r0):1, lm=lvMult(lv);
+  u.level=lv; u.maxHp=d.hp*lm; u.hp=Math.max(1,u.maxHp*ratio); u.dmg=d.dmg*lm;   // 레벨 반영이 유닛을 죽이지 않도록 하한 보장 (2026-09-15)
   S.effects.push({tp:"ftext",x:u.x,y:u.y-u.r-8,text:"Lv"+lv,t:0.8,t0:0.8,col:u.side===MYSIDE?"140,220,255":"255,170,170"});
 }
 function morphUnit(u,newKey){
@@ -1021,8 +1021,7 @@ function unitUpdate(u,dt){
       const leashB=((BAL.STANCE&&BAL.STANCE.leash)||4)*TILE;
       if(d<=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE){ if(!u.engFrom)u.engFrom={x:u.x,y:u.y}; } else u.engFrom=null;
       const overLeash=u.engFrom&&Math.hypot(u.x-u.engFrom.x,u.y-u.engFrom.y)>leashB;
-      if(ordB&&ordB.type==="hold"){turnStep(u,dt);}   // 홀드: 제자리 (광역 시전은 자동)
-      else if(overLeash||d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(ordB&&ordB.type==="move"&&!u.arrived)){   // 리시 초과 시 목표 지점으로   // 공격 이동 / 이동 명령 중 적 무시 (도착 플래그로 떨림 방지)
+      if(overLeash||d>((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE||(ordB&&ordB.type==="move"&&!u.arrived)){   // 리시 초과 시 목표 지점으로   // 공격 이동 / 이동 명령 중 적 무시 (도착 플래그로 떨림 방지)
         const hx=gpB.x, hy=gpB.y;
         if(Math.hypot(u.x-hx,u.y-hy)>TILE*0.4)locomote(u,hx,hy,dt); else turnStep(u,dt);
       } else if(d>u.aoe.castRng*TILE*0.8)locomote(u,tx,ty,dt); else turnStep(u,dt);}
@@ -1035,11 +1034,7 @@ function unitUpdate(u,dt){
   setG(tgt);
   const aggro=((BAL.STANCE&&BAL.STANCE.aggroR)||6)*TILE, release=aggro*1.4, ord=orderOf(u);
   if(u.ordRef!==ord){u.ordRef=ord;u.eng=null;u.arrived=false;}   // 명령이 바뀌면 교전 기억·도착 플래그 초기화
-  if(ord&&ord.type==="hold"){
-    /* 홀드 (스타크래프트식): 제자리 고정 — 이동하지 않고 사거리 안에 들어온 적만 공격 */
-    u.eng=null;
-    if(dd>reach){setFacing(u,tx-u.x,ty-u.y);turnStep(u,dt);return;}
-  } else {
+  {
     /* 교전 히스테리시스 (2026-09-13, 떨림 수정): 한 번 붙은 적은 aggro×1.4까지 계속 상대하고, 새 적은 aggro 안에서만 획득 —
        경계에서 매 틱 "교전 ↔ 이동"이 뒤바뀌며 방향이 요동치던 문제 제거 */
     let engage=false;
@@ -1108,7 +1103,7 @@ function slotAround(u,bx,by){
   return {x:Math.max(TILE,Math.min(W-TILE,bx+Math.cos(a)*r)),y:Math.max(TILE,Math.min(H-TILE,by+Math.sin(a)*r*0.7))};
 }
 /* 이동 목표 (2026-09-13, 공격 지점 방식): 공격 지점이 지정돼 있으면 그 주변 자기 자리, 아니면 가까운 거점/본진 앞 집결 */
-/* 병종 그룹 명령 (2026-09-13): 유닛은 생산 건물 계열(그룹)로 묶여 지휘된다. 명령 = {type:"attack"|"move",x,y} | {type:"hold"} | null(집결 대기) */
+/* 병종 그룹 명령 (2026-09-13): 유닛은 생산 건물 계열(그룹)로 묶여 지휘된다. 명령 = {type:"attack"|"move",x,y} | null(집결 대기) — 홀드는 2026-09-15 삭제 */
 const UNIT_GROUP={footman:"barracks",archer:"archery",cavalry:"assaultBarracks",ram:"workshop",mage:"sanctum"};
 const ORDER_GROUPS=["barracks","archery","assaultBarracks","workshop","sanctum","hero"];
 function groupOf(u){return u.hero?"hero":(UNIT_GROUP[u.key]||"barracks");}
@@ -1633,16 +1628,16 @@ function aiUpdate(dt){
 }
 
 /* ---------- 조작: 패널 & 드래그 ---------- */
-/* 공격 지점 지정 (2026-09-13): ⚔ 버튼 → 지도 탭 = 공격 지점 커맨드 / ↩ 복귀 = 해제 */
-let pickMode=null, lastDragEnd=0;   // null | {kind:"attack"|"move", grp} — 지정 모드는 지형을 눌러도 유지되고(연속 지정), 같은 버튼 재탭·✋·복귀로만 해제
+/* 명령 조작 (2026-09-15 개편): ⚔/➜ 버튼에서 지도로 **드로우(드래그)** 해 놓는 지점이 명령 지점 — 표식은 깃발.
+   버튼을 그냥 탭하면 예전처럼 지정 모드(연속 지정)로 들어가고, 명령 중인 버튼을 탭하면 해제된다. 홀드는 삭제 */
+let pickMode=null, lastDragEnd=0, ordDrag=null, ordGhost=null;   // pickMode: null | {kind:"attack"|"move", grp}
 function beginPick(kind,grp){
   if(!S||S.over)return;
   grp=grp||null;
   pickMode=(pickMode&&pickMode.kind===kind&&pickMode.grp===grp)?null:{kind,grp}; syncAttackUI();
-  if(pickMode)toast("지도를 탭해 "+(grp?grpNm(grp)+" ":"전군 ")+(kind==="attack"?"공격":"이동")+" 지점을 지정하세요 — 연속 지정 가능, 버튼을 다시 누르면 해제");
+  if(pickMode)toast("지도를 탭해 "+(grp?grpNm(grp)+" ":"전군 ")+(kind==="attack"?"공격":"이동")+" 깃발을 꽂으세요 — 버튼에서 지도로 끌어도 됩니다 (연속 지정, 버튼 재탭 해제)");
 }
 function recallAll(grp){ if(!S||S.over)return; pickMode=null; issueCmd({type:"recall",grp:grp||null,side:MYSIDE}); syncAttackUI(); }
-function holdAll(grp){ if(!S||S.over)return; pickMode=null; issueCmd({type:"hold",grp:grp||null,side:MYSIDE}); syncAttackUI(); }
 function syncAttackUI(){
   const a=document.getElementById("atk-btn"), m=document.getElementById("mov-btn"), r=document.getElementById("ret-btn"), c=document.getElementById("cv");
   const os=(S&&S.orders&&S.orders[MYSIDE])||{};
@@ -1659,14 +1654,46 @@ function syncAttackUI(){
     });
   });
 }
-/* 건물 버튼의 병종 명령 미니 버튼 — 드래그 시작을 막고 그룹 명령 발행 */
+/* 병종 명령 버튼 — 버튼에서 지도로 드로우해 깃발을 꽂는다 (2026-09-15). 움직이지 않은 탭은 지정 모드 토글/해제 */
 function wireOrderStrip(div,grp){
   const strip=div.classList&&div.classList.contains("p-ord")?div:div.querySelector(".p-ord"); if(!strip)return;
   strip.querySelectorAll("button").forEach(b=>{
-    b.addEventListener("pointerdown",e=>{e.stopPropagation();e.preventDefault();});
-    b.addEventListener("click",e=>{e.stopPropagation();e.preventDefault(); const k=b.dataset.k;
-      if(k==="hold"){const cur=S&&S.orders&&S.orders[MYSIDE]&&S.orders[MYSIDE][grp]; if(cur&&cur.type==="hold")recallAll(grp); else holdAll(grp);}   // ✋ 재탭 = 집결 복귀
-      else beginPick(k,grp);});
+    const kind=b.dataset.k;
+    b.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();});   // 드로우/탭은 포인터 이벤트로 처리
+    b.addEventListener("pointerdown",e=>{
+      e.stopPropagation();e.preventDefault();
+      if(!S||S.over)return;
+      hideStrip();
+      ordDrag={kind,grp,id:e.pointerId,moved:false,pt:null,sx0:e.clientX,sy0:e.clientY,el:b};
+      try{b.setPointerCapture(e.pointerId);}catch(_){}
+    });
+    b.addEventListener("pointermove",e=>{
+      if(!ordDrag||ordDrag.id!==e.pointerId)return;
+      e.stopPropagation();e.preventDefault();
+      if(!ordDrag.moved&&Math.hypot(e.clientX-ordDrag.sx0,e.clientY-ordDrag.sy0)<8)return;   // 손떨림 여유
+      if(!ordDrag.moved){ordDrag.moved=true;b.classList.add("drawing");}
+      const rect=cv.getBoundingClientRect();
+      const off=e.pointerType==="touch"?60:e.pointerType==="pen"?40:0;   // 손가락 위로 (조준점)
+      const sx=(e.clientX-rect.left)*(cv.width/rect.width);
+      const sy=(e.clientY-rect.top)*(cv.height/rect.height)-off;
+      const sim=unflipPt(sx,sy);   // 게스트 반전 보정
+      ordDrag.pt={x:Math.max(4,Math.min(W-4,sim.x)), y:Math.max(4,Math.min(H-4,sim.y))};
+      ordGhost={kind:ordDrag.kind, x:ordDrag.pt.x, y:ordDrag.pt.y};
+    });
+    const end=e=>{
+      if(!ordDrag||ordDrag.id!==e.pointerId)return;
+      const st=ordDrag; ordDrag=null; ordGhost=null; b.classList.remove("drawing");
+      if(e.type==="pointercancel")return;
+      if(st.moved&&st.pt){   // 드로우 완료 → 그 지점에 깃발 (커맨드)
+        pickMode=null; lastDragEnd=performance.now();
+        issueCmd({type:st.kind,x:st.pt.x,y:st.pt.y,grp:st.grp,side:MYSIDE}); syncAttackUI();
+      } else {   // 제자리 탭: 이미 그 명령 중이면 해제, 아니면 지정 모드 (연속 지정)
+        const cur=S&&S.orders&&S.orders[MYSIDE]&&S.orders[MYSIDE][st.grp];
+        if(cur&&cur.type===st.kind&&!pickMode)recallAll(st.grp); else beginPick(st.kind,st.grp);
+      }
+    };
+    b.addEventListener("pointerup",end);
+    b.addEventListener("pointercancel",end);
   });
 }
 function heroesOn(){return !!BAL.HEROES_ON;}
@@ -1698,7 +1725,7 @@ function renderPanel(){
       const d=BAL.BUILDINGS[key], cell=document.createElement("div"); cell.className="p-ocell";
       if(key==="elixirBase"){cell.className="p-ocell gold-cell"; cell.innerHTML=`<div class="gold-box" title="누적 골드 (상한 없음)"><div class="gold-ico">💰</div><div id="elixir-num">0</div></div>`;}   // 골드 표시 (2026-09-13: 광산 버튼 아래로 이동)
       else if(d.prod){cell.classList.add("p-ord"); cell.dataset.grp=key;
-        cell.innerHTML=`<button data-k="attack" title="${d.nm} 병종 공격 지점">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 지점">➜ 이동</button><button data-k="hold" title="${d.nm} 병종 홀드 (제자리 사수) — 다시 누르면 집결 복귀">✋ 홀드</button>`;
+        cell.innerHTML=`<button data-k="attack" title="${d.nm} 병종 공격 — 버튼에서 지도로 끌어 깃발을 꽂으세요 (탭 = 지정 모드 / 명령 중 탭 = 해제)">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 — 버튼에서 지도로 끌어 깃발을 꽂으세요 (탭 = 지정 모드 / 명령 중 탭 = 해제)">➜ 이동</button>`;
         wireOrderStrip(cell,key);}
       orow.appendChild(cell);
     });
@@ -1975,11 +2002,6 @@ function execCmd(c){
       if(sd===MYSIDE){syncAttackUI();toast((c.type==="attack"?"⚔ 공격 지점":"➜ 이동 지점")+" — "+(c.grp?grpNm(c.grp):"전군"));SND.play("click");}
       break;
     }
-    case "hold": {   // 홀드: 제자리 사수 (스타크래프트식)
-      if(!S.orders)break; setOrder(sd,c.grp||null,{type:"hold"});
-      if(sd===MYSIDE){syncAttackUI();toast("✋ 홀드 — "+(c.grp?grpNm(c.grp):"전군")+" 제자리 사수");SND.play("click");}
-      break;
-    }
     case "recall": {   // 명령 해제 → 거점/본진 앞 집결
       if(!S.orders)break; setOrder(sd,c.grp||null,null);
       if(sd===MYSIDE){syncAttackUI();toast("↩ 복귀 — "+(c.grp?grpNm(c.grp):"전군")+" 거점·본진 앞 집결");SND.play("click");}
@@ -2219,6 +2241,31 @@ function drawHpBar(x,y,hp,maxHp,w,side){
   const p=Math.max(0,hp/maxHp);
   ctx.fillStyle=side==="player"?"#3f8cff":"#ff4d4d";
   roundRectPath(x-w/2,y,Math.max(2,w*p),h,2);ctx.fill();
+}
+/* 명령 깃발 (2026-09-15): 지정 지점에 꽂히는 깃발 — 공격(붉은 기)·이동(초록 기). 바람에 날리는 삼각기 + 깃대 + 지면 링 */
+function drawOrderFlag(x,y,atk,alpha){
+  const t=S.elapsed*3.4+x*0.04, pl=1+Math.sin(S.elapsed*5)*0.1;
+  const main=atk?"#e8453a":"#2fae6a", dark=atk?"#8d1b14":"#14663d", ring=atk?"255,80,60":"90,220,140";
+  ctx.save(); ctx.globalAlpha=alpha;
+  ctx.strokeStyle="rgba("+ring+",.85)";ctx.lineWidth=2.2;   // 지면 링 (집결 반경)
+  ctx.beginPath();ctx.ellipse(x,y,TILE*0.8*pl,TILE*0.32*pl,0,0,7);ctx.stroke();
+  if(atk){ctx.strokeStyle="rgba("+ring+",.45)";ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.ellipse(x,y,TILE*1.35,TILE*0.54,0,S.elapsed*2,S.elapsed*2+4.5);ctx.stroke();}
+  upr(x,y,()=>{   // 깃발은 시점이 뒤집혀도 항상 똑바로
+    ctx.fillStyle="rgba(0,0,0,.22)";ctx.beginPath();ctx.ellipse(x,y,7,3,0,0,7);ctx.fill();   // 밑동 그림자
+    ctx.strokeStyle="#4a3a2a";ctx.lineWidth=3;ctx.lineCap="round";   // 깃대
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-30);ctx.stroke();
+    ctx.fillStyle=main;ctx.strokeStyle=dark;ctx.lineWidth=1.6;ctx.lineJoin="round";   // 펄럭이는 삼각기
+    ctx.beginPath();ctx.moveTo(x+1.5,y-30);
+    for(let i=1;i<=6;i++){const p=i/6;ctx.lineTo(x+1.5+20*p,y-30+Math.sin(t+p*2.4)*2.2+p*2);}
+    for(let i=6;i>=0;i--){const p=i/6;ctx.lineTo(x+1.5+20*p*0.62,y-30+11*(1-p*0.35)+Math.sin(t+p*2.4+0.7)*2);}
+    ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle="rgba(255,255,255,.28)";   // 천 하이라이트
+    ctx.beginPath();ctx.moveTo(x+2.5,y-29);ctx.lineTo(x+14,y-27.5);ctx.lineTo(x+6,y-25.5);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#ffd24d";ctx.strokeStyle="#7a5a10";ctx.lineWidth=1.2;   // 깃봉
+    ctx.beginPath();ctx.arc(x,y-32,3,0,7);ctx.fill();ctx.stroke();
+  });
+  ctx.restore();
 }
 /* 병력 상한 바 (2026-09-13): 생산 건물 하단의 얇은 5칸 분절 바 — 채워진 칸 = 살아 있는 생산 유닛, 다음 칸은 생산 진행도만큼 부분 채움, 상한 도달 시 금색 */
 function drawProdBar(b,px,py,pw,ph){
@@ -3285,14 +3332,11 @@ function draw(){
     }
     if(u.hp<u.maxHp){const hy=u.y-u.r-13+dropY+hover;upr(u.x,hy,()=>drawHpBar(u.x,hy,u.hp,u.maxHp,u.hero?36:26,u.side));}
   });
-  /* 명령 지점 표식 (내 진영, 2026-09-13): 공격 = 붉은 맥동 링+⚔, 이동 = 초록 링+➜. 같은 지점의 그룹 명령은 하나로 */
-  {const os=S.orders&&S.orders[MYSIDE]; if(os){const seen=new Set(); const pl=1+Math.sin(S.elapsed*5)*0.12;
-    ORDER_GROUPS.forEach(g=>{const o=os[g]; if(!o||o.type==="hold")return; const k=o.type+"|"+Math.round(o.x)+"|"+Math.round(o.y); if(seen.has(k))return; seen.add(k);
-      const atk=o.type==="attack";
-      ctx.strokeStyle=atk?"rgba(255,80,60,.9)":"rgba(90,220,140,.9)";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(o.x,o.y,TILE*0.9*pl,0,7);ctx.stroke();
-      if(atk){ctx.strokeStyle="rgba(255,80,60,.5)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(o.x,o.y,TILE*1.6,S.elapsed*2,S.elapsed*2+4.5);ctx.stroke();}
-      upr(o.x,o.y,()=>{ctx.fillStyle="#fff";ctx.font="bold 16px sans-serif";ctx.textAlign="center";
-        ctx.strokeStyle=atk?"rgba(120,20,10,.9)":"rgba(10,80,40,.9)";ctx.lineWidth=3;const ch=atk?"⚔":"➜";ctx.strokeText(ch,o.x,o.y+6);ctx.fillText(ch,o.x,o.y+6);});});}}
+  /* 명령 지점 표식 (내 진영, 2026-09-15): 깃발 — 공격 = 붉은 기, 이동 = 초록 기. 같은 지점의 그룹 명령은 하나로 */
+  {const os=S.orders&&S.orders[MYSIDE]; if(os){const seen=new Set();
+    ORDER_GROUPS.forEach(g=>{const o=os[g]; if(!o||o.x===undefined)return; const k=o.type+"|"+Math.round(o.x)+"|"+Math.round(o.y); if(seen.has(k))return; seen.add(k);
+      drawOrderFlag(o.x,o.y,o.type==="attack",1);});}}
+  if(ordGhost)drawOrderFlag(ordGhost.x,ordGhost.y,ordGhost.kind==="attack",0.6);   // 드로우 중 미리보기
   /* 이펙트 */
   S.effects.forEach(f=>{
     if(f.tp==="boom"){const p=1-Math.max(0,f.t)/f.t0;
@@ -3696,7 +3740,7 @@ function startGame(cfg){
   PENDING=REPLAY?cfg.replayCmds.map(c=>({...c})):[];
   newGame();
   showScr(null); closeOv();
-  gameSpeed=1; syncPauseUI(); pickMode=null; syncAttackUI();
+  gameSpeed=1; syncPauseUI(); pickMode=null; ordDrag=null; ordGhost=null; syncAttackUI();
   const sb=document.getElementById("swap-btn"); if(sb)sb.style.display=heroesOn()?"":"none";   // 영웅 비활성 시 탭 전환 숨김
   if(!heroesOn()&&S.mode!=="build"){S.mode="build";renderPanel();}
   TUT.stop(); if(cfg.mode==="tutorial")TUT.start();
