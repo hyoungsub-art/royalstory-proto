@@ -699,20 +699,22 @@ function occGrid(){
 function wallData(){
   if(S.wallC)return S.wallC;
   const outs=S.buildings.filter(b=>b.hp>0&&ZONE_KEYS.has(b.key)&&b.key!=="hall");
-  const segs=[], linked=new Set(), hasLink=new Set();
+  const segs=[], linked=new Set(), orth={};
+  const note=(x,y)=>{(orth[x.id]=orth[x.id]||new Set()).add(y.id);linked.add(x.id);linked.add(y.id);};
   /* ① 상하좌우(직교) 연결 우선 — 맞닿은 같은 편 거점끼리 (2026-09-15) */
   outs.forEach(a=>outs.forEach(o=>{
     if(o===a||o.side!==a.side)return;
-    if(o.ty===a.ty&&o.tx===a.tx+a.w){segs.push({a,b:o,dir:"h"});linked.add(a.id);linked.add(o.id);hasLink.add(a.id);hasLink.add(o.id);}        // 가로
-    else if(o.tx===a.tx&&o.ty===a.ty+a.h){segs.push({a,b:o,dir:"v"});linked.add(a.id);linked.add(o.id);hasLink.add(a.id);hasLink.add(o.id);}   // 세로
+    if(o.ty===a.ty&&o.tx===a.tx+a.w){segs.push({a,b:o,dir:"h"});note(a,o);note(o,a);}        // 가로
+    else if(o.tx===a.tx&&o.ty===a.ty+a.h){segs.push({a,b:o,dir:"v"});note(a,o);note(o,a);}   // 세로
   }));
-  /* ② 대각 연결 — 모서리끼리 맞닿은 경우. 직교 연결이 이미 있는 거점은 건너뛴다 (연결이 두 갈래로 겹치지 않게) */
+  /* ② 대각 연결 — 모서리끼리 맞닿은 경우. 연쇄(계단식)는 허용하되, 직교로 이미 한 바퀴 이어진 쌍(ㄱ자 삼각형)은 건너뛴다 */
   outs.forEach(a=>outs.forEach(o=>{
     if(o===a||o.side!==a.side||o.ty!==a.ty+a.h)return;
-    if(hasLink.has(a.id)||hasLink.has(o.id))return;
     const dir=(o.tx===a.tx+a.w)?"d1":(o.tx+o.w===a.tx)?"d2":null;   // d1: 오른쪽 아래 / d2: 왼쪽 아래
     if(!dir)return;
-    segs.push({a,b:o,dir});linked.add(a.id);linked.add(o.id);hasLink.add(a.id);hasLink.add(o.id);
+    const ao=orth[a.id], bo=orth[o.id];
+    if(ao&&bo&&[...ao].some(id=>bo.has(id)))return;   // 직교 연결로 이미 이어진 두 거점 — 중복 연결 금지
+    segs.push({a,b:o,dir});linked.add(a.id);linked.add(o.id);
   }));
   const block=new Set();
   outs.forEach(b=>{if(!linked.has(b.id))return;
@@ -3301,16 +3303,20 @@ function draw(){
   };
   /* 대각 성벽 (2026-09-15): 모서리로 이어진 거점 사이를 비스듬한 석축으로 잇는다 (세로와 같은 깊이 정렬) */
   const drawDWall=({a,b})=>{
+    /* 가로 성벽과 같은 문법(석축 몸체 + 윗면 총안 + 진영색 띠 + 아랫면 그림자)을 비스듬히 눕힌 형태.
+       두 거점 사이 구간만 칠해 탑을 덮지 않는다 (2026-09-15 2차: 모양 보정) */
     const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
-    const mx=(a.cx+b.cx)/2, my=(a.cy+b.cy)/2, ang=Math.atan2(b.cy-a.cy,b.cx-a.cx);
-    const len=Math.hypot(b.cx-a.cx,b.cy-a.cy)*0.62, w=TILE*0.7;
-    ctx.save();ctx.translate(mx,my);ctx.rotate(ang);
-    ctx.fillStyle=STONE;ctx.fillRect(-len/2,-w/2,len,w);po(1.6);ctx.strokeRect(-len/2,-w/2,len,w);
-    ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
-    for(let xx=-len/2+9;xx<len/2;xx+=9){ctx.beginPath();ctx.moveTo(xx,-w/2);ctx.lineTo(xx,w/2);ctx.stroke();}
-    ctx.fillStyle=T.dark;   // 총안 (양 모서리)
-    for(let xx=-len/2+4;xx<len/2-7;xx+=11){ctx.fillRect(xx,-w/2-4,7,5);ctx.fillRect(xx,w/2-1,7,5);}
-    ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(-len/2,w/2-4,len,4);
+    const dx=b.cx-a.cx, dy=b.cy-a.cy, ang=Math.atan2(dy,dx), dist=Math.hypot(dx,dy);
+    const s0=dist*0.3, len=dist*0.4, w=TILE*0.82;
+    ctx.save();ctx.translate(a.cx,a.cy);ctx.rotate(ang);
+    ctx.fillStyle=STONE;ctx.fillRect(s0,-w/2,len,w);po(1.6);ctx.strokeRect(s0,-w/2,len,w);
+    ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈 (가로 2줄 + 세로)
+    for(let k=1;k<3;k++){const yy=-w/2+w*k/3;ctx.beginPath();ctx.moveTo(s0,yy);ctx.lineTo(s0+len,yy);ctx.stroke();}
+    for(let xx=s0+11;xx<s0+len;xx+=11){ctx.beginPath();ctx.moveTo(xx,-w/2+2);ctx.lineTo(xx,w/2-2);ctx.stroke();}
+    ctx.fillStyle=T.dark;   // 윗면 총안 + 진영색 띠
+    for(let xx=s0+3;xx<s0+len-7;xx+=12)ctx.fillRect(xx,-w/2-5,7,6);
+    ctx.fillRect(s0,-w*0.06,len,4);
+    ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(s0,w/2-5,len,5);   // 아랫면 그림자
     ctx.restore();
   };
   {const list=S.buildings.map(b=>({k:b.ty+b.h, f:()=>drawBld(b)}));
