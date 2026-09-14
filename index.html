@@ -718,14 +718,19 @@ function ringFor(side){const r=BAL.BUILD_RING; if(Array.isArray(r))return r[Math
 function foeOf(side){return side==="player"?"enemy":"player";}
 /* 건설 지역 (2026-09-15 환원): 본진·거점(가드·아케인 포함) 풋프린트를 둘러싼 BUILD_RING[티어]칸 띠.
    거점을 전진 배치해 영역을 넓히는 방식 — 세로 행 방식(HALL_REACH)과 성벽 흔적 전용 지대는 폐기 */
-function tileInZone(tx,ty,side){
-  const R=ringFor(side);
-  return S.buildings.some(b=>{
-    if(b.side!==side||b.hp<=0||!ZONE_KEYS.has(b.key))return false;
-    const dx=Math.max(b.tx-tx,tx-(b.tx+b.w-1),0), dy=Math.max(b.ty-ty,ty-(b.ty+b.h-1),0);
-    return Math.max(dx,dy)<=R;
+function zoneDist(tx,ty,side){
+  /* 그 진영 영역 안이면 가장 가까운 영역 건물(본진·거점)까지의 타일 거리, 밖이면 Infinity */
+  const R=ringFor(side); let best=Infinity;
+  S.buildings.forEach(b=>{
+    if(b.side!==side||b.hp<=0||!ZONE_KEYS.has(b.key))return;
+    const dx=Math.max(b.tx-tx,tx-(b.tx+b.w-1),0), dy=Math.max(b.ty-ty,ty-(b.ty+b.h-1),0), d=Math.max(dx,dy);
+    if(d<=R&&d<best)best=d;
   });
+  return best;
 }
+function tileInZone(tx,ty,side){return zoneDist(tx,ty,side)<Infinity;}
+/* 영역이 겹치는 칸은 "더 가까운 쪽"의 것 — 내 거점 바로 옆인데 적 영역이라고 막히지 않게 (2026-09-15 2차) */
+function foeOwnsTile(tx,ty,side){return zoneDist(tx,ty,foeOf(side))<zoneDist(tx,ty,side);}
 /* 건물 전체(모든 타일)가 띠 안에 있어야 건설 가능 */
 function rectInZone(tx,ty,w,h,side){
   for(let dy=0;dy<h;dy++)for(let dx=0;dx<w;dx++)if(!tileInZone(tx+dx,ty+dy,side))return false;
@@ -749,7 +754,7 @@ function buildBlockReason(key,tx,ty,side){
     if(d.gas&&!t.gas)return"금광 지대 필요";
     if(!d.gas&&t.gas)return"금광 지대에는 골드 광산만";
     if(inEnemyExclusion(tx+dx,ty+dy,side))return"적 본진 영역";
-    if(tileInZone(tx+dx,ty+dy,foeOf(side)))return"적 건설 영역";   // 2026-09-15: 상대 영역 안에는 건설 불가
+    if(foeOwnsTile(tx+dx,ty+dy,side))return"적 건설 영역";   // 2026-09-15: 상대 영역 안에는 건설 불가 (겹치는 칸은 더 가까운 쪽 소유)
   }
   /* 영역 판정 (2026-09-15 환원): 건물의 모든 타일이 본진·거점 주변 BUILD_RING칸 띠 안에 있어야 한다 — 거점·골드 광산도 예외 없음 */
   if(!rectInZone(tx,ty,d.w,d.h,side))return"건설 지역 밖 (본진·거점 주변 "+ringFor(side)+"칸)";
@@ -3210,7 +3215,7 @@ function draw(){
   /* 드래그 중: 영역 표시 */
   if(S.sel){
     for(let ty=0;ty<ROWS;ty++)for(let tx=0;tx<COLS;tx++){
-      const fz=inFriendlyZone(tx,ty,MYSIDE), ex=inEnemyExclusion(tx,ty,MYSIDE)||tileInZone(tx,ty,foeOf(MYSIDE));   // 적 영역도 건설 금지 (2026-09-15)
+      const fz=inFriendlyZone(tx,ty,MYSIDE), ex=inEnemyExclusion(tx,ty,MYSIDE)||foeOwnsTile(tx,ty,MYSIDE);   // 적 영역도 건설 금지 (2026-09-15)
       if(S.sel.type==="build"){
         if(fz&&!ex){ctx.fillStyle="rgba(120,200,255,.13)";ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);}
         if(ex&&fz){ctx.fillStyle="rgba(255,80,80,.14)";ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);}
@@ -3272,20 +3277,19 @@ function draw(){
       }
     }
   });
-  /* 세로 성벽 (2026-09-15 2차): 위아래로 맞붙은 거점은 스프라이트가 사이를 덮어 버려서, 건물 위에 양 측면 석축으로 그린다 */
+  /* 세로 성벽 (2026-09-15 3차, 사용자 요청): 거점 사이 가운데 한 줄 — 스프라이트에 가리지 않게 건물 위에 그린다 */
   wallData().segs.forEach(({a,b,dir})=>{
     if(dir!=="v")return;
     const T=TEAM_COL[(a.side===MYSIDE)?"player":"enemy"];
-    const y0=a.cy-TILE*0.25, y1=b.cy+TILE*0.25, h=y1-y0, sw=TILE*0.46;
-    [a.tx*TILE-2, (a.tx+a.w)*TILE+2-sw].forEach((x0,i)=>{
-      ctx.fillStyle=STONE;ctx.fillRect(x0,y0,sw,h);po(1.6);ctx.strokeRect(x0,y0,sw,h);
-      ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
-      for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+sw,yy);ctx.stroke();}
-      ctx.fillStyle=T.dark;   // 총안 (바깥쪽) + 진영색 띠
-      for(let yy=y0+5;yy<y1-8;yy+=12)ctx.fillRect(i?x0+sw-2:x0-4,yy,6,7);
-      ctx.fillRect(x0,y0,sw,3);
-      ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(i?x0+sw-4:x0,y0,4,h);   // 측면 그림자
-    });
+    const seam=(a.ty+a.h)*TILE;   // 두 거점이 맞닿는 이음새 — 탑 몸체를 가리지 않게 그 둘레만 잇는다
+    const w=TILE*0.72, x0=a.cx-w/2, y0=seam-TILE*0.62, y1=seam+TILE*0.62, h=y1-y0;
+    ctx.fillStyle=STONE;ctx.fillRect(x0,y0,w,h);po(1.6);ctx.strokeRect(x0,y0,w,h);
+    ctx.strokeStyle="rgba(60,55,45,.5)";ctx.lineWidth=1;   // 석축 줄눈
+    for(let yy=y0+9;yy<y0+h;yy+=9){ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x0+w,yy);ctx.stroke();}
+    ctx.fillStyle=T.dark;   // 총안 (양 모서리) + 진영색 띠
+    for(let yy=y0+5;yy<y1-8;yy+=12){ctx.fillRect(x0-4,yy,5,7);ctx.fillRect(x0+w-1,yy,5,7);}
+    ctx.fillRect(x0,y0,w,3);
+    ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(x0+w-4,y0,4,h);   // 측면 그림자
   });
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
