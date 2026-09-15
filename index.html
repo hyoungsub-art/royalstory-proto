@@ -292,7 +292,10 @@ const BAL={
     - starBy:"blood"(기본) / "regen"(누적 회복량 기준, cap×starPer 단위 — 실험용 보존). 블러드 모드에서는 ★ 녹이기 없음 (자원 분리)
     - cap은 regen 모드 단위·레거시 용도로만 남김. 전 수치 (가정) */
  /* 2026-09-12 (2차 확정): 블러드 스타 폐지 — 모든 비용은 골드. 승급 tierGold, 변형 transformGold, 영웅은 무료(HERO_COST 0, 쿨다운만). starBy:"none" (regen/blood 코드는 실험용 보존) */
- ECON:{regen:2.8, start:6, cap:[0,10,20,30], gasBonus:0.5, tierRegen:[0,1,1.25,1.5], pushGold:15,
+ /* 2026-09-15 경제 3차 개편 (사용자 확정): **자연 회복 폐지 — 골드는 금광에서만 나온다**.
+    금광 1채가 mineCycle초마다 자기 레벨만큼 골드를 캔다 (Lv1=1 … Lv5=5). 금광은 5레벨까지 올릴 수 있고 티어 제한을 받지 않는다.
+    시작: 본진 앞 금광 1채가 이미 서 있고, 금광 1채를 더 지을 골드(=건설비)를 들고 시작 */
+ ECON:{regen:2.8, mineCycle:2.8, mineMax:5, start:4, cap:[0,10,20,30], gasBonus:0.5, tierRegen:[0,1,1.25,1.5], pushGold:15,
        starBy:"none", bloodPer:30, bloodDiv:100, starPer:1.0,
        tierGold:[0,0,40,100], transformGold:8,   // (가정) 킵 40 / 캐슬 100 (2026-09-13 대폭 인상: 15/35→40/100) / 변형 일괄 8
        tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,4,8,12]},
@@ -351,7 +354,8 @@ const BAL={
                 aura:{label:"마법 유닛 강화", test:"magic"}},
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
- ENEMY_BASE:[["hall",8,1]],
+ ENEMY_BASE:[["hall",8,2]],   // 2026-09-15: 한 칸 아래로 (양측 본진 뒤에 금광 지대 확보)
+ BASE_GAS:[[5,22],[11,22],[6,0],[12,0]],   // 본진 뒤 전용 금광 지대 (플레이어 2 / 적 2, 점대칭) — 모든 맵에 항상 존재
  /* 난이도 = AI 전략 수준만 조정 (2026-08-30 개정).
     스탯·자원·규칙은 플레이어와 완전 동등 — 적이 "더 잘 두는가"로만 난이도가 갈린다.
     0/1 값은 사용 여부 스위치 */
@@ -361,10 +365,10 @@ const BAL={
   /* 2026-09-04 재조정: 기본 타워 비무장화에 맞춰 towerTf(공격 타워 확보)가 방어의 핵심이 됨
      2026-09-04 2차 강화: atkTwMin(레벨업 저축보다 우선하는 최소 공격 타워 수),
      heroUse(AI도 스타로 영웅 소환 — 비용·쿨다운 플레이어와 동등), 어려움+ 전진 배치(aggro)·판단 속도 상향 */
-  easy:   {aiDelay:10, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:2, towerMax:2,  defensive:0, aggro:0, towerTf:0,  atkTwMin:0, heroUse:0, lvAfterProd:2},
-  normal: {aiDelay:5,  aiInterval:1.6, maxTier:3, maxLevel:2, gasBases:2, prodMax:4, towerMax:5,  defensive:1, aggro:0, towerTf:3,  atkTwMin:2, heroUse:0, lvAfterProd:3},
-  hard:   {aiDelay:2,  aiInterval:0.9, maxTier:3, maxLevel:3, gasBases:3, prodMax:7, towerMax:9,  defensive:1, aggro:1, towerTf:6,  atkTwMin:3, heroUse:1, spendAll:1, lvAfterProd:4},
-  extreme:{aiDelay:0,  aiInterval:0.45,maxTier:3, maxLevel:3, gasBases:3, prodMax:10,towerMax:14,  defensive:1, aggro:0, towerTf:99, atkTwMin:4, heroUse:1, spendAll:1, lvAfterProd:4},
+  easy:   {mineLv:2, aiDelay:10, aiInterval:3.0, maxTier:2, maxLevel:1, gasBases:1, prodMax:2, towerMax:2,  defensive:0, aggro:0, towerTf:0,  atkTwMin:0, heroUse:0, lvAfterProd:2},
+  normal: {mineLv:3, aiDelay:5,  aiInterval:1.6, maxTier:3, maxLevel:2, gasBases:2, prodMax:4, towerMax:5,  defensive:1, aggro:0, towerTf:3,  atkTwMin:2, heroUse:0, lvAfterProd:3},
+  hard:   {mineLv:4, aiDelay:2,  aiInterval:0.9, maxTier:3, maxLevel:3, gasBases:3, prodMax:7, towerMax:9,  defensive:1, aggro:1, towerTf:6,  atkTwMin:3, heroUse:1, spendAll:1, lvAfterProd:4},
+  extreme:{mineLv:5, aiDelay:0,  aiInterval:0.45,maxTier:3, maxLevel:3, gasBases:3, prodMax:10,towerMax:14,  defensive:1, aggro:0, towerTf:99, atkTwMin:4, heroUse:1, spendAll:1, lvAfterProd:4},
   /* lvAfterProd(2026-09-12, 기본기): 생산 건물이 이 수에 이르기 전에는 레벨업 금지 — 초반은 넓게 짓고, 업그레이드는 그 다음 */
   /* spendAll(2026-09-12): 전략적 저축(승급·변형·영웅 ★) 외에는 자원을 놀리지 않음 — 소프트 캡을 넘어 레벨업·증설·타워로 계속 소비, 잉여 ★은 녹여 사용 */
  },
@@ -378,12 +382,12 @@ const BAL={
   siege:  {nm:"공성기술자", d:"공성 병기 철거",        siegeFirst:1, atkTwMin:1, towerTf:4, heroMin:1, prodW:{workshop:2,barracks:1,archery:1}, techPref:"workshop"},
   arcane: {nm:"대마법사",   d:"마법 테크·아케인 타워", atkTwMin:2, heroMin:1, prodW:{sanctum:3,archery:1}, techPref:"sanctum"},
   turtle: {nm:"요새군주",   d:"철벽 방어 후 역습",     aggro:0, towerFirst:1, atkTwMin:6, towerTf:99, towerMax:16, prodMax:6, heroMin:1, prodW:{archery:2,barracks:1}, techPref:"sanctum"},
-  greed:  {nm:"상인왕",     d:"경제 우선·후반 폭발",   gasFirst:1, lvFirst:1, gasBases:3, atkTwMin:1, towerTf:4, prodMax:12, heroMin:1, prodW:{barracks:1,archery:1,assaultBarracks:1}, techPref:"workshop"},
+  greed:  {nm:"상인왕",     d:"경제 우선·후반 폭발",   mineLv:5, gasFirst:1, lvFirst:1, gasBases:3, atkTwMin:1, towerTf:4, prodMax:12, heroMin:1, prodW:{barracks:1,archery:1,assaultBarracks:1}, techPref:"workshop"},
   hero:   {nm:"영웅왕",     d:"영웅 중심 전투",        heroFirst:1, heroMin:3, atkTwMin:2, prodW:{archery:2,barracks:1,sanctum:1}, techPref:"sanctum"},
  },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
  ROAD:{x0:8, x1:10, y0:4, y1:19},
- GAS_ZONES:[[0,6],[17,4],[0,12],[17,10],[0,18],[17,16]],   // 2×2 지역 좌상단 (좌우 끝, 왼쪽 열은 1행 아래·오른쪽 열은 1행 위 — 점대칭, 2026-09-13)
+ GAS_ZONES:[[0,6],[17,4],[0,12],[17,10],[0,18],[17,16],[5,22],[11,22],[6,0],[12,0]],   // 뒤 4개 = 본진 뒤 전용 (BASE_GAS와 동일)   // 2×2 지역 좌상단 (좌우 끝, 왼쪽 열은 1행 아래·오른쪽 열은 1행 위 — 점대칭, 2026-09-13)
 };
 if(window.BALANCE){ (function merge(dst,src){ for(const k in src){
   if(src[k]&&typeof src[k]==="object"&&!Array.isArray(src[k])&&dst[k]&&typeof dst[k]==="object"&&!Array.isArray(dst[k])) merge(dst[k],src[k]);
@@ -446,7 +450,7 @@ const TERR={river:{build:false,deploy:false,spd:1,pass:false},
 function makeTiles(){
   const tiles=[];
   for(let y=0;y<ROWS;y++){tiles[y]=[];for(let x=0;x<COLS;x++)tiles[y][x]={build:true,deploy:true,gas:false,road:false,terr:null};}
-  BAL.GAS_ZONES.forEach(([gx,gy])=>{for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)
+  BAL.GAS_ZONES.concat(BAL.BASE_GAS||[]).forEach(([gx,gy])=>{for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)
     if(tiles[gy+dy]&&tiles[gy+dy][gx+dx])tiles[gy+dy][gx+dx].gas=true;});
   /* 지형 요소 적용 (길보다 먼저 — 길이 겹치면 다리로 지형 해제) */
   (BAL.FEATS||[]).forEach(f=>{
@@ -655,8 +659,10 @@ function newGame(){
     if(GAME_CFG.aiStyleObj){S.aiStyleObj=GAME_CFG.aiStyleObj;S.aiStyle=S.aiStyleObj.key||GAME_CFG.aiStyle||null;}   // 리플레이: 저장된 성향 그대로
     else{S.aiStyle=GAME_CFG.aiStyle||LEARN.pick();S.aiStyleObj=S.aiStyle?(LEARN.resolve(S.aiStyle)||null):null;}
   }
-  addBuilding("hall","player",8,20);
+  addBuilding("hall","player",8,19);   // 2026-09-15: 한 칸 위로
   BAL.ENEMY_BASE.forEach(([k,x,y])=>addBuilding(k,"enemy",x,y));
+  /* 시작 금광 1채 (2026-09-15): 본진 뒤 금광 지대 중 한 곳에 미리 서 있다 (양측 점대칭) */
+  {const bg=BAL.BASE_GAS||[]; if(bg[0])addBuilding("elixirBase","player",bg[0][0],bg[0][1]); if(bg[3])addBuilding("elixirBase","enemy",bg[3][0],bg[3][1]);}
   S.zoneDirty=true;
   renderPanel(); updateHUD(); hideStrip();
   document.getElementById("overlay").style.display="none";
@@ -828,6 +834,11 @@ function doTierUp(side){
 /* 유닛 레벨 배율: 생산 건물 레벨이 곧 유닛 레벨 (2026-08-30 개정) */
 function lvMult(level){const p=+BAL.UPG_PWR; const m=1+(isFinite(p)?p:0.12)*((level||1)-1); return isFinite(m)&&m>0?m:1;}
 /* 레벨업 비용 (레벨당 고정, 2026-09-07): 건물 등급별 — 1티어 건설 4 / 킵 건설 8 / 변형 획득 12 */
+/* 건물별 최대 레벨 (2026-09-15): 금광은 5레벨까지, 티어 제한 없음 / 그 외 생산 건물은 3레벨·티어 상한 */
+function maxLvOf(key,side){
+  if(key==="elixirBase")return BAL.ECON.mineMax||5;
+  return Math.min(3,effTier(side||MYSIDE));
+}
 function upCostFor(bOrKey){
   const key=bOrKey&&bOrKey.key?bOrKey.key:bOrKey;
   const d=BAL.BUILDINGS[key];if(!d)return 999;
@@ -1138,10 +1149,10 @@ function buildingUpdate(b,dt){
   /* 골드 광산: 수급 주기마다 획득량 플로팅 연출 (상한 도달 시 생략) */
   if(b.key==="elixirBase"){
     b.gainT=(b.gainT||0)+dt;
-    if(b.gainT>=BAL.ECON.regen){
-      b.gainT-=BAL.ECON.regen;
+    if(b.gainT>=(BAL.ECON.mineCycle||BAL.ECON.regen)){
+      b.gainT-=(BAL.ECON.mineCycle||BAL.ECON.regen);
       {
-        S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"+"+BAL.ECON.gasBonus,
+        S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"+"+Math.max(1,b.level||1),
                         t:0.9,t0:0.9,col:b.side==="player"?"255,215,80":"255,170,120"});
         addP({x:b.cx-6,y:b.cy-8,vx:(Math.random()-.5)*20,vy:-30,g:-10,t:0,life:0.6,size:2.5,col:"255,210,70"});
         addP({x:b.cx+6,y:b.cy-6,vx:(Math.random()-.5)*20,vy:-26,g:-10,t:0,life:0.6,size:2,col:"255,235,150"});
@@ -1237,7 +1248,7 @@ function findSpot(key,side,pref){
   const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
   if(!hall)return null;
   /* 미점유 금광 지대 중심 목록 (pref="gas"용) */
-  const gasTargets=BAL.GAS_ZONES
+  const gasTargets=BAL.GAS_ZONES.concat(BAL.BASE_GAS||[])
     .filter(([gx,gy])=>!S.buildings.some(b=>b.side===side&&b.key==="elixirBase"&&b.hp>0&&b.tx===gx&&b.ty===gy))
     .map(([gx,gy])=>[gx+1,gy+1]);
   let best=null,bestScore=-1e9;
@@ -1487,6 +1498,9 @@ function aiUpdate(dt){
     S.effects.push({tp:"ftext",x:b.cx,y:b.ty*TILE-4,text:"Lv"+b.level,t:0.9,t0:0.9,col:"255,170,170"});
     burst(b.cx,b.cy,"140,220,255",8,100);};
   const nextUp=lim=>S.buildings.find(b=>b.side===side&&b.hp>0&&BAL.BUILDINGS[b.key].prod&&b.level<lim);
+  /* 금광 레벨업 (2026-09-15): 골드가 금광 레벨에서만 나오므로 AI도 가장 낮은 금광부터 올린다 */
+  const nextMine=()=>{let best=null;S.buildings.forEach(b=>{if(b.side!==side||b.hp<=0||b.key!=="elixirBase")return;
+    if(b.level<(BAL.ECON.mineMax||5)&&(!best||b.level<best.level))best=b;});return best;};
   const summonHero=()=>{
     if(!readySlot)return false;
     const hall=S.buildings.find(b=>b.side===side&&b.key==="hall"&&b.hp>0);
@@ -1590,6 +1604,9 @@ function aiUpdate(dt){
   /* 4) 원거리 라인·기병 라인 (성향 가중치에 없는 계열은 건너뜀) */
   if(prodW.archery&&lineCnt("archery")<1&&prodCnt>=1&&buildPref(["archery"],prodPref))return;
   if(tier>=2&&prodW.assaultBarracks&&lineCnt("assaultBarracks")<1&&prodCnt>=2&&buildPref(["assaultBarracks"],prodPref))return;
+  /* 4-0) 금광 레벨업 (2026-09-15): 금광이 유일한 수입원 — 생산 건물 1채 이상이면 낮은 금광부터 올린다 */
+  {const mn=nextMine();
+   if(mn&&prodAll>=1&&mn.level<(st.mineLv||3)){if(elixirOf(side)>=upCostFor(mn)){doLevel(mn);return;} return;}}
   /* 4-1) 경제 성향: 레벨업을 방어선보다 먼저 */
   if(st.lvFirst&&lvOK&&maxLv>1){const up=nextUp(maxLv);if(up){if(elixirOf(side)>=upCostFor(up)){doLevel(up);return;} return;}}
   /* 5) 방어선 (공격형은 최소 1기, 요새형(towerFirst)은 공격 타워 목표+2기를 먼저) */
@@ -1872,12 +1889,12 @@ function showStrip(b){
         +`<span>➔ ${nd.nm} (💰${need})${hard?`<br><span style="font-size:10px">${cond.join("·")} 필요</span>`:warn}</span></button>`;
   });
   /* 레벨업 버튼은 변형 버튼 아래에 배치 (2026-08-30) — 비용: 레벨당 고정 골드 (건물 등급별) */
-  if(d.prod){
-    const cost=upCostFor(b);
-    if(b.level<3){
-      const hard=b.level>=t;
+  if(d.prod||b.key==="elixirBase"){
+    const cost=upCostFor(b), lim=maxLvOf(b.key,MYSIDE), mine=b.key==="elixirBase";
+    if(b.level<lim){
+      const hard=!mine&&b.level>=t;
       html+=`<button onclick="upgradeSel()" ${hard?'disabled data-hard="1"':`data-cost="${cost}"`} ${!hard&&effElixir(MYSIDE)<cost?"disabled":""}>`
-          +`레벨업 → ${unitNm} Lv${b.level+1} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
+          +`레벨업 → ${mine?`채굴 ${b.level+1}/주기`:`${unitNm} Lv${b.level+1}`} (${cost})${hard?`<br><span style="font-size:10px">${TIER_NM[b.level+1]} 필요</span>`:""}</button>`;
     } else html+=`<div class="b-note" style="color:var(--sub)">최대 레벨</div>`;
   }
   el.innerHTML=html;
@@ -1915,13 +1932,13 @@ function tierUp(){issueCmd({type:"tier",side:MYSIDE});hideStrip();}
 function upgradeSel(){
   const b=S.selBld; if(!b)return;
   const cost=upCostFor(b);
-  if(b.level>=Math.min(3,effTier(MYSIDE))||effElixir(MYSIDE)<cost)return;
+  if(b.level>=maxLvOf(b.key,MYSIDE)||effElixir(MYSIDE)<cost)return;
   issueCmd({type:"upgrade",bid:b.id,side:MYSIDE});
   hideStrip();   // 실행은 다음 틱
 }
 function execUpgrade(side,b){
   const cost=upCostFor(b);
-  if(b.level>=Math.min(3,effTier(side))||effElixir(side)<cost)return;
+  if(b.level>=maxLvOf(b.key,side)||effElixir(side)<cost)return;
   spend(side,cost); b.level++;
   SND.play("levelup");
   burst(b.cx,b.cy,"140,220,255",10,120);
@@ -1936,7 +1953,7 @@ function canTierUpP(){
 }
 function canUpgradeB(b){
   const d=BAL.BUILDINGS[b.key];
-  return !!d.prod&&b.level<Math.min(3,effTier(MYSIDE))&&effElixir(MYSIDE)>=upCostFor(b);
+  return (!!d.prod||b.key==="elixirBase")&&b.level<maxLvOf(b.key,MYSIDE)&&effElixir(MYSIDE)>=upCostFor(b);
 }
 function canTransformB(b){
   const d=BAL.BUILDINGS[b.key];
@@ -2081,9 +2098,10 @@ function stepSim(dt){
        "cap"  : (구) 자연 회복으로 상한 "미만→도달" 순간 ★1 + 바 초기화 (녹이기로 채운 상한은 재적립 없음) */
     const econTick=side=>{
       const P=side==="player";
-      const gas=S.buildings.filter(b=>b.side===side&&b.key==="elixirBase"&&b.hp>0).length;
-      const cap=capFor(side), tr=(BAL.ECON.tierRegen||[0,1,1,1])[effTier(side)]||1;
-      const inc=dt*(1+BAL.ECON.gasBonus*gas)/BAL.ECON.regen*tr;   // 골드: 상한 없음 (2026-09-12 자원 재편)
+      /* 2026-09-15: 골드는 금광에서만 — 주기(mineCycle)마다 금광 레벨의 합만큼 (Lv1=1 … Lv5=5). 자연 회복·티어 배율 없음 */
+      let mine=0; S.buildings.forEach(x=>{if(x.side===side&&x.key==="elixirBase"&&x.hp>0)mine+=Math.max(1,x.level||1);});
+      const cap=capFor(side);
+      const inc=dt*mine/(BAL.ECON.mineCycle||BAL.ECON.regen);
       const before=P?S.elixir:S.eElixir;
       let after=before+inc, gained=false;
       if(BAL.ECON.starBy==="regen"){
@@ -3152,7 +3170,7 @@ function buildBG(){
     });
   });
   /* 금광 지대 (2026-09-12 자원 재편): 흙빛 노두 패치 + 회색 바위 + 금덩이 (구 보라 크리스탈 대체) */
-  BAL.GAS_ZONES.forEach(([gx,gy])=>{
+  BAL.GAS_ZONES.concat(BAL.BASE_GAS||[]).forEach(([gx,gy])=>{
     const x0=gx*TILE,y0=gy*TILE,s=2*TILE,cx=x0+TILE,cy=y0+TILE;
     const rr=(x,y,w,h,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();};
     c.fillStyle="rgba(150,110,50,.45)";rr(x0+3,y0+3,s-6,s-6,8);c.fill();
@@ -3544,7 +3562,8 @@ function applyMap(id,layout){
   const m=MAPS[id]||MAPS.plain;
   curMap=MAPS[id]?id:"plain";
   const lay=layout||m;   // 스테이지 레이아웃 오버라이드 — 테마는 왕국(id), 길·가스·지형은 스테이지
-  BAL.ROADS=lay.roads; BAL.ROAD=lay.roads[0]; BAL.GAS_ZONES=lay.gas; BAL.FEATS=lay.feat||[];
+  BAL.ROADS=lay.roads; BAL.ROAD=lay.roads[0]; BAL.FEATS=lay.feat||[];
+  BAL.GAS_ZONES=(lay.gas||[]).concat(BAL.BASE_GAS||[]);   // 스테이지 금광 + 본진 뒤 전용 금광 (2026-09-15)
   bgCache=null;   // 배경 캐시 재생성 (테마 반영)
 }
 /* --- 스테이지별 레벨 디자인 (2026-09-05): 왕국 비주얼 테마는 유지, 길·가스 배치를 단계마다 변형.
