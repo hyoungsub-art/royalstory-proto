@@ -3337,12 +3337,12 @@ function draw(){
     }
     if(u.hp<u.maxHp){const hy=u.y-u.r-13+dropY+hover;upr(u.x,hy,()=>drawHpBar(u.x,hy,u.hp,u.maxHp,u.hero?36:26,u.side));}
   });
+  drawFog();   // 전장의 안개 (2026-09-15) — 건물·유닛 위, 명령 깃발·이펙트 아래 (깃발은 안개 속에서도 보여야 함)
   /* 명령 지점 표식 (내 진영, 2026-09-15): 깃발 — 공격 = 붉은 기, 이동 = 초록 기. 같은 지점의 그룹 명령은 하나로 */
   {const os=S.orders&&S.orders[MYSIDE]; if(os){const seen=new Set();
     ORDER_GROUPS.forEach(g=>{const o=os[g]; if(!o||o.x===undefined)return; const k=o.type+"|"+Math.round(o.x)+"|"+Math.round(o.y); if(seen.has(k))return; seen.add(k);
       drawOrderFlag(o.x,o.y,o.type==="attack",1);});}}
   if(ordGhost)drawOrderFlag(ordGhost.x,ordGhost.y,ordGhost.kind==="attack",0.6);   // 드로우 중 미리보기
-  drawFog();   // 전장의 안개 (2026-09-15) — 이펙트·표식보다 아래, 건물/유닛 위
   /* 이펙트 */
   S.effects.forEach(f=>{
     if(f.tp==="boom"){const p=1-Math.max(0,f.t)/f.t0;
