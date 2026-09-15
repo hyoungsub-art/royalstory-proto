@@ -15,16 +15,16 @@ window.BALANCE = {
   /* 2026-09-07 경제 개편: 승급·변형 = 블러드 스타(★), 레벨업 = 골드 (레벨당 고정) */
   /* 자원 재편 (2026-09-12 확정): 골드(상한 없음, 숫자 누적) + 블러드 스타(적 유닛 처치로 게이지 적립). 전 수치 (가정) */
   ECON: {
-    mineCycle: 14,    // 금광 채굴 주기(초) — 주기마다 금광 레벨만큼 골드 (2026-09-15: 2.8→14, 채굴 5배 느리게)
+    mineCycle: 2.8,    // 금광 채굴 주기(초) — 주기마다 금광 레벨만큼 골드 (2026-09-15: 2.8→14, 채굴 5배 느리게)
     mineMax: 5,       // 금광 최대 레벨
-          regen: 2.8, start: 4, cap: [0, 10, 20, 30], gasBonus: 0.5,   // start(2026-09-15) = 금광 1채 건설비. regen·gasBonus는 레거시 (자연 회복 폐지)
+          regen: 2.8, start: 20, cap: [0, 10, 20, 30], gasBonus: 0.5,   // start(2026-09-15) = 금광 1채 건설비. regen·gasBonus는 레거시 (자연 회복 폐지)
           tierRegen: [0, 1, 1.25, 1.5],  // 티어별 골드 회복 배율 — 상한이 사라진 대신 승급의 경제 보상 (가정)
-          pushGold: 15,                  // AI: 이 이상 골드가 남으면 전진 타워 압박에 쓴다
+          pushGold: 75,                  // AI: 이 이상 골드가 남으면 전진 타워 압박에 쓴다
           starBy: "none",                // 2026-09-12 2차 확정: 블러드 스타 폐지 — 스타 관련 값은 실험용 보존
-          tierGold: [0, 0, 40, 100],     // 승급 비용(골드): 킵 40 / 캐슬 100 (2026-09-13 대폭 인상, 가정)
-          transformGold: 8,              // 건물 변형 비용(골드) 일괄 8 (가정)
+          tierGold: [0, 0, 200, 500],     // 승급 비용(골드): 킵 40 / 캐슬 100 (2026-09-13 대폭 인상, 가정)
+          transformGold: 40,              // 건물 변형 비용(골드) 일괄 8 (가정)
           bloodPer: 30, bloodDiv: 100, starPer: 1.0, tierStars: [0, 0, 1, 2], transformStar: 1,   // (실험용 보존)
-          upPerLevel: [0, 4, 8, 12] },   // 레벨업(레벨당 골드): 1티어 건설 4 / 킵 건설 8 / 변형 획득 12
+          upPerLevel: [0, 20, 40, 60] },   // 레벨업(레벨당 골드): 1티어 건설 4 / 킵 건설 8 / 변형 획득 12
 
   /* 규칙 수치 */
   EXCLUDE_R: 5.25,  // 적 "본진" 주변 건설 배제 반경 (2026-08-31: 본진에만 적용, 타 건물 옆 건설 허용)
@@ -61,13 +61,13 @@ window.BALANCE = {
                      /* 본진 공격: 티어별 공격력·동시 공격 대상 수 (인덱스 1~3 = 티어). 사거리는 모든 타워 이상 자동 보장 */
                      /* 본진 방어: 티어별 받는 피해 배율 — 킵 -20% / 캐슬 -35% (가정) */
                      hDef: [0, 1, 0.8, 0.65] },
-    elixirBase:    { hp: 1800, cost: 4 },
-    barracks:      { hp: 2600, cost: 5, prod: { unit: "footman",       period: 8  } },
-    assaultBarracks:{hp: 2700, cost: 7, prod: { unit: "cavalry",       period: 10 } },   // 킵 필요
-    archery:       { hp: 2400, cost: 6, prod: { unit: "archer",        period: 9  } },
-    workshop:      { hp: 2600, cost: 6, prod: { unit: "ram",           period: 13 } },   // 공성추 생산
-    sanctum:       { hp: 2600, cost: 6, prod: { unit: "mage",          period: 10 } },
-    tower:         { hp: 3200, cost: 5 },   // 비무장 거점 전용 (2026-09-04) — 공격은 가드/아케인 변형만
+    elixirBase:    { hp: 1800, cost: 20 },
+    barracks:      { hp: 2600, cost: 25, prod: { unit: "footman",       period: 8  } },
+    assaultBarracks:{hp: 2700, cost: 35, prod: { unit: "cavalry",       period: 10 } },   // 킵 필요
+    archery:       { hp: 2400, cost: 30, prod: { unit: "archer",        period: 9  } },
+    workshop:      { hp: 2600, cost: 30, prod: { unit: "ram",           period: 13 } },   // 공성추 생산
+    sanctum:       { hp: 2600, cost: 30, prod: { unit: "mage",          period: 10 } },
+    tower:         { hp: 3200, cost: 25 },   // 비무장 거점 전용 (2026-09-04) — 공격은 가드/아케인 변형만
     guardTower:    { hp: 3600,          atk: { dmg: 360, hs: 0.8, rng: 4.5 } }, // 2026-09-13 사거리 6→4.5 — 흔적선 간격 6칸 안, 거점끼리 교전 방지 (가정)
     arcaneTower:   { hp: 3400,          atk: { dmg: 270, hs: 1.4, rng: 4, splash: 2.0 } },   // 2026-09-13 사거리 5→4 — 거점 간 교전 방지, 근거리 광역 카운터 (가정)
   },
