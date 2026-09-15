@@ -57,7 +57,6 @@ window.BALANCE = {
   BUILDINGS: {
     hall:          { hp: 19200,
                      /* 본진 공격: 티어별 공격력·동시 공격 대상 수 (인덱스 1~3 = 티어). 사거리는 모든 타워 이상 자동 보장 */
-                     hAtk: { hs: 0.8, rng: 7, dmg: [0, 109, 160, 240], targets: [0, 2, 5, 10] },
                      /* 본진 방어: 티어별 받는 피해 배율 — 킵 -20% / 캐슬 -35% (가정) */
                      hDef: [0, 1, 0.8, 0.65] },
     elixirBase:    { hp: 1800, cost: 4 },
@@ -85,10 +84,10 @@ window.BALANCE = {
      atkTwMin: 레벨업 저축보다 우선하는 최소 공격 타워 수 / heroUse: AI 영웅 소환(비용·쿨다운 동등)
      매우 어려움 = 어려움 전략의 강화판 — 양(건물 수)과 질(레벨·변형)을 끝까지 최대화 */
   DIFF: {
-    easy:    { aiDelay: 10, aiInterval: 3.0,  maxTier: 2, maxLevel: 1, gasBases: 1, prodMax: 2,  towerMax: 2,  defensive: 0, aggro: 0, towerTf: 0,  atkTwMin: 0, heroUse: 0, lvAfterProd: 2 },
-    normal:  { aiDelay: 5,  aiInterval: 1.6,  maxTier: 3, maxLevel: 2, gasBases: 2, prodMax: 4,  towerMax: 5,  defensive: 1, aggro: 0, towerTf: 3,  atkTwMin: 2, heroUse: 0, lvAfterProd: 3 },
-    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 7,  towerMax: 9,  defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
-    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 3, gasBases: 3, prodMax: 10, towerMax: 14,  defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
+    easy:    { aiDelay: 10, aiInterval: 3.0,  maxTier: 2, maxLevel: 2, gasBases: 1, prodMax: 2,  towerMax: 2,  defensive: 0, aggro: 0, towerTf: 0,  atkTwMin: 0, heroUse: 0, lvAfterProd: 2 },
+    normal:  { aiDelay: 5,  aiInterval: 1.6,  maxTier: 3, maxLevel: 3, gasBases: 2, prodMax: 4,  towerMax: 5,  defensive: 1, aggro: 0, towerTf: 3,  atkTwMin: 2, heroUse: 0, lvAfterProd: 3 },
+    hard:    { aiDelay: 2,  aiInterval: 0.9,  maxTier: 3, maxLevel: 4, gasBases: 3, prodMax: 7,  towerMax: 9,  defensive: 1, aggro: 1, towerTf: 6,  atkTwMin: 3, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
+    extreme: { aiDelay: 0,  aiInterval: 0.45, maxTier: 3, maxLevel: 5, gasBases: 3, prodMax: 10, towerMax: 14,  defensive: 1, aggro: 0, towerTf: 99, atkTwMin: 4, heroUse: 1, spendAll: 1, lvAfterProd: 4 },
     /* lvAfterProd (2026-09-12, 기본기): 생산 건물이 이 수에 이르기 전에는 레벨업 금지 — 초반은 넓게 짓고 업그레이드는 그 다음 */
     /* spendAll (2026-09-12): 전략적 저축(승급·변형·영웅 ★) 외에는 자원을 놀리지 않음 — 소프트 캡을 넘어 레벨업·증설·타워로 계속 소비, 잉여 ★은 녹여 사용 */
   },
