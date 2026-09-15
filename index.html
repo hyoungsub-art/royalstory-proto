@@ -295,10 +295,10 @@ const BAL={
  /* 2026-09-15 경제 3차 개편 (사용자 확정): **자연 회복 폐지 — 골드는 금광에서만 나온다**.
     금광 1채가 mineCycle초마다 자기 레벨만큼 골드를 캔다 (Lv1=1 … Lv5=5). 금광은 5레벨까지 올릴 수 있고 티어 제한을 받지 않는다.
     시작: 본진 앞 금광 1채가 이미 서 있고, 금광 1채를 더 지을 골드(=건설비)를 들고 시작 */
- ECON:{regen:2.8, mineCycle:2.8, mineMax:5, start:20, cap:[0,10,20,30], gasBonus:0.5, tierRegen:[0,1,1.25,1.5], pushGold:75,
+ ECON:{regen:2.8, mineCycle:2.8, mineMax:5, start:7, cap:[0,10,20,30], gasBonus:0.5, tierRegen:[0,1,1.25,1.5], pushGold:27,
        starBy:"none", bloodPer:30, bloodDiv:100, starPer:1.0,
-       tierGold:[0,0,200,500], transformGold:40,   // (가정) 킵 40 / 캐슬 100 (2026-09-13 대폭 인상: 15/35→40/100) / 변형 일괄 8
-       tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,20,40,60]},
+       tierGold:[0,0,71,179], transformGold:14,   // (가정) 킵 40 / 캐슬 100 (2026-09-13 대폭 인상: 15/35→40/100) / 변형 일괄 8
+       tierStars:[0,0,1,2], transformStar:1, upPerLevel:[0,7,14,21]},
  /* 건설 지역 (2026-09-15 환원): 본진·거점 풋프린트를 둘러싼 BUILD_RING[티어]칸 띠 — 타운홀 4 / 킵 6 / 캐슬 8 (2026-09-15 확대, 승급마다 +2).
     거점을 앞으로 세워 영역을 넓히는 방식으로 복귀했고, 상대 영역 안에는 건설할 수 없다 */
  EXCLUDE_R:5.25, BUILD_RING:[0,4,6,8], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 4 / 킵 6 / 캐슬 8 (2026-09-15 확대, 승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
@@ -320,14 +320,14 @@ const BAL={
  BUILDINGS:{
   hall:         {nm:"본진",        w:3,h:3, hp:19200, cost:0, tier:1, panel:false,
                  hDef:[0,1,0.8,0.65]},   // 티어별 방어: 받는 피해 배율 (킵 -20%, 캐슬 -35%) (2026-09-04, 가정)
-  elixirBase:   {nm:"골드 광산", w:2,h:2, hp:1800, cost:20, tier:1, gas:true, panel:true},
+  elixirBase:   {nm:"골드 광산", w:2,h:2, hp:1800, cost:7, tier:1, gas:true, panel:true},
   /* 생산 건물 변형(쉴드 배럭·슈터 가든·기사단 회당·시즈 워크숍·드래곤 네스트·골렘 요람)은 2026-09-13 삭제 — 추후 재검토. 거점 변형(가드/아케인)만 유지 */
-  barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:25, tier:1, panel:true, prod:{unit:"footman",period:8}},
-  assaultBarracks:{nm:"어썰트 배럭",w:2,h:2, hp:2700, cost:35, tier:2, panel:true, prod:{unit:"cavalry",period:10}},
-  archery:      {nm:"아처리",      w:2,h:2, hp:2400, cost:30, tier:1, panel:true, prod:{unit:"archer",period:9}},
-  workshop:     {nm:"워크숍",      w:3,h:2, hp:2600, cost:30, tier:2, panel:true, prod:{unit:"ram",period:13}},
-  sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:30, tier:2, panel:true, prod:{unit:"mage",period:10}},
-  tower:        {nm:"거점",        w:2,h:2, hp:3200, cost:25, tier:1, panel:true,   // 2026-09-12 개명 "타워"→"거점": 비무장 영역 확장·집결 깃발 (공격은 가드/아케인 변형만)
+  barracks:     {nm:"배럭",        w:2,h:2, hp:2600, cost:9, tier:1, panel:true, prod:{unit:"footman",period:8}},
+  assaultBarracks:{nm:"어썰트 배럭",w:2,h:2, hp:2700, cost:13, tier:2, panel:true, prod:{unit:"cavalry",period:10}},
+  archery:      {nm:"아처리",      w:2,h:2, hp:2400, cost:11, tier:1, panel:true, prod:{unit:"archer",period:9}},
+  workshop:     {nm:"워크숍",      w:3,h:2, hp:2600, cost:11, tier:2, panel:true, prod:{unit:"ram",period:13}},
+  sanctum:      {nm:"아케인 생텀", w:2,h:2, hp:2600, cost:11, tier:2, panel:true, prod:{unit:"mage",period:10}},
+  tower:        {nm:"거점",        w:2,h:2, hp:3200, cost:9, tier:1, panel:true,   // 2026-09-12 개명 "타워"→"거점": 비무장 영역 확장·집결 깃발 (공격은 가드/아케인 변형만)
                  transforms:[{key:"guardTower",tier:2,prereq:["workshop"]},   // 워크숍 필요
                              {key:"arcaneTower",tier:3,prereq:["sanctum"]}]},   // 생텀 필요
   guardTower:   {nm:"가드 타워",   w:2,h:2, hp:3600, cost:0, tier:2, panel:false, atk:{dmg:360,hs:0.8,rng:4.5}},   // 2026-09-13 사거리 6→4.5: 성벽 흔적선 간격(6칸) 안이라 거점끼리 서로 못 치게 (성벽 보너스 +0.5 포함해도 5) — 단일 대상
