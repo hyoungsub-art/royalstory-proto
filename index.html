@@ -304,6 +304,9 @@ const BAL={
  EXCLUDE_R:5.25, BUILD_RING:[0,4,6,8], HALL_ZONE:5.25, TOWER_ZONE:5.25, AURA_R:4,   // BUILD_RING[티어](2026-09-12 확정): 본진·거점 풋프린트 주변 띠 폭 — 타운홀 4 / 킵 6 / 캐슬 8 (2026-09-15 확대, 승급마다 +2). HALL/TOWER_ZONE은 레거시 AURA_PWR:0.25, UPG_PWR:0.12,   // EXCLUDE_R = 적 본진 배제 반경 (본진 건설 범위와 동일, 2026-08-31)
  TOWER_VS_BLDG:0.25,   // 타워의 건물 공격 피해 배율 (타워+공성 일변도 억제, 2026-09-04)
  HERO_VS_BLDG:0.15,    // 영웅의 건물 공격 피해 배율 — 영웅은 유닛전 특화, 철거는 병력·공성의 몫 (2026-09-04, 가정)
+ /* 전장의 안개 (2026-09-15): 시야는 타일 단위. 유닛은 자기 사거리+margin과 unit 중 큰 값, 건물은 종류별 고정.
+    안개는 **렌더 전용** — 시뮬(전투·AI)은 안개와 무관하게 동작해 리플레이·PvP 결정론이 유지된다 */
+ FOG_ON:1, VISION:{unit:4, margin:1.5, hall:5, tower:5, mine:3, bldg:3.5},
  UNIT_CAP:60, PROD_CAP:5, HERO_COST:0, HERO_CD:12,   // PROD_CAP(2026-09-13): 생산 건물당 살아 있는 자기 유닛 상한 — 이 미만이면 다시 생산. 영웅 무료 소환 — 사망 시 쿨다운만
  HEROES_ON:0,   // 영웅 시스템 스위치 (2026-09-12 사용자 결정: 일단 제거, 추후 재검토) — 0이면 영웅 탭·AI 소환·튜토리얼 단계·협곡 영웅 스테이지 문구 비활성
  /* 이동 감각 (2026-09-08, 가정): accel = 최고 속도 도달 빠르기(1/초, 9 ≈ 0.25초), turnRate = 선회 속도(rad/초, 11 ≈ 180°에 0.29초),
@@ -3164,6 +3167,51 @@ function buildBG(){
    위치만 상하 미러 — 좌우는 유지. 스프라이트·글자는 upr()로 세로 재반전해 모양은 똑바로.
    시뮬 좌표는 그대로(결정론 불변) */
 function viewFlip(){return MYSIDE==="enemy";}
+/* ---------- 전장의 안개 (2026-09-15) ----------
+   시야 = 내 유닛·건물 주변 원. 한 번 본 칸은 "기억"으로 남아 어둡게 보이고(건물은 마지막 모습 유지),
+   현재 시야 밖의 적 유닛은 그리지 않는다. 렌더 전용 상태라 stepSim·simHash에는 들어가지 않는다 */
+let fogSeen=null, fogVis=null, fogCv=null;
+function fogReset(){fogSeen=new Uint8Array(COLS*ROWS); fogVis=new Uint8Array(COLS*ROWS);}
+function sightOfUnit(u){const V=BAL.VISION||{}; return Math.max(V.unit||5,(u.rng||0)+(V.margin||1.5));}
+function sightOfBld(b){const V=BAL.VISION||{};
+  if(b.key==="hall")return V.hall||9;
+  if(ZONE_KEYS.has(b.key))return V.tower||7;
+  if(b.key==="elixirBase")return V.mine||4;
+  return V.bldg||5;}
+function fogUpdate(){
+  if(!fogSeen||fogSeen.length!==COLS*ROWS)fogReset();
+  fogVis.fill(0);
+  const mark=(cx,cy,r)=>{
+    const x0=Math.max(0,Math.floor(cx-r)), x1=Math.min(COLS-1,Math.ceil(cx+r));
+    const y0=Math.max(0,Math.floor(cy-r)), y1=Math.min(ROWS-1,Math.ceil(cy+r));
+    for(let ty=y0;ty<=y1;ty++)for(let tx=x0;tx<=x1;tx++){
+      const dx=tx+0.5-cx, dy=ty+0.5-cy;
+      if(dx*dx+dy*dy<=r*r){const i=ty*COLS+tx;fogVis[i]=1;fogSeen[i]=1;}
+    }
+  };
+  S.buildings.forEach(b=>{if(b.side!==MYSIDE||b.hp<=0)return; mark(b.tx+b.w/2,b.ty+b.h/2,sightOfBld(b)+Math.max(b.w,b.h)/2);});
+  S.units.forEach(u=>{if(u.side!==MYSIDE||u.hp<=0)return; mark(u.x/TILE,u.y/TILE,sightOfUnit(u));});
+}
+function fogOn(){return !!(BAL.FOG_ON&&fogVis);}
+function tileVisible(tx,ty){if(!fogOn())return true; const i=ty*COLS+tx; return tx>=0&&ty>=0&&tx<COLS&&ty<ROWS&&fogVis[i]===1;}
+function tileSeen(tx,ty){if(!fogOn())return true; const i=ty*COLS+tx; return tx>=0&&ty>=0&&tx<COLS&&ty<ROWS&&fogSeen[i]===1;}
+function ptVisible(x,y){return tileVisible(Math.floor(x/TILE),Math.floor(y/TILE));}
+function bldSeen(b){for(let dy=0;dy<b.h;dy++)for(let dx=0;dx<b.w;dx++)if(tileSeen(b.tx+dx,b.ty+dy))return true;return false;}
+function bldVisible(b){for(let dy=0;dy<b.h;dy++)for(let dx=0;dx<b.w;dx++)if(tileVisible(b.tx+dx,b.ty+dy))return true;return false;}
+/* 안개 오버레이: 타일 해상도 캔버스를 확대해 부드러운 경계를 얻는다 */
+function drawFog(){
+  if(!fogOn())return;
+  if(!fogCv){fogCv=document.createElement("canvas");fogCv.width=COLS;fogCv.height=ROWS;}
+  const fc=fogCv.getContext("2d"), img=fc.createImageData(COLS,ROWS);
+  for(let i=0;i<COLS*ROWS;i++){
+    const a=fogVis[i]?0:(fogSeen[i]?122:236);   // 시야 / 기억 / 미탐색
+    img.data[i*4]=8; img.data[i*4+1]=11; img.data[i*4+2]=20; img.data[i*4+3]=a;
+  }
+  fc.putImageData(img,0,0);
+  ctx.save(); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+  ctx.drawImage(fogCv,0,0,COLS,ROWS,0,0,W,H);
+  ctx.restore();
+}
 function upr(x,y,fn){ if(!viewFlip()){fn();return;} ctx.save();ctx.translate(x,y);ctx.scale(1,-1);ctx.translate(-x,-y);fn();ctx.restore(); }
 /* 화면 좌표 → 시뮬 좌표 (입력 보정): 세로만 반전 */
 function unflipPt(x,y){ return viewFlip()?{x:x,y:H-y}:{x,y}; }
@@ -3171,6 +3219,7 @@ function draw(){
   ctx.save();
   if(S.shake>0.3)ctx.translate((Math.random()-.5)*S.shake,(Math.random()-.5)*S.shake);
   if(viewFlip()){ctx.translate(0,H);ctx.scale(1,-1);}   // 게스트 화면 상하 반전 (위치만)
+  fogUpdate();   // 시야 갱신 (렌더 전용)
   if(!bgCache)buildBG();
   ctx.drawImage(bgCache,0,0);
   /* 드래그 중: 영역 표시 */
@@ -3186,6 +3235,7 @@ function draw(){
   /* 건물 (y 정렬 — 아래쪽 건물이 위쪽 건물의 솟은 부분을 가리도록) */
   /* 인접 거점 연결 성벽 (2026-09-13, 연출): 같은 줄에 붙여 세운 거점·가드·아케인은 석축 성벽으로 이어진다 (이동 차단은 없음) */
   const drawBld=b=>{
+    if(b.side!==MYSIDE&&!bldSeen(b))return;   // 안개: 한 번도 못 본 적 건물은 그리지 않는다 (2026-09-15)
     const px=b.tx*TILE,py=b.ty*TILE,pw=b.w*TILE,ph=b.h*TILE;
     if(b.hp<=0){ /* 잔해 — 6초에 걸쳐 페이드 아웃 후 제거 */
       ctx.globalAlpha=Math.max(0,Math.min(1,(b.rubbleT===undefined?1:b.rubbleT/6)));
@@ -3227,6 +3277,7 @@ function draw(){
   S.buildings.slice().sort((x,y)=>(x.ty+x.h)-(y.ty+y.h)).forEach(drawBld);
   /* 유닛 (y 정렬) */
   [...S.units].sort((a,b)=>a.y-b.y).forEach(u=>{
+    if(u.side!==MYSIDE&&!ptVisible(u.x,u.y))return;   // 안개: 시야 밖 적 유닛은 보이지 않는다 (2026-09-15)
     const team=(u.side===MYSIDE);   // 색은 내 편 기준 (내 편=파랑)
     /* 이동 감각 렌더 (2026-09-08): 속도 비율·진행 방향·걷기 위상은 시뮬 상태(vel/head/gait)를 그대로 읽는다 */
     const spdR=u.spd>0?Math.min(1,(u.vel||0)/u.spd):0;               // 0(정지)~1(전속) — 가속·정지 감속 반영
@@ -3291,6 +3342,7 @@ function draw(){
     ORDER_GROUPS.forEach(g=>{const o=os[g]; if(!o||o.x===undefined)return; const k=o.type+"|"+Math.round(o.x)+"|"+Math.round(o.y); if(seen.has(k))return; seen.add(k);
       drawOrderFlag(o.x,o.y,o.type==="attack",1);});}}
   if(ordGhost)drawOrderFlag(ordGhost.x,ordGhost.y,ordGhost.kind==="attack",0.6);   // 드로우 중 미리보기
+  drawFog();   // 전장의 안개 (2026-09-15) — 이펙트·표식보다 아래, 건물/유닛 위
   /* 이펙트 */
   S.effects.forEach(f=>{
     if(f.tp==="boom"){const p=1-Math.max(0,f.t)/f.t0;
@@ -3450,6 +3502,7 @@ function buildEditorUI(){
      ["ECON.upPerLevel.1","레벨업/레벨 (1티어 건물)"],["ECON.upPerLevel.2","레벨업/레벨 (킵 건물)"],["ECON.upPerLevel.3","레벨업/레벨 (변형 건물)"],
      ["EXCLUDE_R","적 건물 배제 반경"],["BUILD_RING.1","거점 보조 띠 타운홀"],["BUILD_RING.2","거점 보조 띠 킵"],["BUILD_RING.3","거점 보조 띠 캐슬"],
      ["AURA_R","오라 반경"],["AURA_PWR","오라 배율(+)"],["UPG_PWR","업글 단계당 배율(+)"],
+     ["FOG_ON","전장의 안개(0/1)"],["VISION.unit","유닛 시야(타일)"],["VISION.hall","본진 시야"],["VISION.tower","거점 시야"],["VISION.bldg","건물 시야"],["VISION.mine","금광 시야"],
      ["UNIT_CAP","유닛 상한"],["PROD_CAP","생산 건물당 유닛 상한"],["HEROES_ON","영웅 사용(0/1, 새 판부터)"],["HERO_CD","영웅 재소환 쿨다운"],
      ["TOWER_VS_BLDG","타워 대건물 피해 배율"],["HERO_VS_BLDG","영웅 대건물 피해 배율"],
      ["MOVE.accel","이동 가속 (1/초)"],["MOVE.turnRate","선회 속도 (rad/초)"],["MOVE.turnSlow","선회 중 최소 속도 비율"],
@@ -3695,7 +3748,7 @@ function startGame(cfg){
   PENDING=REPLAY?cfg.replayCmds.map(c=>({...c})):[];
   newGame();
   showScr(null); closeOv();
-  gameSpeed=1; syncPauseUI(); pickMode=null; ordDrag=null; ordGhost=null; syncAttackUI();
+  gameSpeed=1; syncPauseUI(); pickMode=null; ordDrag=null; ordGhost=null; fogReset(); syncAttackUI();
   const sb=document.getElementById("swap-btn"); if(sb)sb.style.display=heroesOn()?"":"none";   // 영웅 비활성 시 탭 전환 숨김
   if(!heroesOn()&&S.mode!=="build"){S.mode="build";renderPanel();}
   TUT.stop(); if(cfg.mode==="tutorial")TUT.start();
