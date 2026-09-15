@@ -355,7 +355,7 @@ const BAL={
  },
  /* 적 시작 배치: 플레이어와 동일 — 본진 1개 (대칭 시작) */
  ENEMY_BASE:[["hall",8,2]],   // 2026-09-15: 한 칸 아래로 (양측 본진 뒤에 금광 지대 확보)
- BASE_GAS:[[5,22],[11,22],[6,0],[12,0]],   // 본진 뒤 전용 금광 지대 (플레이어 2 / 적 2, 점대칭) — 모든 맵에 항상 존재
+ BASE_GAS:[[5,22],[12,0]],   // 본진 뒤 금광 지대 — 시작 금광이 서 있는 한 곳씩만 (2026-09-15: 빈 지대 제거)
  /* 난이도 = AI 전략 수준만 조정 (2026-08-30 개정).
     스탯·자원·규칙은 플레이어와 완전 동등 — 적이 "더 잘 두는가"로만 난이도가 갈린다.
     0/1 값은 사용 여부 스위치 */
@@ -387,7 +387,7 @@ const BAL={
  },
  /* 중앙 길: 양 본진을 잇는 건설 불가 통로 (유닛 이동·배치는 가능) */
  ROAD:{x0:8, x1:10, y0:4, y1:19},
- GAS_ZONES:[[0,6],[17,4],[0,12],[17,10],[0,18],[17,16],[5,22],[11,22],[6,0],[12,0]],   // 뒤 4개 = 본진 뒤 전용 (BASE_GAS와 동일)   // 2×2 지역 좌상단 (좌우 끝, 왼쪽 열은 1행 아래·오른쪽 열은 1행 위 — 점대칭, 2026-09-13)
+ GAS_ZONES:[[0,6],[17,4],[0,12],[17,10],[0,18],[17,16],[5,22],[12,0]],   // 뒤 2개 = 본진 뒤 (BASE_GAS와 동일)   // 2×2 지역 좌상단 (좌우 끝, 왼쪽 열은 1행 아래·오른쪽 열은 1행 위 — 점대칭, 2026-09-13)
 };
 if(window.BALANCE){ (function merge(dst,src){ for(const k in src){
   if(src[k]&&typeof src[k]==="object"&&!Array.isArray(src[k])&&dst[k]&&typeof dst[k]==="object"&&!Array.isArray(dst[k])) merge(dst[k],src[k]);
@@ -662,7 +662,7 @@ function newGame(){
   addBuilding("hall","player",8,19);   // 2026-09-15: 한 칸 위로
   BAL.ENEMY_BASE.forEach(([k,x,y])=>addBuilding(k,"enemy",x,y));
   /* 시작 금광 1채 (2026-09-15): 본진 뒤 금광 지대 중 한 곳에 미리 서 있다 (양측 점대칭) */
-  {const bg=BAL.BASE_GAS||[]; if(bg[0])addBuilding("elixirBase","player",bg[0][0],bg[0][1]); if(bg[3])addBuilding("elixirBase","enemy",bg[3][0],bg[3][1]);}
+  {const bg=BAL.BASE_GAS||[]; if(bg[0])addBuilding("elixirBase","player",bg[0][0],bg[0][1]); if(bg[1])addBuilding("elixirBase","enemy",bg[1][0],bg[1][1]);}
   S.zoneDirty=true;
   renderPanel(); updateHUD(); hideStrip();
   document.getElementById("overlay").style.display="none";
