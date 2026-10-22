@@ -181,25 +181,31 @@
     font-size:12.5px;color:var(--text);display:none;line-height:1.55;box-shadow:0 3px 12px rgba(0,0,0,.4);}
   #ov-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
 </style>
+<link rel="stylesheet" href="royal-ui.css">
 </head>
 <body>
 <div id="app">
   <div id="hud">
-    <div style="display:flex;gap:4px;">
+    <div id="hud-tools" style="display:flex;gap:4px;">
       <button onclick="toLobby()" title="로비로">🏠</button>
       <button onclick="restart()" id="restart-btn" title="현재 모드 다시 시작">↺</button>
       <button onclick="cycleDiff()" id="diff-btn" title="난이도 (연습 모드, 변경 시 재시작)">보통</button>
+      <button onclick="SND.toggle()" id="snd-btn" title="사운드 켜기/끄기">🔊</button>
+      <button onclick="toggleEditor()" id="editor-btn" title="밸런스 에디터 (연습 모드)">⚙</button>
     </div>
     <div><span id="tier-label">타운 홀</span> <span id="time-label" style="color:var(--sub)"></span></div>
     <div style="display:flex;gap:4px;">
-      <button onclick="SND.toggle()" id="snd-btn" title="사운드 켜기/끄기">🔊</button>
-      <button onclick="toggleEditor()" id="editor-btn" title="밸런스 에디터 (연습 모드)">⚙</button>
       <button onclick="togglePause()" id="pause-btn" title="일시 정지">⏸</button>
       <button onclick="toggleSpeed()" id="spd-btn">▶ ×1</button>
     </div>
+    <button id="mobile-hud-toggle" aria-label="게임 메뉴" aria-controls="hud-tools" aria-expanded="false" onclick="toggleMobileHud()">☰</button>
   </div>
   <div id="cv-wrap"><canvas id="cv" width="476" height="816"></canvas><div id="bubble"></div><div id="tut-bar"></div></div>
   <div id="bottom">
+    <div id="mobile-deck-bar" role="group" aria-label="조작 패널">
+      <button id="deck-build-tab" aria-pressed="true" onclick="setDeckTab('build')">건설</button>
+      <button id="deck-orders-tab" aria-pressed="false" onclick="setDeckTab('orders')">병력 지휘</button>
+    </div>
     <div id="elixir-row">
       <div id="elixir-bar"><div id="elixir-fill"></div></div>
       <div id="star-chip" title="블러드 스타 — 승급·변형·영웅 재화. 적 유닛 처치로 붉은 게이지를 채우면 적립" style="display:flex;align-items:center;justify-content:center;">★0</div>
@@ -264,6 +270,8 @@
   <div id="ed-body"></div>
 </div>
 
+<script src="royal-art.js"></script>
+<script src="royal-world.js"></script>
 <script src="balance.js"></script><!-- 외부 밸런스 테이블 (없으면 내장 기본값) -->
 <script>
 "use strict";
@@ -1654,6 +1662,29 @@ function syncAttackUI(){
   });
 }
 /* 병종 명령 버튼 — 버튼에서 지도로 드로우해 깃발을 꽂는다 (2026-09-15). 움직이지 않은 탭은 지정 모드 토글/해제 */
+function canvasViewBox(){
+  const r=cv.getBoundingClientRect();
+  const s=typeof getComputedStyle==="function"?getComputedStyle(cv):{};
+  const l=parseFloat(s.borderLeftWidth)||0, t=parseFloat(s.borderTopWidth)||0;
+  const rr=parseFloat(s.borderRightWidth)||0, bb=parseFloat(s.borderBottomWidth)||0;
+  return {left:r.left+l,top:r.top+t,width:Math.max(1,r.width-l-rr),height:Math.max(1,r.height-t-bb)};
+}
+function pointerCanvasPoint(e,aim=false){
+  const r=canvasViewBox(), off=aim?(e.pointerType==="touch"?48:e.pointerType==="pen"?32:0):0;
+  const sx=(e.clientX-r.left)*cv.width/r.width, sy=(e.clientY-r.top-off)*cv.height/r.height;
+  return {sx,sy,...unflipPt(sx,sy),inside:sx>=0&&sx<=W&&sy>=0&&sy<=H};
+}
+function setDeckTab(tab){
+  const orders=tab==="orders";
+  document.getElementById("bottom").classList.toggle("deck-orders-active",orders);
+  const build=document.getElementById("deck-build-tab"), command=document.getElementById("deck-orders-tab");
+  if(build)build.ariaPressed=String(!orders);
+  if(command)command.ariaPressed=String(orders);
+}
+function toggleMobileHud(){
+  const hud=document.getElementById("hud"), button=document.getElementById("mobile-hud-toggle");
+  button.ariaExpanded=String(hud.classList.toggle("hud-tools-open"));
+}
 function wireOrderStrip(div,grp){
   const strip=div.classList&&div.classList.contains("p-ord")?div:div.querySelector(".p-ord"); if(!strip)return;
   strip.querySelectorAll("button").forEach(b=>{
@@ -1671,18 +1702,16 @@ function wireOrderStrip(div,grp){
       e.stopPropagation();e.preventDefault();
       if(!ordDrag.moved&&Math.hypot(e.clientX-ordDrag.sx0,e.clientY-ordDrag.sy0)<8)return;   // 손떨림 여유
       if(!ordDrag.moved){ordDrag.moved=true;b.classList.add("drawing");}
-      const rect=cv.getBoundingClientRect();
-      const off=e.pointerType==="touch"?60:e.pointerType==="pen"?40:0;   // 손가락 위로 (조준점)
-      const sx=(e.clientX-rect.left)*(cv.width/rect.width);
-      const sy=(e.clientY-rect.top)*(cv.height/rect.height)-off;
-      const sim=unflipPt(sx,sy);   // 게스트 반전 보정
+      const sim=pointerCanvasPoint(e,true);
+      ordDrag.inside=sim.inside;
       ordDrag.pt={x:Math.max(4,Math.min(W-4,sim.x)), y:Math.max(4,Math.min(H-4,sim.y))};
       ordGhost={kind:ordDrag.kind, x:ordDrag.pt.x, y:ordDrag.pt.y};
     });
     const end=e=>{
       if(!ordDrag||ordDrag.id!==e.pointerId)return;
       const st=ordDrag; ordDrag=null; ordGhost=null; b.classList.remove("drawing");
-      if(e.type==="pointercancel")return;
+      const finish=()=>{if(panelDirty){panelDirty=false;renderPanel();}};
+      if(e.type==="pointercancel"||(st.moved&&!st.inside)){finish();syncAttackUI();return;}
       if(st.moved&&st.pt){   // 드로우 완료 → 그 지점에 깃발 (커맨드)
         pickMode=null; lastDragEnd=performance.now();
         issueCmd({type:st.kind,x:st.pt.x,y:st.pt.y,grp:st.grp,side:MYSIDE}); syncAttackUI();
@@ -1690,6 +1719,7 @@ function wireOrderStrip(div,grp){
         const cur=S&&S.orders&&S.orders[MYSIDE]&&S.orders[MYSIDE][st.grp];
         if(cur&&cur.type===st.kind&&!pickMode)recallAll(st.grp); else beginPick(st.kind,st.grp);
       }
+      finish();
     };
     b.addEventListener("pointerup",end);
     b.addEventListener("pointercancel",end);
@@ -1715,7 +1745,7 @@ let panelDirty=false;
 function renderPanel(){
   /* 드래그 중에는 패널을 다시 만들지 않는다 — DOM 교체 시 포인터 캡처가 끊겨 배치가 취소됨
      (건물 파괴·영웅 쿨다운 등으로 renderPanel이 호출되던 문제. 드래그 종료 후 일괄 갱신) */
-  if(dragState){panelDirty=true;return;}
+  if(dragState||ordDrag){panelDirty=true;return;}
   const p=document.getElementById("panel"); p.innerHTML="";
   const orow=document.getElementById("ord-row"); if(orow)orow.innerHTML="";
   if(S.mode==="build"){
@@ -1724,7 +1754,7 @@ function renderPanel(){
       const d=BAL.BUILDINGS[key], cell=document.createElement("div"); cell.className="p-ocell";
       if(key==="elixirBase"){cell.className="p-ocell gold-cell"; cell.innerHTML=`<div class="gold-box" title="누적 골드 (상한 없음)"><div class="gold-ico">💰</div><div id="elixir-num">0</div></div>`;}   // 골드 표시 (2026-09-13: 광산 버튼 아래로 이동)
       else if(d.prod){cell.classList.add("p-ord"); cell.dataset.grp=key;
-        cell.innerHTML=`<button data-k="attack" title="${d.nm} 병종 공격 — 버튼에서 지도로 끌어 깃발을 꽂으세요 (탭 = 지정 모드 / 명령 중 탭 = 해제)">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 — 버튼에서 지도로 끌어 깃발을 꽂으세요 (탭 = 지정 모드 / 명령 중 탭 = 해제)">➜ 이동</button>`;
+        cell.innerHTML=`<span class="p-order-name">${d.nm}</span><button data-k="attack" title="${d.nm} 병종 공격 — 버튼에서 지도로 끌어 깃발을 꽂으세요 (탭 = 지정 모드 / 명령 중 탭 = 해제)">⚔ 공격</button><button data-k="move" title="${d.nm} 병종 이동 — 버튼에서 지도로 끌어 깃발을 꽂으세요 (탭 = 지정 모드 / 명령 중 탭 = 해제)">➜ 이동</button>`;
         if(buildLockReason(key))cell.querySelectorAll("button").forEach(b=>b.disabled=true);
         wireOrderStrip(cell,key);}
       orow.appendChild(cell);
@@ -1759,18 +1789,15 @@ function attachDrag(div,info){
   div.addEventListener("pointerdown",e=>{
     if(S.over)return; e.preventDefault();
     hideStrip();   // 드래그 시작 시 말풍선 닫기
-    dragState={...info,id:e.pointerId,moved:false,el:div};
+    dragState={...info,id:e.pointerId,moved:false,el:div,sx0:e.clientX,sy0:e.clientY};
     try{div.setPointerCapture(e.pointerId);}catch(_){}
   });
   div.addEventListener("pointermove",e=>{
     if(!dragState||dragState.id!==e.pointerId)return;
+    if(!dragState.moved&&Math.hypot(e.clientX-dragState.sx0,e.clientY-dragState.sy0)<8)return;
     dragState.moved=true; div.classList.add("dragging");
-    const rect=cv.getBoundingClientRect();
-    const off=e.pointerType==="touch"?60:e.pointerType==="pen"?40:0;
-    const sx=(e.clientX-rect.left)*(cv.width/rect.width);
-    const aimY=(e.clientY-rect.top)*(cv.height/rect.height)-off;   // 손가락 위로 살짝 (조준점, 화면 좌표)
-    dragState.rawX=sx; dragState.rawAimY=aimY;   // 화면 조준 좌표 (취소 제스처 — 오프셋 포함해 최하단 오취소 방지)
-    const sim=unflipPt(sx, aimY);                // 게스트 반전 보정 → 시뮬 좌표
+    const sim=pointerCanvasPoint(e,true);
+    dragState.inside=sim.inside;
     dragState.pt={x:Math.max(4,Math.min(W-4,sim.x)), y:Math.max(4,Math.min(H-4,sim.y))};
     S.mouse=dragState.pt; S.sel=info;
   });
@@ -1780,7 +1807,7 @@ function attachDrag(div,info){
     S.sel=null; S.mouse=null; if(st.moved)lastDragEnd=performance.now();   // 배치 드롭 직후 캔버스 click이 지정 모드 명령으로 새지 않게
     const finish=()=>{ if(panelDirty){panelDirty=false;renderPanel();} };
     if(e.type==="pointercancel"||!st.moved||!st.pt){finish();return;}
-    if(st.rawAimY>H+20||st.rawX<-20||st.rawX>W+20){finish();return;}  // 취소 제스처
+    if(!st.inside){finish();return;}
     if(st.type==="build")tryBuildAt(st.key,st.pt.x,st.pt.y);
     else tryHeroAt(st.slot,st.pt.x,st.pt.y);
     finish();
@@ -1827,9 +1854,8 @@ function execHero(side,slotIdx,x,y){
 /* 캔버스 탭: 아군 건물 선택 */
 cv.addEventListener("click",e=>{
   if(!S||S.over)return;
-  const rect=cv.getBoundingClientRect();
-  const sx=(e.clientX-rect.left)*(cv.width/rect.width), sy=(e.clientY-rect.top)*(cv.height/rect.height);
-  const {x,y}=unflipPt(sx,sy);   // 게스트 화면 반전 보정 → 시뮬 좌표
+  const {x,y,inside}=pointerCanvasPoint(e);
+  if(!inside)return;
   const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
   const b=occGrid()[ty]&&occGrid()[ty][tx];
   if(pickMode){ if(performance.now()-lastDragEnd<300)return;   // 건물 배치 직후의 클릭은 무시
@@ -1887,17 +1913,17 @@ function showStrip(b){
   el.innerHTML=html;
   /* 위치: 건물 상단 중앙. 실측 크기로 화면 밖 방지 클램프 (2026-09-04) */
   const wrap=document.getElementById("cv-wrap");
-  const cvR=cv.getBoundingClientRect(), wrapR=wrap.getBoundingClientRect();
-  const scale=cvR.width/cv.width;
+  const cvR=canvasViewBox(), wrapR=wrap.getBoundingClientRect();
+  const scale=cvR.width/cv.width, scaleY=cvR.height/cv.height;
   el.style.display="block";                       // 먼저 표시해 크기 측정
   const bw2=el.offsetWidth, bh2=el.offsetHeight;
   /* 게스트 화면 반전: 건물의 화면상 좌표를 뒤집어 계산 */
-  const scx=viewFlip()?(W-b.cx):b.cx;
+  const scx=b.cx;
   const sTop=viewFlip()?(H-(b.ty+b.h)*TILE):(b.ty*TILE);        // 건물 화면상 윗변
   const sBot=viewFlip()?(H-b.ty*TILE):((b.ty+b.h)*TILE);         // 건물 화면상 아랫변
   const cx2=(cvR.left-wrapR.left)+scx*scale;
-  const topAnchor=(cvR.top-wrapR.top)+sTop*scale-14;
-  const botAnchor=(cvR.top-wrapR.top)+sBot*scale+14;
+  const topAnchor=(cvR.top-wrapR.top)+sTop*scaleY-14;
+  const botAnchor=(cvR.top-wrapR.top)+sBot*scaleY+14;
   let below=topAnchor-bh2<4;                      // 위로 띄우면 잘림 → 아래로
   if(below&&botAnchor+bh2>wrapR.height-4)below=false;   // 아래도 잘리면 위 우선
   el.classList.toggle("below",below);
@@ -1905,6 +1931,7 @@ function showStrip(b){
   const half=bw2/2, cvL=(cvR.left-wrapR.left);
   el.style.left=Math.max(cvL+half+2,Math.min(cvL+cvR.width-half-2,cx2))+"px";
 }
+window.addEventListener("resize",()=>{if(S&&S.selBld)showStrip(S.selBld);});
 /* 골드 변동에 따른 버튼 활성화 실시간 갱신 */
 function refreshBubble(){
   if(!S.selBld)return;
@@ -2242,9 +2269,13 @@ function roundRectPath(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);
 function unitShadow(x,y,r){ctx.fillStyle="rgba(0,0,0,.22)";ctx.beginPath();ctx.ellipse(x,y,r,r*0.42,0,0,7);ctx.fill();}
 function drawHpBar(x,y,hp,maxHp,w,side){
   const h=5;
-  ctx.fillStyle="rgba(15,20,30,.85)";roundRectPath(x-w/2-1,y-1,w+2,h+2,3);ctx.fill();
-  const p=Math.max(0,hp/maxHp);
-  ctx.fillStyle=side==="player"?"#3f8cff":"#ff4d4d";
+  ctx.fillStyle="rgba(7,26,39,.9)";roundRectPath(x-w/2-1.5,y-1.5,w+3,h+3,3);ctx.fill();
+  const p=Math.max(0,Math.min(1,hp/maxHp));
+  const health=ctx.createLinearGradient(0,y,0,y+h);
+  health.addColorStop(0,side===MYSIDE?"#a5edff":"#ffcfab");
+  health.addColorStop(.4,side===MYSIDE?"#54b9fa":"#ff8768");
+  health.addColorStop(1,side===MYSIDE?"#287ac7":"#cc493d");
+  ctx.fillStyle=health;
   roundRectPath(x-w/2,y,Math.max(2,w*p),h,2);ctx.fill();
 }
 /* 명령 깃발 (2026-09-15): 지정 지점에 꽂히는 깃발 — 공격(붉은 기)·이동(초록 기). 바람에 날리는 삼각기 + 깃대 + 지면 링 */
@@ -2690,6 +2721,7 @@ function registerUnitSheet(key,def){
    없으면 절차(칩비) 스프라이트에 8방향 근사(서반구 미러 + 남/북 기울기)를 적용한다. */
 const WHEELED={ram:1};   // 바퀴 유닛: 걷기 바운스 없음
 function drawUnitSprite(u,team,bob){
+  if(window.RoyalArt&&RoyalArt.drawUnit(ctx,u,team,bob,viewFlip()))return;
   const d=(u.dir8===undefined)?(u.side==="player"?6:2):u.dir8;
   CUR_U=u; CUR_BOB=bob||0;   // 발 지면 보정용 (walkFeet·기병 발굽)
   const sh=UNIT_SHEETS[u.key];
@@ -2712,6 +2744,7 @@ const TEAM_COL={player:{main:"#3f74d8",dark:"#26437f",light:"#84aaf0"},
                 enemy: {main:"#d8493d",dark:"#8f2a23",light:"#f0928a"}};
 const CREAM="#f4f1e6", STONE="#c9c6b6", DARKGRAY="#463d47", GOLD="#ffcf3f";
 function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
+  if(window.RoyalArt&&RoyalArt.drawBuilding(ctx,key,level,px,py,pw,ph,side,tierNow,side===MYSIDE))return;
   const lw=2, team=(side===MYSIDE);   // 색은 내 편 기준 (내 편=파랑)
   const T=TEAM_COL[team?"player":"enemy"];
   const c1=T.main;
@@ -3005,10 +3038,16 @@ function drawBuildingSprite(key,level,px,py,pw,ph,side,tierNow){
 
 /* --- 배경 캐시 --- */
 let bgCache=null, curMap="plain";
+window.invalidateRoyalTerrain=()=>{bgCache=null;};
 function mulberry(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;
   let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function buildBG(){
   bgCache=document.createElement("canvas");bgCache.width=W;bgCache.height=H;
+  if(window.RoyalWorld){
+    const theme=(typeof MAPS!=="undefined"&&MAPS[curMap]&&MAPS[curMap].theme)||{};
+    RoyalWorld.drawTerrain(bgCache.getContext("2d"),{W,H,TILE,COLS,ROWS,BAL,theme});
+    return;
+  }
   const c=bgCache.getContext("2d"),rnd=mulberry(42);
   /* 맵별 지형 테마 (2026-09-05): 초원 = 풀밭, 협곡 = 사암 대지 + 절벽 음영 */
   const th=(typeof MAPS!=="undefined"&&MAPS[curMap]&&MAPS[curMap].theme)||
@@ -3220,7 +3259,7 @@ function drawFog(){
   const fc=fogCv.getContext("2d"), img=fc.createImageData(COLS,ROWS);
   for(let i=0;i<COLS*ROWS;i++){
     const a=fogVis[i]?0:(fogSeen[i]?122:236);   // 시야 / 기억 / 미탐색
-    img.data[i*4]=8; img.data[i*4+1]=11; img.data[i*4+2]=20; img.data[i*4+3]=a;
+    img.data[i*4]=12; img.data[i*4+1]=31; img.data[i*4+2]=42; img.data[i*4+3]=a;
   }
   fc.putImageData(img,0,0);
   ctx.save(); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
@@ -3779,6 +3818,9 @@ function startGame(cfg){
   PENDING=REPLAY?cfg.replayCmds.map(c=>({...c})):[];
   newGame();
   showScr(null); closeOv();
+  setDeckTab("build");
+  document.getElementById("hud").classList.remove("hud-tools-open");
+  document.getElementById("mobile-hud-toggle").ariaExpanded="false";
   gameSpeed=1; syncPauseUI(); pickMode=null; ordDrag=null; ordGhost=null; fogReset(); syncAttackUI();
   const sb=document.getElementById("swap-btn"); if(sb)sb.style.display=heroesOn()?"":"none";   // 영웅 비활성 시 탭 전환 숨김
   if(!heroesOn()&&S.mode!=="build"){S.mode="build";renderPanel();}
@@ -3999,18 +4041,18 @@ const TUT=(()=>{
     {id:"mineLevel",t:()=>"금광을 클릭하고 <b>레벨업</b>하세요. 채굴 주기 "+BAL.ECON.mineCycle+"초마다 금광 레벨만큼 골드를 얻습니다. 상단 배속 버튼으로 기다리는 시간을 줄일 수 있습니다",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="elixirBase"&&b.level>=2)},
     {id:"barracks",t:()=>"골드가 "+BAL.BUILDINGS.barracks.cost+" 이상 모이면 <b>배럭</b>을 아군 영역에 건설하세요. 풋맨은 자동으로 생산되어 본진·거점 앞에 집결합니다",ok:()=>cntP("barracks")>=1},
     {id:"capacity",t:()=>"배럭을 클릭해 <b>레벨업</b>하세요. 생산 건물 Lv2는 병력 상한 2입니다. 유닛 능력치는 바뀌지 않으며, 티어와 무관하게 Lv"+BAL.PROD_CAP+"까지 올릴 수 있습니다",ok:()=>S.buildings.some(b=>b.side==="player"&&b.hp>0&&b.key==="barracks"&&b.level>=2)},
-    {id:"move",t:()=>"배럭 아래 <b>➜ 이동</b> 버튼을 지도 쪽으로 끌어 <b>초록 깃발</b>을 꽂으세요. 이동 중에는 적을 무시하고, 도착하면 주변의 적과 교전합니다. 탐색하면 안개가 걷힙니다",ok:()=>!!(S.orders.player.barracks&&S.orders.player.barracks.type==="move")},
+    {id:"move",t:()=>"배럭의 <b>➜ 이동</b> 버튼을 지도 쪽으로 끌어 <b>초록 깃발</b>을 꽂으세요 (모바일: <b>병력 지휘</b> 탭). 이동 중에는 적을 무시하고, 도착하면 주변의 적과 교전합니다. 탐색하면 안개가 걷힙니다",ok:()=>!!(S.orders.player.barracks&&S.orders.player.barracks.type==="move")},
     {id:"recall",t:()=>"활성화된 배럭의 <b>➜ 이동</b> 버튼을 다시 누르세요. 명령이 해제되면 그 병종은 가까운 거점·본진 앞으로 복귀합니다",ok:()=>!S.orders.player.barracks},
     {id:"tier",t:()=>"본진을 클릭해 <b>킵 승급 (💰"+BAL.ECON.tierGold[2]+")</b>을 선택하세요. 상위 건물과 넓은 건설 범위가 열립니다. 금광의 채굴량은 금광 레벨로 늘립니다",ok:()=>S.tier>=2},
     {id:"outpost",t:()=>"<b>거점</b>을 아군 영역 앞쪽에 세우세요. 주변이 새 건설 영역·집결지가 됩니다. 거점 자체에는 공격력이 없으며 선행 건물을 갖춘 뒤 공격 타워로 변형할 수 있습니다",ok:()=>cntP("tower")+cntP("guardTower")+cntP("arcaneTower")>=1},
     {id:"hero",hero:1,t:()=>"<b>⇄ 버튼</b>으로 영웅 탭을 열고 영웅을 배치하세요. 무료로 소환하며 사망 후 대기시간이 지나면 다시 소환할 수 있습니다",ok:()=>S.units.some(u=>u.side==="player"&&u.hero)},
-    {id:"attack",t:()=>"배럭 아래 <b>⚔ 공격</b> 버튼을 지도 위쪽으로 끌어 <b>붉은 깃발</b>을 꽂으세요. 그 병종은 주변 적과 교전하며 진격합니다. 버튼 탭 후 지도를 탭하는 방식도 가능합니다",ok:()=>!!(S.orders.player.barracks&&S.orders.player.barracks.type==="attack")},
+    {id:"attack",t:()=>"배럭의 <b>⚔ 공격</b> 버튼을 지도 위쪽으로 끌어 <b>붉은 깃발</b>을 꽂으세요 (모바일: <b>병력 지휘</b> 탭). 그 병종은 주변 적과 교전하며 진격합니다. 버튼 탭 후 지도를 탭하는 방식도 가능합니다",ok:()=>!!(S.orders.player.barracks&&S.orders.player.barracks.type==="attack")},
     {id:"battle",t:()=>"이제 적도 건설을 시작합니다. 금광·병력을 늘리고 <b>공격 깃발</b>로 적 본진을 파괴하세요. 병력 상한이 차면 생산이 멈추며, 빈자리가 생기면 재개됩니다. 이 전투에서 승리하면 튜토리얼 완료입니다",ok:()=>false},
   ];
   let steps=[];
   function start(){steps=rawSteps.filter(s=>heroesOn()||!s.hero);active=true;idx=0;render();}
   function stop(){active=false;const b=bar();if(b)b.style.display="none";}
-  function render(){const b=bar();if(!b)return;b.style.display=active?"block":"none";if(active)b.innerHTML="<b>"+(idx+1)+"/"+steps.length+"</b> · "+steps[idx].t();}
+  function render(){const b=bar();if(!b)return;b.style.display=active?"block":"none";if(active){setDeckTab(["move","recall","attack"].includes(steps[idx].id)?"orders":"build");b.innerHTML="<b>"+(idx+1)+"/"+steps.length+"</b> · "+steps[idx].t();}}
   function update(){
     if(!active||!S||S.over)return;
     if(steps[idx].ok()){idx=Math.min(idx+1,steps.length-1);SND.play("star");render();}
