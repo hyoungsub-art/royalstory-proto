@@ -15,7 +15,8 @@ window.BALANCE = {
   /* 2026-09-07 경제 개편: 승급·변형 = 블러드 스타(★), 레벨업 = 골드 (레벨당 고정) */
   /* 자원 재편 (2026-09-12 확정): 골드(상한 없음, 숫자 누적) + 블러드 스타(적 유닛 처치로 게이지 적립). 전 수치 (가정) */
   ECON: {
-    mineCycle: 2.8,    // 금광 채굴 주기(초) — 주기마다 금광 레벨만큼 골드 (2026-09-15: 2.8→14, 채굴 5배 느리게)
+    workerTransport: 1, workerProcession: 1, stableRally: 1, // 일꾼 운반 완료 시에만 입금 (2026-10-24)
+    mineCycle: 2.8,    // 일꾼 1회 채굴 시간(초), 이후 왕복 운반 시간이 더해짐 (가정)
     mineMax: 5,       // 금광 최대 레벨
           regen: 2.8, start: 7, cap: [0, 10, 20, 30], gasBonus: 0.5,   // start(2026-09-15) = 금광 1채 건설비. regen·gasBonus는 레거시 (자연 회복 폐지)
           tierRegen: [0, 1, 1.25, 1.5],  // 티어별 골드 회복 배율 — 상한이 사라진 대신 승급의 경제 보상 (가정)
@@ -25,6 +26,10 @@ window.BALANCE = {
           transformGold: 14,              // 건물 변형 비용(골드) 일괄 8 (가정)
           bloodPer: 30, bloodDiv: 100, starPer: 1.0, tierStars: [0, 0, 1, 2], transformStar: 1,   // (실험용 보존)
           upPerLevel: [0, 7, 14, 21] },   // 레벨업(레벨당 골드): 1티어 건설 4 / 킵 건설 8 / 변형 획득 12
+
+  /* 일꾼 스탯·운반량·보충 시간은 (가정). 광산 레벨당 1명 배정, 사망 뒤 자동 보충. */
+  // 작업 걸음 0.65타일/초·광산 출입 0.65초 (가정). 채굴/운반량은 유지하고 실제 왕복만 감속.
+  WORKER: { nm:"일꾼", hp:240, spd:.65, r:7, carry:1, respawn:8, departGap:.7, transitTime:.65, dmg:0, hs:1, rng:0 },
 
   /* 규칙 수치 */
   EXCLUDE_R: 5.25,  // 적 "본진" 주변 건설 배제 반경 (2026-08-31: 본진에만 적용, 타 건물 옆 건설 허용)
@@ -38,7 +43,7 @@ window.BALANCE = {
   UPG_PWR: 0.12,    // 유닛 레벨 1단계당 스탯 +12% (생산 건물 레벨 = 유닛 레벨)
   UNIT_CAP: 60,     // 진영당 일반 유닛 상한
   FOG_ON: 1,        // 전장의 안개 사용 (2026-09-15, 렌더 전용)
-  VISION: { unit: 4, margin: 1.5, hall: 5, tower: 5, mine: 3, bldg: 3.5 },   // 시야 반경(타일) — 유닛은 max(unit, 사거리+margin)
+  VISION: { unit: 4, worker: 2, margin: 1.5, hall: 5, tower: 5, mine: 3, bldg: 3.5 },   // 시야 반경(타일) — 유닛은 max(unit, 사거리+margin)
   PROD_CAP: 5,      // 생산 건물당 살아 있는 자기 유닛 상한 (2026-09-13) — 미만이면 재생산, 대기 중에도 게이지는 채워 둠
   HERO_COST: 0,     // 영웅 무료 소환 (2026-09-12 확정) — 사망 시 HERO_CD 쿨다운만
   HERO_CD: 12,      // 영웅 사망 후 재소환 쿨다운 (초)
